@@ -271,6 +271,7 @@
     <div id="at-alergias"></div>
 
     <h2>Medidas de hoy</h2>
+    <div id="at-aviso-virtual"></div>
     <div class="tarjeta">
       <div class="fila-2" style="align-items:end">
         <div class="fila-2">
@@ -573,6 +574,14 @@
     <div id="c-pac-wrap">
       <label>Paciente *</label>
       <select id="c-paciente"></select>
+    </div>
+    <div id="c-modo-wrap">
+      <label>Modalidad</label>
+      <div class="plazos">
+        <button type="button" class="plazo" id="c-modo-presencial" onclick="elegirModo('presencial')">🏥 Presencial</button>
+        <button type="button" class="plazo" id="c-modo-virtual" onclick="elegirModo('virtual')">💻 Virtual</button>
+      </div>
+      <div id="c-modo-info" style="margin-top:6px"></div>
     </div>
     <label>Fecha * <span class="sub" style="font-weight:400">— elige un día</span></label>
     <input type="hidden" id="c-fecha">
@@ -1463,7 +1472,7 @@ function htmlHistoria(pacienteId) {
       return '<div class="tarjeta ' + claseTipo(a.tipo) + '" style="border-left:4px solid">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">' +
           '<b>' + fechaBonita(a.fecha) + ' · ' + a.hora + '</b>' +
-          '<span>' + chipTipo(a.tipo) + ' <span class="sub">' + esc(a.usuarioNombre || '—') + '</span></span>' +
+          '<span>' + chipModo(a) + ' ' + chipTipo(a.tipo) + ' <span class="sub">' + esc(a.usuarioNombre || '—') + '</span></span>' +
         '</div>' +
         (motivo ? '<div style="margin-top:6px"><b style="font-size:13px;color:#556">Motivo:</b> ' + esc(motivo) + '</div>' : '') +
         ((a.cirugias && a.cirugias.length) ? '<div style="margin-top:6px">' +
@@ -1553,6 +1562,30 @@ let calVista = 'semana';
 let calFecha = hoyStr();
 let controlAgendando = null; // si la cita viene de un control que pidió el doctor
 let pagaAhora = false;       // al agendar: ¿cobra en el momento o al salir?
+let modoCita = 'presencial'; // el paciente viene al consultorio o se conecta
+
+/* Una cirugía no puede ser virtual, por razones evidentes */
+function permiteVirtual(tipo) { return tipo !== 'cirugia'; }
+function elegirModo(m) { modoCita = m; pintarModo(); }
+function pintarModo() {
+  const tipo = document.getElementById('c-tipo').value;
+  const wrap = document.getElementById('c-modo-wrap');
+  if (tipo === 'reunion') { wrap.classList.remove('oculto'); }
+  if (!permiteVirtual(tipo) && modoCita === 'virtual') modoCita = 'presencial';
+  document.getElementById('c-modo-presencial').classList.toggle('sel', modoCita === 'presencial');
+  const btnV = document.getElementById('c-modo-virtual');
+  btnV.classList.toggle('sel', modoCita === 'virtual');
+  btnV.disabled = !permiteVirtual(tipo);
+  btnV.style.opacity = permiteVirtual(tipo) ? '' : '.4';
+  document.getElementById('c-modo-info').innerHTML = !permiteVirtual(tipo)
+    ? '<span class="sub">Una cirugía siempre es presencial.</span>'
+    : modoCita === 'virtual'
+      ? '<span class="sub">💻 El paciente se conecta. No ocupa consultorio, pero sí el tiempo del doctor.</span>'
+      : '';
+}
+function chipModo(c) {
+  return c.modo === 'virtual' ? '<span class="chip chip-morado">💻 Virtual</span>' : '';
+}
 
 /* ¿Qué servicio se le cobra a una cita? Se deduce de su tipo, para que la consulta
    no dependa de que alguien se acuerde de agregarla a mano. */
@@ -1585,6 +1618,7 @@ function alTipoCita() {
   document.getElementById('c-pac-wrap').classList.toggle('oculto', document.getElementById('c-tipo').value === 'reunion');
   pintarSlotsCita();
   pintarPagoCita();
+  pintarModo();
 }
 function elegirPagoCita(v) { pagaAhora = v; pintarPagoCita(); }
 function pintarPagoCita() {
@@ -1839,7 +1873,7 @@ function pintarAgenda() {
       ? citas.map(c => '<div class="tarjeta cita-dia ' + claseTipo(c.tipo) + '" style="border-left:4px solid;cursor:pointer" onclick="abrirModalCitaEdit(\'' + c.id + '\')"><div>' +
           '<b>' + rangoCita(c) + ' · ' + esc(nombreEvento(c)) + '</b> ' + chipTipo(c.tipo) +
           '<div class="sub">' + esc(c.motivo || nombreTipo(c.tipo)) + '</div></div>' +
-          '<div style="display:flex;gap:8px;align-items:center">' + chipPago(c) + chipEstado(c.estado) +
+          '<div style="display:flex;gap:8px;align-items:center">' + chipModo(c) + chipPago(c) + chipEstado(c.estado) +
           (atencionDeCita(c.id) ? '' : '<button class="btn btn-peligro btn-mini" onclick="event.stopPropagation();borrarCita(\'' + c.id + '\')">Borrar</button>') +
           '</div></div>').join('')
       : '<div class="vacio">No hay ' + nada + ' este día.</div>';
@@ -1853,7 +1887,7 @@ function pintarAgenda() {
       html += '<div class="dia-col' + (dia === hoyStr() ? ' hoy' : '') + '">' +
         '<h4>' + nombresDia[i] + ' ' + aFecha(dia).getDate() + '</h4>' +
         citas.map(c => '<div class="cita ' + claseTipo(c.tipo) + (c.estado==='cancelada'?'" style="opacity:.5;text-decoration:line-through':'') + '" onclick="abrirModalCitaEdit(\'' + c.id + '\')">' +
-          '<b>' + rangoCita(c) + '</b>' + esc(nombreEvento(c)) + '</div>').join('') +
+          '<b>' + rangoCita(c) + (c.modo === 'virtual' ? ' 💻' : '') + '</b>' + esc(nombreEvento(c)) + '</div>').join('') +
         '</div>';
     }
     cont.innerHTML = html + '</div>';
@@ -1870,6 +1904,7 @@ function llenarSelectPacientes(idSelect, seleccion) {
 function abrirModalCita(pacienteId) {
   controlAgendando = null; // agendarControl() lo setea después si viene de un control
   pagaAhora = false;
+  modoCita = 'presencial'; // lo normal es que el paciente venga
   llenarSelectPacientes('c-paciente', pacienteId);
   document.getElementById('titulo-modal-cita').textContent = 'Nuevo evento';
   document.getElementById('modal-cita').dataset.editando = '';
@@ -1888,6 +1923,7 @@ function abrirModalCitaEdit(id) {
   if (!c) return;
   controlAgendando = null;
   pagaAhora = false;
+  modoCita = c.modo || 'presencial';
   llenarSelectPacientes('c-paciente', c.pacienteId);
   document.getElementById('titulo-modal-cita').textContent = 'Editar evento';
   document.getElementById('modal-cita').dataset.editando = id;
@@ -1915,6 +1951,7 @@ function guardarCita() {
   const datos = {
     pacienteId: tipo === 'reunion' ? '' : document.getElementById('c-paciente').value,
     fecha, hora, dur, tipo, estado,
+    modo: permiteVirtual(tipo) ? modoCita : 'presencial',
     motivo: document.getElementById('c-motivo').value.trim()
   };
   let citaNueva = null;
@@ -2145,9 +2182,9 @@ function pintarAtenciones() {
         const extra = p && p.alergias ? ' <span class="chip chip-rojo">⚠️ ' + esc(p.alergias) + '</span>' : '';
         return '<div class="turno ' + claseTipo(c.tipo) + (at ? ' listo' : esAhora ? ' ahora' : '') + '" style="border-left-color:' +
             (c.tipo==='cirugia'?'#c0392b':c.tipo==='control'?'#15557f':'#2e7d4f') + '">' +
-          '<div class="hora">' + c.hora + '</div>' +
+          '<div class="hora">' + c.hora + (c.modo === 'virtual' ? '<div style="font-size:13px">💻</div>' : '') + '</div>' +
           '<div class="quien"><b>' + esc(nombreEvento(c)) + (esAhora ? ' <span class="etiqueta-ahora">AHORA</span>' : '') + '</b>' +
-            '<span class="sub">' + esc(sub) + extra + '</span></div>' +
+            '<span class="sub">' + esc(sub) + (c.modo === 'virtual' ? ' · <b style="color:#7b3fa0">Virtual</b>' : '') + extra + '</span></div>' +
           (at
             ? '<span class="chip chip-verde">✓ Atendido</span>' +
               '<button class="btn btn-sec btn-mini" onclick="abrirAtencion(\'' + c.id + '\')">Ver</button>'
@@ -2235,10 +2272,15 @@ function abrirAtencion(citaId) {
   const previa = atencionDeCita(citaId); // si ya se atendió, se abre para consultar/corregir
 
   document.getElementById('at-nombre').textContent = p.nombre;
-  document.getElementById('at-datos').textContent =
-    [nombreTipo(c.tipo), c.hora, p.edad ? p.edad + ' años' : '', p.procedimiento || ''].filter(Boolean).join(' · ');
+  document.getElementById('at-datos').innerHTML =
+    esc([nombreTipo(c.tipo), c.hora, p.edad ? p.edad + ' años' : ''].filter(Boolean).join(' · ')) +
+    (c.modo === 'virtual' ? ' · <b>💻 Consulta virtual</b>' : '');
   document.getElementById('at-alergias').innerHTML = p.alergias
     ? '<div class="aviso aviso-rojo"><b>⚠️ Alergias / observaciones:</b> ' + esc(p.alergias) + '</div>' : '';
+  // En virtual el doctor no tiene al paciente delante: el peso es el que el paciente diga
+  document.getElementById('at-aviso-virtual').innerHTML = c.modo === 'virtual'
+    ? '<div class="aviso" style="border-color:#7b3fa0;background:#f8f4fb">💻 <b>Consulta virtual.</b> El peso lo reporta el paciente: anótalo solo si te lo dice, y ten en cuenta que no lo pesaste tú.</div>'
+    : '';
 
   // Se precarga con lo último medido (no con el registro inicial, que puede ser viejo)
   const ultima = db.atenciones.filter(a => a.pacienteId === p.id && a.citaId !== citaId && a.peso > 0)
@@ -2397,6 +2439,7 @@ function guardarAtencion() {
   const previa = atencionDeCita(atencionCita.id);
   const datos = {
     citaId: atencionCita.id, pacienteId: p.id, tipo: atencionCita.tipo,
+    modo: atencionCita.modo || 'presencial',
     fecha: hoyStr(), hora: horaAhora(),
     peso, altura, motivo, notas, prescripcion: prescripcion.map(i => ({ ...i })),
     cirugias: cirugiasAt.slice(),
@@ -3297,7 +3340,7 @@ function cargarDemo() {
   db.citas = [
     c1, c2, c3,
     cita(p1, 0, '09:00', 'control', 'confirmada', 'Control post-op 6 semanas'),
-    cita(p2, 0, '11:00', 'consulta', 'pendiente', 'Primera consulta'),
+    { ...cita(p2, 0, '11:00', 'consulta', 'pendiente', 'Primera consulta'), modo:'virtual' },
     cita(p3, 1, '10:30', 'consulta', 'confirmada', 'Pre-operatorio'),
     cita(p3, 15, '07:30', 'cirugia', 'pendiente', 'Colocación balón gástrico'),
     { id:nuevoId(), pacienteId:'', fecha:hoyStr(), hora:'13:00', dur:60, tipo:'reunion', estado:'confirmada', motivo:'Reunión con laboratorio B&N' }
