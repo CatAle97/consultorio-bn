@@ -2192,9 +2192,18 @@ function pintarAtenciones() {
   document.getElementById('atenciones-lista').innerHTML = !eventos.length
     ? '<div class="vacio">No hay pacientes agendados este día. 🎉</div>'
     : eventos.map(c => {
+        // Una reunión no se "atiende": solo se marca como hecha. No hay nada que registrar.
         if (c.tipo === 'reunion') {
-          return '<div class="turno" style="border-left-color:#e0a800"><div class="hora">' + c.hora + '</div>' +
-            '<div class="quien"><b>' + esc(c.motivo || 'Reunión') + '</b><span class="sub">Reunión · ' + rangoCita(c) + '</span></div></div>';
+          const hecha = c.estado === 'atendida';
+          return '<div class="turno' + (hecha ? ' listo' : '') + '" style="border-left-color:#e0a800">' +
+            '<div class="hora">' + c.hora + '</div>' +
+            '<div class="quien"><b>' + esc(c.motivo || 'Reunión') + '</b>' +
+              '<span class="sub">Reunión · ' + rangoCita(c) + '</span></div>' +
+            (hecha
+              ? '<span class="chip chip-verde">✓ Hecha</span>' +
+                '<button class="btn btn-sec btn-mini" onclick="marcarReunion(\'' + c.id + '\', false)">Deshacer</button>'
+              : '<button class="btn btn-sec" onclick="marcarReunion(\'' + c.id + '\', true)">✓ Marcar hecha</button>') +
+          '</div>';
         }
         const at = atencionDeCita(c.id);
         const p = db.pacientes.find(x => x.id === c.pacienteId);
@@ -2213,6 +2222,16 @@ function pintarAtenciones() {
         '</div>';
       }).join('');
   actualizarBadgeAtenciones();
+}
+
+/* Las reuniones no se atienden, se marcan: el doctor no registra nada de ellas */
+function marcarReunion(citaId, hecha) {
+  const c = db.citas.find(x => x.id === citaId);
+  if (!c || c.tipo !== 'reunion') return;
+  if (!esDoctor()) { alert('Solo el doctor puede marcar sus reuniones.'); return; }
+  c.estado = hecha ? 'atendida' : 'confirmada';
+  guardar();
+  pintarAtenciones();
 }
 
 /* ================== ATENCIÓN ================== */
