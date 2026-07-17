@@ -792,7 +792,7 @@ let db = { pacientes: [], citas: [], catalogo: [], ventas: [], movimientos: [], 
 function cargar() {
   try {
     const crudo = localStorage.getItem(CLAVE);
-    if (crudo) db = JSON.parse(crudo);
+    if (crudo) { db = JSON.parse(crudo); selloDisco = crudo; }
   } catch (e) { console.error('Error al leer datos', e); }
   db.pacientes = db.pacientes || [];
   db.citas = db.citas || [];
@@ -807,7 +807,30 @@ function cargar() {
   db.config = db.config || { correlativo: 1, negocio: NEGOCIO };
   if (!db.config.correlativo) db.config.correlativo = 1;
 }
-function guardar() { localStorage.setItem(CLAVE, JSON.stringify(db)); }
+/* Guardar pisa TODO el archivo. Si otra pestaña escribió mientras tanto (por ejemplo,
+   recepción agendó a alguien mientras el doctor atendía), guardar a secas le borraría
+   su trabajo. Por eso, antes de escribir, se comprueba si el disco cambió y se fusiona. */
+let selloDisco = null; // copia exacta de lo último que se leyó o escribió
+function guardar() {
+  const enDisco = localStorage.getItem(CLAVE);
+  if (enDisco && selloDisco !== null && enDisco !== selloDisco) {
+    try { fusionarConDisco(JSON.parse(enDisco)); } catch (e) { console.error('No se pudo fusionar', e); }
+  }
+  const txt = JSON.stringify(db);
+  localStorage.setItem(CLAVE, txt);
+  selloDisco = txt;
+}
+const COLECCIONES = ['pacientes','citas','catalogo','ventas','movimientos','atenciones','ordenes','controles','usuarios'];
+function fusionarConDisco(disco) {
+  COLECCIONES.forEach(c => {
+    const map = new Map((disco[c] || []).map(x => [x.id, x]));
+    (db[c] || []).forEach(x => map.set(x.id, x)); // lo que tengo en pantalla manda sobre lo del disco
+    db[c] = [...map.values()];
+  });
+  // Dos pestañas cobrando a la vez no pueden repetir el número de ticket
+  const dc = disco.config || {};
+  db.config.correlativo = Math.max(Number(db.config.correlativo) || 1, Number(dc.correlativo) || 1);
+}
 function nuevoId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 function esc(t) { return String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 /* "1 atención" pero "3 atenciones": el plural de las palabras agudas pierde la tilde */
@@ -854,6 +877,18 @@ function elegirUsuario(id) {
 }
 function volverAQuien() { pinEscrito = ''; pintarAcceso(); }
 function pintarPuntos() { document.getElementById('pin-puntos').textContent = '•'.repeat(pinEscrito.length) + '○'.repeat(4 - pinEscrito.length); }
+
+/* El PIN también se teclea: el teclado numérico es más rápido que apuntar con el mouse */
+function estaEnPantallaPin() {
+  return !document.getElementById('pantalla-acceso').classList.contains('oculto') &&
+         !document.getElementById('paso-pin').classList.contains('oculto');
+}
+document.addEventListener('keydown', e => {
+  if (!estaEnPantallaPin()) return;
+  if (/^[0-9]$/.test(e.key)) { teclaPin(e.key); e.preventDefault(); }
+  else if (e.key === 'Backspace' || e.key === 'Delete') { teclaPin('borrar'); e.preventDefault(); }
+  else if (e.key === 'Escape') { volverAQuien(); e.preventDefault(); }
+});
 function teclaPin(t) {
   if (t === 'borrar') { pinEscrito = pinEscrito.slice(0, -1); pintarPuntos(); return; }
   if (pinEscrito.length >= 4) return;
@@ -2342,7 +2377,11 @@ function pintarPrescripcion() {
   }).join('') +
   '<div class="sub" style="margin-top:8px">' + plural(prescripcion.length, 'suplemento indicado', 'suplementos indicados') + ' · recepción se encarga del cobro</div>';
 }
-function salirAtencion() { atencionCita = null; prescripcion = []; plazoControl = null; cirugiasAt = []; irA('atenciones'); }
+function salirAtencion() {
+  atencionCita = null; prescripcion = []; plazoControl = null; cirugiasAt = [];
+  irA('atenciones');
+  if (recargaPendiente) sincronizarDesdeOtraPestana(); // lo que llegó mientras atendía
+}
 function guardarAtencion() {
   const peso = Number(document.getElementById('at-peso').value);
   const altura = Number(document.getElementById('at-altura').value);
@@ -2427,6 +2466,7 @@ function guardarAtencion() {
   }
   atencionCita = null; prescripcion = []; plazoControl = null; cirugiasAt = [];
   irA('atenciones');
+  if (recargaPendiente) sincronizarDesdeOtraPestana();
   alert(lineas.join('\n'));
 }
 
@@ -3347,8 +3387,49 @@ function cargarDemo() {
     'OJO: los precios de las cirugías son inventados. Cámbialos en ⚙️ Precios cuando el Dr. te los pase.');
 }
 
+/* ================== SINCRONIZAR ENTRE PESTAÑAS ==================
+   Si recepción y el doctor tienen el sistema abierto en dos pestañas de la MISMA
+   computadora, cada una guarda su copia en memoria y no se entera de la otra.
+   El navegador avisa con el evento 'storage' cuando otra pestaña escribe.
+   OJO: esto NO sirve entre computadoras distintas — eso necesita la nube. */
+let recargaPendiente = false;
+
+function hayTrabajoEnCurso() {
+  // Nunca recargar mientras alguien escribe: le borraríamos lo que lleva hecho
+  const modalAbierto = [...document.querySelectorAll('.fondo-modal')].some(m => !m.classList.contains('oculto'));
+  const atendiendo = !document.getElementById('sec-consulta').classList.contains('oculto');
+  return modalAbierto || atendiendo;
+}
+function seccionVisible() {
+  return SECCIONES.find(s => !document.getElementById('sec-' + s).classList.contains('oculto'));
+}
+function repintarVistaActual() {
+  const sec = seccionVisible();
+  if (!sec) return;
+  if (sec === 'ficha') { if (fichaId && db.pacientes.some(p => p.id === fichaId)) verFicha(fichaId); else irA('pacientes'); return; }
+  if (sec === 'consulta') return; // en plena atención no se toca
+  irA(sec);
+}
+function sincronizarDesdeOtraPestana() {
+  if (!sesion) return;                       // en la pantalla de acceso no hay nada que repintar
+  if (hayTrabajoEnCurso()) { recargaPendiente = true; return; } // se hará al cerrar
+  recargaPendiente = false;                  // se baja ANTES de repintar, para no reentrar
+  cargar();
+  repintarVistaActual();
+  refrescarBadges();
+}
+// El navegador dispara 'storage' en las OTRAS pestañas cuando una guarda
+window.addEventListener('storage', e => { if (e.key === CLAVE) sincronizarDesdeOtraPestana(); });
+// Y al volver a la pestaña, por si el aviso se perdió mientras estaba en segundo plano
+document.addEventListener('visibilitychange', () => { if (!document.hidden) sincronizarDesdeOtraPestana(); });
+window.addEventListener('focus', () => sincronizarDesdeOtraPestana());
+
 /* ================== MODALES / INICIO ================== */
-function cerrarModales() { document.querySelectorAll('.fondo-modal').forEach(m => m.classList.add('oculto')); }
+function cerrarModales() {
+  document.querySelectorAll('.fondo-modal').forEach(m => m.classList.add('oculto'));
+  // Si otra pestaña guardó algo mientras había un modal abierto, ahora sí se aplica
+  if (recargaPendiente) sincronizarDesdeOtraPestana();
+}
 document.querySelectorAll('.fondo-modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) cerrarModales(); }));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModales(); });
 
