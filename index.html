@@ -1,0 +1,3359 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consultorio B&N — Dr. Mariano Arredondo</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:#eef2f6; color:#1f2933; font-size:15px; }
+
+  header { background:#15557f; color:#fff; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+  header .marca { display:flex; flex-direction:column; }
+  header h1 { font-size:18px; font-weight:600; line-height:1.2; }
+  header small { font-size:12px; opacity:.8; }
+  nav { display:flex; gap:6px; flex-wrap:wrap; }
+  nav button { background:rgba(255,255,255,.15); border:none; color:#fff; padding:8px 14px; border-radius:6px; cursor:pointer; font-size:14px; position:relative; }
+  nav button.activo { background:#fff; color:#15557f; font-weight:600; }
+  .badge { position:absolute; top:-6px; right:-6px; background:#d9534f; color:#fff; border-radius:10px; font-size:11px; padding:1px 6px; font-weight:700; }
+
+  main { max-width:1000px; margin:0 auto; padding:16px; }
+  .oculto { display:none !important; }
+
+  .barra { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; align-items:center; }
+  .barra input[type=search] { flex:1; min-width:180px; }
+
+  input, select, textarea { padding:9px 10px; border:1px solid #c4ccd4; border-radius:6px; font-size:14px; font-family:inherit; background:#fff; width:100%; }
+  textarea { resize:vertical; min-height:70px; }
+  label { display:block; font-size:13px; color:#556; margin:10px 0 4px; font-weight:600; }
+
+  .btn { background:#15557f; color:#fff; border:none; padding:9px 16px; border-radius:6px; cursor:pointer; font-size:14px; white-space:nowrap; }
+  .btn:hover { background:#124a6e; }
+  .btn-sec { background:#fff; color:#333; border:1px solid #c4ccd4; }
+  .btn-sec:hover { background:#f0f3f6; }
+  .btn-peligro { background:#fff; color:#c0392b; border:1px solid #e0b4ae; }
+  .btn-peligro:hover { background:#fdf1ef; }
+  .btn-mini { padding:4px 10px; font-size:13px; }
+
+  .tarjeta { background:#fff; border:1px solid #dde3e9; border-radius:8px; padding:14px 16px; margin-bottom:10px; }
+  .fila-item { cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .fila-item:hover { border-color:#15557f; }
+  .fila-item .datos b { font-size:15px; }
+  .fila-item .datos span { display:block; color:#6b7580; font-size:13px; margin-top:2px; }
+
+  .chip { display:inline-block; padding:2px 10px; border-radius:12px; font-size:12px; font-weight:600; white-space:nowrap; }
+  .chip-verde { background:#e3f2e8; color:#2e7d4f; }
+  .chip-azul { background:#e2edf6; color:#15557f; }
+  .chip-amarillo { background:#fdf3d7; color:#9a7b00; }
+  .chip-rojo { background:#fdeaea; color:#c0392b; }
+  .chip-gris { background:#eceff2; color:#66707a; }
+  .chip-morado { background:#efe6f7; color:#7b3fa0; }
+  .chip-naranja { background:#fbe8d3; color:#b5651d; }
+
+  .aviso { border-left:4px solid; padding:10px 14px; border-radius:6px; margin-bottom:8px; font-size:14px; background:#fff; }
+  .aviso-rojo { border-color:#c0392b; background:#fdf1ef; }
+  .aviso-amarillo { border-color:#e0a800; background:#fdf8e7; }
+
+  h2 { font-size:17px; margin:18px 0 10px; color:#123c5a; }
+  h2:first-child { margin-top:0; }
+  .sub { color:#6b7580; font-size:13px; }
+
+  .grid-datos { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:6px; }
+  .dato { background:#f5f7f9; border-radius:6px; padding:8px 10px; }
+  .dato small { display:block; color:#6b7580; font-size:12px; }
+  .dato b { font-size:15px; }
+  .nota-sesion { border-left:3px solid #15557f; padding:8px 12px; margin-bottom:8px; background:#fff; border-radius:0 6px 6px 0; border-top:1px solid #eee; border-right:1px solid #eee; border-bottom:1px solid #eee; }
+  .nota-sesion small { color:#6b7580; display:block; margin-bottom:3px; }
+
+  .cal-nav { display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
+  .cal-titulo { font-weight:600; font-size:15px; flex:1; text-align:center; min-width:150px; }
+  .semana { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+  .dia-col { background:#fff; border:1px solid #dde3e9; border-radius:8px; padding:8px; min-height:120px; }
+  .dia-col.hoy { border-color:#15557f; border-width:2px; }
+  .dia-col h4 { font-size:12px; color:#66707a; margin-bottom:6px; text-align:center; font-weight:600; }
+  .cita { border-radius:5px; padding:5px 7px; font-size:12px; margin-bottom:5px; cursor:pointer; border-left:3px solid #999; background:#f5f7f9; }
+  .cita:hover { filter:brightness(.97); }
+  .cita b { display:block; }
+  .cita-dia { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .t-consulta { border-left-color:#2e7d4f; }
+  .t-control { border-left-color:#15557f; }
+  .t-cirugia { border-left-color:#c0392b; }
+  .t-reunion { border-left-color:#e0a800; }
+  .leyenda { display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:#66707a; margin-bottom:10px; }
+  .leyenda span::before { content:'●'; margin-right:4px; }
+
+  .fondo-modal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:flex-start; justify-content:center; padding:30px 12px; overflow-y:auto; z-index:10; }
+  .modal { background:#fff; border-radius:10px; padding:20px; width:100%; max-width:480px; }
+  .modal h3 { margin-bottom:6px; font-size:17px; }
+  .modal .acciones { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
+  .fila-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+  .vacio { text-align:center; color:#8a929b; padding:30px 10px; }
+  footer { text-align:center; padding:20px; color:#99a0a8; font-size:12px; }
+  footer button { background:none; border:none; color:#15557f; cursor:pointer; text-decoration:underline; font-size:12px; }
+
+  table.tabla { width:100%; border-collapse:collapse; background:#fff; border-radius:8px; overflow:hidden; }
+  table.tabla th, table.tabla td { text-align:left; padding:9px 12px; border-bottom:1px solid #eef2f5; font-size:14px; }
+  table.tabla th { background:#f5f7f9; color:#556; font-size:12px; text-transform:uppercase; letter-spacing:.03em; }
+  table.tabla tr:last-child td { border-bottom:none; }
+  .acc-tabla { display:flex; gap:6px; }
+
+  .slots { display:grid; grid-template-columns:repeat(auto-fill,minmax(74px,1fr)); gap:6px; margin:2px 0 4px; }
+  .slot { padding:8px 4px; border:1px solid #c4ccd4; border-radius:6px; background:#fff; cursor:pointer; font-size:14px; font-family:inherit; color:#1f2933; }
+  .slot:hover { border-color:#15557f; background:#f0f6fb; }
+  .slot.sel { background:#15557f; color:#fff; border-color:#15557f; font-weight:600; }
+  .slot.ocupado { background:#f2f3f5; color:#aab0b7; text-decoration:line-through; cursor:not-allowed; border-style:dashed; }
+
+  .cal { border:1px solid #dde3e9; border-radius:8px; padding:10px; margin-top:2px; }
+  .cal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .cal-head b { font-size:14px; text-transform:capitalize; color:#123c5a; }
+  .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+  .cal-dow { text-align:center; font-size:11px; color:#8a929b; padding:2px 0; font-weight:700; }
+  .cal-day { padding:9px 0; border:none; background:#f5f7f9; border-radius:6px; cursor:pointer; font-size:13px; color:#1f2933; font-family:inherit; }
+  .cal-day:hover { background:#e2edf6; }
+  .cal-day.sel { background:#15557f; color:#fff; font-weight:700; }
+  .cal-day.hoy { outline:2px solid #15557f; outline-offset:-2px; }
+  .cal-day.pasado { color:#cbd2d9; cursor:not-allowed; background:transparent; }
+  .cal-day.vacio { background:transparent; cursor:default; }
+
+  /* --- Pantalla de acceso --- */
+  #pantalla-acceso { position:fixed; inset:0; background:#15557f; display:flex; align-items:center; justify-content:center; padding:20px; z-index:50; }
+  .caja-acceso { background:#fff; border-radius:12px; padding:26px; width:100%; max-width:380px; text-align:center; }
+  .caja-acceso h2 { margin:0 0 4px; }
+  .usuarios-lista { display:grid; gap:8px; margin:16px 0 4px; }
+  .btn-usuario { padding:14px; border:1px solid #c4ccd4; border-radius:8px; background:#fff; cursor:pointer; font-size:15px; font-family:inherit; text-align:left; display:flex; justify-content:space-between; align-items:center; }
+  .btn-usuario:hover { border-color:#15557f; background:#f0f6fb; }
+  .pin-puntos { font-size:26px; letter-spacing:10px; height:34px; color:#15557f; }
+  .teclado { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px; }
+  .teclado button { padding:16px 0; font-size:19px; border:1px solid #c4ccd4; border-radius:8px; background:#fff; cursor:pointer; font-family:inherit; }
+  .teclado button:hover { background:#f0f6fb; }
+  .usuario-actual { display:flex; align-items:center; gap:8px; font-size:13px; }
+
+  /* --- Carrito de venta --- */
+  .carrito-item { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid #eef2f5; }
+  .carrito-item .nom { flex:1; font-size:14px; }
+  .carrito-item input { width:58px; text-align:center; padding:5px; }
+  .total-venta { display:flex; justify-content:space-between; align-items:center; padding:12px 0 0; font-size:19px; font-weight:700; color:#123c5a; }
+
+  /* --- Mi día (vista del doctor) --- */
+  .turno { background:#fff; border:1px solid #dde3e9; border-left:5px solid #c4ccd4; border-radius:8px; padding:14px 16px; margin-bottom:8px; display:flex; align-items:center; gap:14px; }
+  .turno .hora { font-size:19px; font-weight:700; color:#123c5a; min-width:64px; }
+  .turno .quien { flex:1; }
+  .turno .quien b { font-size:16px; display:block; }
+  .turno.ahora { border-left-color:#15557f; border-color:#15557f; background:#f7fbfe; box-shadow:0 1px 6px rgba(21,85,127,.12); }
+  .turno.listo { opacity:.6; }
+  .turno.listo .hora { color:#8a929b; }
+  .etiqueta-ahora { background:#15557f; color:#fff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; letter-spacing:.04em; }
+
+  /* --- Atención --- */
+  .cab-atencion { background:#15557f; color:#fff; border-radius:10px; padding:16px 18px; margin-bottom:14px; }
+  .cab-atencion h2 { color:#fff; margin:0; font-size:20px; }
+  .cab-atencion .sub { color:#c8dcec; }
+  .medida { text-align:center; }
+  .medida input { font-size:22px; text-align:center; font-weight:700; padding:12px 6px; }
+  .medida small { display:block; color:#6b7580; font-size:12px; margin-bottom:4px; font-weight:600; }
+  .resultado-imc { background:#f5f7f9; border-radius:8px; padding:14px; text-align:center; }
+  .resultado-imc .num { font-size:30px; font-weight:700; color:#123c5a; line-height:1.1; }
+  .evolucion { font-size:15px; font-weight:700; margin-top:4px; }
+  .presc-item { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid #eef2f5; }
+  .presc-item .nom { flex:1; font-size:14px; }
+  .presc-item input[type=number] { width:56px; text-align:center; padding:5px; }
+  .presc-item input[type=text] { flex:1; padding:5px 8px; font-size:13px; }
+  .barra-fija { position:sticky; bottom:0; background:#fff; border-top:1px solid #dde3e9; padding:12px 0; display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
+  .plazos { display:grid; grid-template-columns:repeat(auto-fit,minmax(88px,1fr)); gap:8px; }
+  .plazo { padding:12px 6px; border:1px solid #c4ccd4; border-radius:8px; background:#fff; cursor:pointer; font-family:inherit; font-size:14px; color:#1f2933; text-align:center; }
+  .plazo:hover { border-color:#15557f; background:#f0f6fb; }
+  .plazo.sel { background:#15557f; color:#fff; border-color:#15557f; font-weight:700; }
+
+  .opcion-baja { border:1px solid #c4ccd4; border-radius:8px; padding:14px; margin-top:10px; cursor:pointer; }
+  .opcion-baja:hover { border-color:#15557f; background:#f0f6fb; }
+  .opcion-baja.peligro:hover { border-color:#c0392b; background:#fdf1ef; }
+  .opcion-baja b { display:block; margin-bottom:4px; }
+
+  /* --- Ticket 80mm --- */
+  #ticket { width:280px; margin:0 auto; background:#fff; padding:14px; font-family:"Courier New",monospace; font-size:12px; color:#000; }
+  #ticket .t-centro { text-align:center; }
+  #ticket hr { border:none; border-top:1px dashed #000; margin:6px 0; }
+  #ticket table { width:100%; border-collapse:collapse; font-size:12px; }
+  #ticket td { padding:1px 0; vertical-align:top; }
+  #ticket .der { text-align:right; }
+
+  @media (max-width:760px) {
+    .semana { grid-template-columns:1fr; }
+    .dia-col { min-height:auto; }
+    .fila-2 { grid-template-columns:1fr; }
+    table.tabla { display:block; overflow-x:auto; white-space:nowrap; }
+  }
+
+  /* --- Al imprimir: solo sale el ticket --- */
+  @media print {
+    body { background:#fff; }
+    body * { visibility:hidden; }
+    #ticket, #ticket * { visibility:visible; }
+    #ticket { position:absolute; left:0; top:0; width:72mm; padding:0; }
+    .no-print { display:none !important; }
+    @page { margin:4mm; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ PANTALLA DE ACCESO (PIN) ============ -->
+<div id="pantalla-acceso">
+  <div class="caja-acceso">
+    <div id="paso-quien">
+      <h2>🏥 Consultorio B&amp;N</h2>
+      <div class="sub">¿Quién eres?</div>
+      <div class="usuarios-lista" id="usuarios-acceso"></div>
+    </div>
+    <div id="paso-pin" class="oculto">
+      <h2 id="pin-nombre"></h2>
+      <div class="sub">Escribe tu PIN de 4 dígitos</div>
+      <div class="pin-puntos" id="pin-puntos"></div>
+      <div id="pin-error" class="sub" style="color:#c0392b;min-height:18px"></div>
+      <div class="teclado">
+        <button onclick="teclaPin('1')">1</button><button onclick="teclaPin('2')">2</button><button onclick="teclaPin('3')">3</button>
+        <button onclick="teclaPin('4')">4</button><button onclick="teclaPin('5')">5</button><button onclick="teclaPin('6')">6</button>
+        <button onclick="teclaPin('7')">7</button><button onclick="teclaPin('8')">8</button><button onclick="teclaPin('9')">9</button>
+        <button onclick="volverAQuien()">←</button><button onclick="teclaPin('0')">0</button><button onclick="teclaPin('borrar')">⌫</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="marca">
+    <h1>🏥 Consultorio B&amp;N</h1>
+    <small>Dr. Mariano Arredondo · Cirugía bariátrica</small>
+  </div>
+  <nav>
+    <button id="tab-atenciones" onclick="irA('atenciones')">🩺 Atenciones<span id="badge-atenciones" class="badge oculto"></span></button>
+    <button id="tab-pacientes" onclick="irA('pacientes')" class="activo">Pacientes</button>
+    <button id="tab-agenda" onclick="irA('agenda')">Agenda<span id="badge-agenda" class="badge oculto"></span><span id="badge-controles" class="badge oculto" style="background:#7b3fa0;right:auto;left:-6px"></span></button>
+    <button id="tab-stock" onclick="irA('stock')">Stock<span id="badge-stock" class="badge oculto"></span></button>
+    <button id="tab-movimientos" onclick="irA('movimientos')">Movimientos</button>
+    <button id="tab-ventas" onclick="irA('ventas')">💰 Caja<span id="badge-ventas" class="badge oculto"></span></button>
+    <button id="tab-reportes" onclick="irA('reportes')">Reportes</button>
+    <button id="tab-config" onclick="irA('config')">⚙️</button>
+  </nav>
+  <div class="usuario-actual">
+    <span id="quien-soy"></span>
+    <button class="btn btn-sec btn-mini" onclick="cerrarSesion()">Salir</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============ ATENCIONES · la fila de pacientes del especialista ============ -->
+  <section id="sec-atenciones" class="oculto">
+    <div class="barra">
+      <h2 id="atenciones-titulo" style="margin:0;flex:1"></h2>
+      <button class="btn btn-sec btn-mini" onclick="atencionesFecha=sumarDias(atencionesFecha,-1);pintarAtenciones()">◀</button>
+      <button class="btn btn-sec btn-mini" onclick="atencionesFecha=hoyStr();pintarAtenciones()">Hoy</button>
+      <button class="btn btn-sec btn-mini" onclick="atencionesFecha=sumarDias(atencionesFecha,1);pintarAtenciones()">▶</button>
+    </div>
+    <div id="atenciones-resumen"></div>
+    <div id="atenciones-lista"></div>
+  </section>
+
+  <!-- ============ CONSULTA · atendiendo a un paciente ============ -->
+  <section id="sec-consulta" class="oculto">
+    <div class="cab-atencion">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
+        <div>
+          <h2 id="at-nombre"></h2>
+          <div class="sub" id="at-datos"></div>
+        </div>
+        <button class="btn btn-sec btn-mini" onclick="salirAtencion()">← Salir sin guardar</button>
+      </div>
+    </div>
+
+    <div id="at-alergias"></div>
+
+    <h2>Medidas de hoy</h2>
+    <div class="tarjeta">
+      <div class="fila-2" style="align-items:end">
+        <div class="fila-2">
+          <div class="medida"><small>PESO (kg)</small><input id="at-peso" type="number" step="0.1" min="0" inputmode="decimal" oninput="calcularAtencion()"></div>
+          <div class="medida"><small>TALLA (cm)</small><input id="at-altura" type="number" step="0.5" min="0" inputmode="decimal" oninput="calcularAtencion()"></div>
+        </div>
+        <div class="resultado-imc" id="at-imc"></div>
+      </div>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px dashed #c4ccd4">
+        <div class="fila-2" style="align-items:end">
+          <div class="medida" style="text-align:left">
+            <small>PESO META (kg)</small>
+            <input id="at-meta" type="number" step="0.1" min="0" inputmode="decimal" style="font-size:17px" oninput="calcularAtencion()">
+          </div>
+          <div id="at-progreso"></div>
+        </div>
+      </div>
+    </div>
+
+    <h2>Motivo de consulta</h2>
+    <input id="at-motivo" placeholder="¿Por qué viene hoy?">
+    <div class="sub" id="at-motivo-origen" style="margin-top:4px"></div>
+
+    <h2>Cirugía / patología</h2>
+    <div class="sub" style="margin-bottom:8px">Marca a qué corresponde esta atención. Puede ser más de una. Sirve para saber qué atiendes más.</div>
+    <div class="tarjeta">
+      <div class="plazos" id="at-cirugias"></div>
+    </div>
+
+    <h2>Notas de la atención</h2>
+    <textarea id="at-notas" placeholder="Evolución, hallazgos, indicaciones, próximos pasos…" style="min-height:110px"></textarea>
+
+    <h2>Prescripción</h2>
+    <div class="sub" style="margin-bottom:8px">Lo que indiques aquí le llegará a recepción para que el paciente pase a cobrar. No descuenta stock hasta que se cobre.</div>
+    <select id="at-suplemento" onchange="agregarPrescripcion()"></select>
+    <div id="at-prescripcion" style="margin-top:8px"></div>
+
+    <h2>Próximo control</h2>
+    <div class="sub" style="margin-bottom:8px">Indica en cuánto tiempo quieres volver a verlo. Recepción coordina el día y la hora exactos con el paciente.</div>
+    <div class="tarjeta">
+      <div class="plazos" id="at-plazos"></div>
+      <div id="at-plazo-info" style="margin-top:10px"></div>
+    </div>
+
+    <div class="barra-fija">
+      <button class="btn btn-sec" onclick="salirAtencion()">Cancelar</button>
+      <button class="btn" onclick="guardarAtencion()">✓ Terminar atención</button>
+    </div>
+  </section>
+
+  <!-- ============ PACIENTES (lista) ============ -->
+  <section id="sec-pacientes">
+    <div class="barra">
+      <input type="search" id="buscador" placeholder="Buscar por nombre o documento…" oninput="pintarListaPacientes()">
+      <button class="btn btn-sec" id="btn-ver-archivados" onclick="alternarArchivados()">🗄 Ver archivados</button>
+      <button class="btn" onclick="abrirModalPaciente()">+ Nuevo paciente</button>
+    </div>
+    <div id="lista-pacientes"></div>
+  </section>
+
+  <!-- ============ FICHA PACIENTE ============ -->
+  <section id="sec-ficha" class="oculto">
+    <div class="barra">
+      <button class="btn btn-sec" onclick="irA('pacientes')">← Volver</button>
+      <span style="flex:1"></span>
+      <button class="btn btn-sec" id="btn-ficha-cita" onclick="abrirModalCita(fichaId)">📅 Agendar cita</button>
+      <button class="btn btn-sec" id="btn-ficha-venta" onclick="abrirModalVenta(fichaId)">💰 Registrar venta</button>
+      <button class="btn btn-sec" onclick="abrirModalPaciente(fichaId)">✏️ Editar</button>
+      <button class="btn btn-peligro" id="btn-ficha-archivar" onclick="archivarPaciente(fichaId)"></button>
+    </div>
+    <div id="contenido-ficha"></div>
+  </section>
+
+  <!-- ============ AGENDA ============ -->
+  <section id="sec-agenda" class="oculto">
+    <div id="controles-pendientes"></div>
+    <div class="barra">
+      <button class="btn" id="btn-vista-dia" onclick="cambiarVista('dia')" style="background:#fff;color:#333;border:1px solid #c4ccd4">Día</button>
+      <button class="btn" id="btn-vista-semana" onclick="cambiarVista('semana')">Semana</button>
+      <span style="flex:1"></span>
+      <button class="btn" onclick="abrirModalCita()">+ Nuevo</button>
+    </div>
+    <div class="cal-nav">
+      <button class="btn btn-sec btn-mini" onclick="moverCalendario(-1)">◀</button>
+      <div class="cal-titulo" id="cal-titulo"></div>
+      <button class="btn btn-sec btn-mini" onclick="moverCalendario(1)">▶</button>
+      <button class="btn btn-sec btn-mini" onclick="calFecha=hoyStr();pintarAgenda()">Hoy</button>
+    </div>
+    <div class="leyenda" id="leyenda-agenda"></div>
+    <div id="vista-agenda"></div>
+  </section>
+
+  <!-- ============ MÓDULO 4 · STOCK ============ -->
+  <section id="sec-stock" class="oculto">
+    <div class="barra">
+      <input type="search" id="buscador-stock" placeholder="Buscar producto…" oninput="pintarStock()">
+      <button class="btn" onclick="abrirModalMov()">+ Registrar entrada</button>
+    </div>
+    <div id="alertas-stock"></div>
+    <div id="lista-stock"></div>
+  </section>
+
+  <!-- ============ MOVIMIENTOS DE STOCK ============ -->
+  <section id="sec-movimientos" class="oculto">
+    <div class="barra">
+      <input type="search" id="buscador-mov" placeholder="Buscar por producto o motivo…" oninput="pintarMovimientos()">
+      <select id="filtro-mov" onchange="pintarMovimientos()" style="max-width:190px">
+        <option value="">Todos los movimientos</option>
+        <option value="entrada">Solo entradas</option>
+        <option value="salida">Solo salidas</option>
+        <option value="venta">Solo ventas</option>
+        <option value="ajuste">Solo ajustes</option>
+        <option value="anulacion">Solo anulaciones</option>
+      </select>
+      <button class="btn" onclick="abrirModalMov()">+ Registrar entrada</button>
+    </div>
+    <div id="resumen-mov"></div>
+    <div id="lista-movimientos"></div>
+  </section>
+
+  <!-- ============ MÓDULO 5 · VENTAS ============ -->
+  <section id="sec-ventas" class="oculto">
+    <div class="barra">
+      <input type="search" id="buscador-ventas" placeholder="Buscar por N° de ticket o paciente…" oninput="pintarVentas()">
+      <button class="btn" onclick="abrirModalVenta()">+ Nueva venta</button>
+    </div>
+    <div id="ordenes-pendientes"></div>
+    <div id="resumen-hoy"></div>
+    <div id="lista-ventas"></div>
+  </section>
+
+  <!-- ============ MÓDULO 7 · REPORTES ============ -->
+  <section id="sec-reportes" class="oculto">
+    <div class="tarjeta">
+      <div class="barra" style="margin:0">
+        <div style="flex:1;min-width:130px"><label style="margin-top:0">Desde</label><input type="date" id="r-desde" onchange="pintarReportes()"></div>
+        <div style="flex:1;min-width:130px"><label style="margin-top:0">Hasta</label><input type="date" id="r-hasta" onchange="pintarReportes()"></div>
+        <div style="flex:1;min-width:130px"><label style="margin-top:0">Usuario</label><select id="r-usuario" onchange="pintarReportes()"></select></div>
+      </div>
+      <div class="barra" style="margin:10px 0 0">
+        <button class="btn btn-sec btn-mini" onclick="rangoRapido('hoy')">Hoy</button>
+        <button class="btn btn-sec btn-mini" onclick="rangoRapido('semana')">Últimos 7 días</button>
+        <button class="btn btn-sec btn-mini" onclick="rangoRapido('mes')">Este mes</button>
+        <button class="btn btn-sec btn-mini" onclick="rangoRapido('anio')">Este año</button>
+        <span style="flex:1"></span>
+        <button class="btn btn-sec btn-mini" onclick="exportarReporte()">📊 Descargar Excel</button>
+      </div>
+    </div>
+    <div id="contenido-reportes"></div>
+  </section>
+
+  <!-- ============ CONFIGURACIÓN · el doctor como dueño, no como médico ============ -->
+  <section id="sec-config" class="oculto">
+    <div class="barra">
+      <button class="btn" id="btn-cfg-precios" onclick="cambiarConfig('precios')">💲 Precios</button>
+      <button class="btn btn-sec" id="btn-cfg-usuarios" onclick="cambiarConfig('usuarios')">👥 Usuarios</button>
+      <button class="btn btn-sec" id="btn-cfg-datos" onclick="cambiarConfig('datos')">💾 Datos</button>
+    </div>
+
+    <div id="cfg-precios">
+      <div class="sub" style="margin-bottom:10px">Lo que cobra el consultorio. De aquí salen los precios de las ventas y los suplementos que puedes prescribir.</div>
+      <div class="barra">
+        <button class="btn" id="btn-cat-servicios" onclick="cambiarCatalogo('servicio')">Servicios</button>
+        <button class="btn btn-sec" id="btn-cat-productos" onclick="cambiarCatalogo('producto')">Suplementos</button>
+        <span style="flex:1"></span>
+        <button class="btn btn-sec" onclick="cargarCatalogoDr()">📋 Cargar lista del Dr.</button>
+        <button class="btn" onclick="abrirModalCatalogo()">+ Nuevo</button>
+      </div>
+      <div id="lista-catalogo"></div>
+    </div>
+
+    <div id="cfg-usuarios" class="oculto">
+      <div class="sub" style="margin-bottom:10px">Cada persona entra con su PIN. Las ventas y atenciones quedan a nombre de quien las hizo.</div>
+      <div id="lista-usuarios"></div>
+      <div class="barra" style="margin-top:10px"><button class="btn" onclick="abrirModalUsuario()">+ Nuevo usuario</button></div>
+    </div>
+
+    <div id="cfg-datos" class="oculto">
+      <div id="cfg-datos-resumen"></div>
+
+      <h2>Respaldo</h2>
+      <div class="tarjeta">
+        <div class="sub" style="margin-bottom:10px">Los datos viven <b>solo en este navegador</b>. Si se borra el caché o se daña el equipo, se pierden. Descarga un respaldo seguido.</div>
+        <div class="barra" style="margin:0">
+          <button class="btn" onclick="descargarRespaldo()">⬇️ Descargar respaldo</button>
+          <button class="btn btn-sec" onclick="document.getElementById('archivo-respaldo').click()">⬆️ Restaurar respaldo</button>
+        </div>
+      </div>
+
+      <h2>Datos de ejemplo</h2>
+      <div class="tarjeta">
+        <div class="sub" style="margin-bottom:10px">Pacientes y ventas inventados, para probar o hacer una demostración. <b>Reemplaza todo lo que haya.</b></div>
+        <button class="btn btn-sec" onclick="cargarDemo()">📋 Cargar datos de ejemplo</button>
+      </div>
+
+      <h2>Empezar de cero</h2>
+      <div class="tarjeta" style="border-color:#e0b4ae">
+        <div class="sub" style="margin-bottom:10px">Borra <b>todo</b>: pacientes, historias clínicas, citas, ventas y movimientos. Los usuarios y sus PIN se conservan. No se puede deshacer.</div>
+        <button class="btn btn-peligro" onclick="abrirBorrarTodo()">🗑 Borrar todos los datos</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  Sistema interno del consultorio · Los datos se guardan en este navegador. &nbsp;
+  <button onclick="descargarRespaldo()">Descargar respaldo</button>
+  <input type="file" id="archivo-respaldo" accept=".json" class="oculto" onchange="restaurarRespaldo(this)">
+</footer>
+
+<!-- ============ MODAL PACIENTE ============ -->
+<div id="modal-paciente" class="fondo-modal oculto">
+  <div class="modal">
+    <h3 id="titulo-modal-paciente">Nuevo paciente</h3>
+    <label>Nombre completo *</label>
+    <input id="p-nombre" placeholder="Ej: María González" oninput="buscarParecidos()">
+    <label>Documento *</label>
+    <div style="display:grid;grid-template-columns:120px 1fr;gap:10px">
+      <select id="p-doctipo" onchange="ajustarDoc()">
+        <option value="DNI">DNI</option>
+        <option value="CE">CE</option>
+        <option value="Otro">Otro</option>
+      </select>
+      <input id="p-doc" inputmode="numeric" placeholder="8 dígitos" oninput="filtrarDoc()">
+    </div>
+    <div id="p-aviso-dup"></div>
+    <label>Teléfono</label>
+    <input id="p-telefono" placeholder="Ej: 987654321">
+
+    <div id="bloque-primera-cita" style="margin-top:14px;padding-top:12px;border-top:1px dashed #c4ccd4">
+      <label style="color:#15557f;font-size:14px">📅 Programar primera cita <span class="sub" style="font-weight:400">(opcional — aparecerá en la Agenda)</span></label>
+      <label>Tipo de cita</label>
+      <select id="p-cita-tipo" onchange="pintarSlotsPaciente()">
+        <option value="consulta">Consulta (paciente nuevo) · 45 min</option>
+        <option value="control">Control post-operatorio · 20 min</option>
+        <option value="cirugia">Cirugía · 120 min</option>
+      </select>
+      <label>Fecha <span class="sub" style="font-weight:400">— elige un día</span></label>
+      <input type="hidden" id="p-cita-fecha">
+      <div id="p-cita-cal"></div>
+      <label style="margin-top:14px">Horario disponible <span class="sub" style="font-weight:400" id="p-cita-hora-sel"></span></label>
+      <input type="hidden" id="p-cita-hora">
+      <div id="p-cita-slots"></div>
+    </div>
+
+    <div style="margin-top:14px;padding-top:12px;border-top:1px dashed #c4ccd4">
+      <button type="button" class="btn btn-sec btn-mini" id="btn-clinico" onclick="toggleClinico()" style="width:100%;text-align:left">▸ Datos clínicos (los completa el doctor)</button>
+      <div id="bloque-clinico" class="oculto" style="margin-top:10px">
+        <div class="fila-2">
+          <div><label>Edad</label><input id="p-edad" type="number" min="0" placeholder="Ej: 35"></div>
+          <div><label>Sexo</label>
+            <select id="p-sexo"><option value="">—</option><option>Femenino</option><option>Masculino</option><option>Otro</option></select>
+          </div>
+        </div>
+        <label>Correo</label>
+        <input id="p-email" placeholder="Opcional">
+        <div class="fila-2">
+          <div><label>Peso (kg)</label><input id="p-peso" type="number" step="0.1" min="0" placeholder="Ej: 92.5"></div>
+          <div><label>Altura (cm)</label><input id="p-altura" type="number" min="0" placeholder="Ej: 165"></div>
+        </div>
+        <label>Cirugía / patología <span class="sub" style="font-weight:400">— sale de ⚙️ Precios</span></label>
+        <div id="p-procedimientos"></div>
+        <div class="fila-2">
+          <div><label>Fecha de cirugía</label><input id="p-fechacir" type="date"></div>
+          <div><label>Peso meta (kg)</label><input id="p-meta" type="number" step="0.1" min="0" placeholder="Ej: 65"></div>
+        </div>
+        <label>Objetivo <span class="sub" style="font-weight:400">— nota libre, opcional</span></label>
+        <input id="p-objetivo" placeholder="Ej: llegar al matrimonio de su hija">
+        <div class="fila-2">
+          <div><label>Peso inicial (kg) <span class="sub" style="font-weight:400">— con el que empezó</span></label><input id="p-pesoinicial" type="number" step="0.1" min="0" placeholder="Se llena solo"></div>
+          <div></div>
+        </div>
+        <label>Alergias / observaciones</label>
+        <input id="p-alergias" placeholder="Ej: alérgica a lactosa. Vacío si no tiene">
+      </div>
+    </div>
+    <div class="acciones">
+      <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
+      <button class="btn" onclick="guardarPaciente()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL CITA ============ -->
+<div id="modal-cita" class="fondo-modal oculto">
+  <div class="modal">
+    <h3 id="titulo-modal-cita">Nueva cita</h3>
+    <div class="fila-2">
+      <div><label>Tipo</label>
+        <select id="c-tipo" onchange="alTipoCita()">
+          <option value="consulta">Consulta (paciente nuevo) · 45 min</option>
+          <option value="control">Control post-op · 20 min</option>
+          <option value="cirugia">Cirugía · 120 min</option>
+          <option value="reunion">Reunión (del doctor)</option>
+        </select>
+      </div>
+      <div><label>Duración (min)</label><input id="c-dur" type="number" min="5" step="5" oninput="pintarSlotsCita()"></div>
+    </div>
+    <div id="c-pac-wrap">
+      <label>Paciente *</label>
+      <select id="c-paciente"></select>
+    </div>
+    <label>Fecha * <span class="sub" style="font-weight:400">— elige un día</span></label>
+    <input type="hidden" id="c-fecha">
+    <div id="c-cal"></div>
+    <label style="margin-top:14px">Horario disponible * <span class="sub" style="font-weight:400" id="c-hora-sel"></span></label>
+    <input type="hidden" id="c-hora">
+    <div id="c-slots"></div>
+    <label>Estado</label>
+    <select id="c-estado">
+      <option value="pendiente">Pendiente</option>
+      <option value="confirmada">Confirmada</option>
+      <option value="atendida">Atendida</option>
+      <option value="cancelada">Cancelada</option>
+    </select>
+    <label>Motivo / notas</label>
+    <input id="c-motivo" placeholder="Ej: primera consulta, control de 1 mes…">
+
+    <div id="c-pago-wrap" style="margin-top:14px;padding-top:12px;border-top:1px dashed #c4ccd4">
+      <div id="c-pago-editable">
+        <label style="color:#15557f;font-size:14px;margin-top:0">💰 ¿Paga ahora?</label>
+        <div class="plazos">
+          <button type="button" class="plazo" id="c-pago-no" onclick="elegirPagoCita(false)">No, paga al salir</button>
+          <button type="button" class="plazo" id="c-pago-si" onclick="elegirPagoCita(true)">Sí, cobrar ahora</button>
+        </div>
+        <div id="c-pago-detalle" style="margin-top:10px"></div>
+      </div>
+      <div id="c-pago-yapagada" class="oculto"></div>
+    </div>
+
+    <div class="acciones">
+      <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
+      <button class="btn" id="btn-guardar-cita" onclick="guardarCita()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL CATÁLOGO ============ -->
+<div id="modal-catalogo" class="fondo-modal oculto">
+  <div class="modal">
+    <h3 id="titulo-modal-catalogo">Nuevo ítem</h3>
+    <label>Tipo *</label>
+    <select id="k-tipo" onchange="alternarCamposCatalogo()">
+      <option value="servicio">Servicio (consulta, cirugía…)</option>
+      <option value="producto">Producto (suplemento, insumo…)</option>
+    </select>
+    <label>Nombre *</label>
+    <input id="k-nombre" placeholder="Ej: Consulta de nutrición / Proteína B&N vainilla">
+    <div class="fila-2">
+      <div><label>Categoría</label>
+        <select id="k-categoria"></select>
+      </div>
+      <div><label>Precio</label><input id="k-precio" type="number" step="0.01" min="0" placeholder="Ej: 120"></div>
+    </div>
+    <div id="campos-producto" class="oculto">
+      <div class="fila-2">
+        <div><label>Marca</label>
+          <select id="k-marca"><option>B&amp;N</option><option>Otra marca</option></select>
+        </div>
+        <div><label>Unidad</label><input id="k-unidad" placeholder="Ej: frasco, caja, unidad"></div>
+      </div>
+      <div class="fila-2">
+        <div><label>Stock actual</label><input id="k-stock" type="number" min="0" step="1" placeholder="Ej: 24"></div>
+        <div><label>Stock mínimo (alerta)</label><input id="k-stockmin" type="number" min="0" step="1" placeholder="Ej: 5"></div>
+      </div>
+    </div>
+    <div class="acciones">
+      <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
+      <button class="btn" onclick="guardarCatalogo()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL ARCHIVAR / ELIMINAR ============ -->
+<div id="modal-baja" class="fondo-modal oculto">
+  <div class="modal">
+    <h3 id="baja-titulo"></h3>
+    <div class="sub" id="baja-resumen"></div>
+
+    <div id="baja-opciones">
+      <div class="opcion-baja" onclick="confirmarArchivar()">
+        <b>🗄 Archivar <span class="chip chip-verde">Recomendado</span></b>
+        <div class="sub" id="baja-txt-archivar"></div>
+      </div>
+      <div class="opcion-baja peligro" onclick="pedirConfirmacionBorrado()">
+        <b>🗑 Eliminar definitivamente</b>
+        <div class="sub" id="baja-txt-eliminar"></div>
+      </div>
+    </div>
+
+    <div id="baja-confirmar" class="oculto">
+      <div class="aviso aviso-rojo">
+        <b>⚠️ Esto no se puede deshacer.</b>
+        <div id="baja-que-se-borra"></div>
+      </div>
+      <label>Para confirmar, escribe el nombre del paciente:</label>
+      <div class="sub" id="baja-nombre-copiar" style="margin-bottom:4px"></div>
+      <input id="baja-nombre" placeholder="Escribe el nombre completo" oninput="validarNombreBorrado()">
+      <div class="acciones">
+        <button class="btn btn-sec" onclick="volverAOpcionesBaja()">← Volver</button>
+        <button class="btn btn-peligro" id="btn-baja-final" disabled onclick="eliminarDefinitivo()">Eliminar para siempre</button>
+      </div>
+    </div>
+
+    <div class="acciones" id="baja-cancelar">
+      <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL VENTA ============ -->
+<div id="modal-venta" class="fondo-modal oculto">
+  <div class="modal" style="max-width:560px">
+    <h3>Nueva venta</h3>
+    <div class="sub" id="v-quien"></div>
+    <label>Paciente</label>
+    <select id="v-paciente"><option value="">— Venta sin paciente (mostrador) —</option></select>
+    <label>Agregar servicio o producto</label>
+    <select id="v-item" onchange="agregarAlCarrito()"></select>
+    <div id="v-carrito" style="margin-top:10px"></div>
+    <div class="fila-2" style="margin-top:12px">
+      <div><label>Método de pago</label>
+        <select id="v-pago"><option>Efectivo</option><option>Yape / Plin</option><option>Tarjeta</option><option>Transferencia</option></select>
+      </div>
+      <div><label>Descuento (S/)</label><input id="v-descuento" type="number" min="0" step="0.5" value="0" oninput="pintarCarrito()"></div>
+    </div>
+    <label>Nota (opcional)</label>
+    <input id="v-nota" placeholder="Ej: pago parcial, promoción…">
+    <div class="acciones">
+      <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
+      <button class="btn" onclick="guardarVenta()">Cobrar y guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL MOVIMIENTO DE STOCK ============ -->
+<div id="modal-mov" class="fondo-modal oculto">
+  <div class="modal">
+    <h3>Movimiento de stock</h3>
+    <label>Producto *</label>
+    <select id="m-producto" onchange="pintarStockActual()"></select>
+    <div class="sub" id="m-actual" style="margin-top:4px"></div>
+    <label>Tipo de movimiento *</label>
+    <select id="m-tipo" onchange="pintarStockActual()">
+      <option value="entrada">Entrada — llegó mercadería</option>
+      <option value="salida">Salida — merma, vencido, uso interno</option>
+      <option value="ajuste">Ajuste — corregir al conteo real</option>
+    </select>
+    <label id="m-lbl-cant">Cantidad que entra *</label>
+    <input id="m-cantidad" type="number" min="0" step="1" oninput="pintarStockActual()">
+    <label>Motivo / nota</label>
+    <input id="m-motivo" placeholder="Ej: compra a laboratorio, frasco roto, conteo mensual…">
+    <div class="acciones">
+      <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
+      <button class="btn" onclick="guardarMov()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL USUARIO ============ -->
+<div id="modal-usuario" class="fondo-modal oculto">
+  <div class="modal">
+    <h3 id="titulo-modal-usuario">Nuevo usuario</h3>
+    <label>Nombre *</label>
+    <input id="u-nombre" placeholder="Ej: Recepción / Dr. Arredondo">
+    <label>Rol</label>
+    <select id="u-rol">
+      <option value="recepcion">Recepción — atiende, agenda y vende</option>
+      <option value="doctor">Doctor / dueño — además ve reportes</option>
+    </select>
+    <label>PIN de 4 dígitos *</label>
+    <input id="u-pin" inputmode="numeric" maxlength="4" placeholder="Ej: 1234" oninput="this.value=this.value.replace(/\D/g,'').slice(0,4)">
+    <div class="acciones">
+      <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
+      <button class="btn" onclick="guardarUsuario()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL TICKET (MÓDULO 6) ============ -->
+<div id="modal-ticket" class="fondo-modal oculto">
+  <div class="modal" style="max-width:340px">
+    <div id="ticket"></div>
+    <div id="ticket-luego" class="no-print"></div>
+    <div class="acciones no-print">
+      <button class="btn btn-sec" onclick="cerrarModales()">Cerrar</button>
+      <button class="btn" onclick="window.print()">🖨 Imprimir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL NOTA DE SESIÓN ============ -->
+<div id="modal-nota" class="fondo-modal oculto">
+  <div class="modal">
+    <h3>Nueva nota de sesión</h3>
+    <label>Fecha</label>
+    <input id="n-fecha" type="date">
+    <label>Nota *</label>
+    <textarea id="n-texto" placeholder="Evolución, indicaciones, peso del día, suplementos recomendados…"></textarea>
+    <div class="acciones">
+      <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
+      <button class="btn" onclick="guardarNota()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================== BASE DE DATOS LOCAL ==================
+   Los 7 módulos comparten esta única estructura guardada en el navegador. */
+const CLAVE = 'consultoriobn_v1';
+const NEGOCIO = 'Consultorio B&N — Dr. Mariano Arredondo';
+const USUARIOS_INICIALES = [
+  { id: 'u-recepcion', nombre: 'Recepción', rol: 'recepcion', pin: '1234' },
+  { id: 'u-doctor', nombre: 'Dr. Arredondo', rol: 'doctor', pin: '4321' }
+];
+let db = { pacientes: [], citas: [], catalogo: [], ventas: [], movimientos: [], atenciones: [], ordenes: [], controles: [], usuarios: [], config: { correlativo: 1, negocio: NEGOCIO } };
+
+function cargar() {
+  try {
+    const crudo = localStorage.getItem(CLAVE);
+    if (crudo) db = JSON.parse(crudo);
+  } catch (e) { console.error('Error al leer datos', e); }
+  db.pacientes = db.pacientes || [];
+  db.citas = db.citas || [];
+  db.catalogo = db.catalogo || [];
+  db.ventas = db.ventas || [];
+  db.movimientos = db.movimientos || [];
+  db.atenciones = db.atenciones || [];
+  db.ordenes = db.ordenes || [];
+  db.controles = db.controles || [];
+  // Si nunca se crearon usuarios, se siembran los dos de fábrica (PIN 1234 / 4321 — cambiarlos)
+  db.usuarios = (db.usuarios && db.usuarios.length) ? db.usuarios : USUARIOS_INICIALES.map(u => ({ ...u }));
+  db.config = db.config || { correlativo: 1, negocio: NEGOCIO };
+  if (!db.config.correlativo) db.config.correlativo = 1;
+}
+function guardar() { localStorage.setItem(CLAVE, JSON.stringify(db)); }
+function nuevoId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function esc(t) { return String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+/* "1 atención" pero "3 atenciones": el plural de las palabras agudas pierde la tilde */
+function plural(n, singular, pluralForma) { return n + ' ' + (n === 1 ? singular : (pluralForma || singular + 's')); }
+function money(n) { const v = Number(n||0); return 'S/ ' + v.toFixed(2); }
+
+/* ================== FECHAS ================== */
+function hoyStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function aFecha(str) { const [a,m,d] = str.split('-').map(Number); return new Date(a, m-1, d); }
+function fechaBonita(str) { if (!str) return '—'; return aFecha(str).toLocaleDateString('es', { day:'numeric', month:'short', year:'numeric' }); }
+function diasHasta(str) { return Math.round((aFecha(str) - aFecha(hoyStr())) / 86400000); }
+function sumarDias(str, n) {
+  const d = aFecha(str); d.setDate(d.getDate() + n);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+/* ================== ACCESO CON PIN ==================
+   Cada persona entra con su PIN. Sirve para dos cosas: saber quién
+   registró cada venta y mostrarle reportes solo al doctor. */
+let sesion = null;      // usuario que está usando el sistema ahora
+let pinCandidato = null;
+let pinEscrito = '';
+
+function pintarAcceso() {
+  document.getElementById('usuarios-acceso').innerHTML = db.usuarios.map(u =>
+    '<button class="btn-usuario" onclick="elegirUsuario(\'' + u.id + '\')">' +
+    '<span><b>' + esc(u.nombre) + '</b><br><span class="sub">' + (u.rol === 'doctor' ? 'Doctor / dueño' : 'Recepción') + '</span></span>' +
+    '<span style="color:#15557f">→</span></button>').join('');
+  document.getElementById('paso-quien').classList.remove('oculto');
+  document.getElementById('paso-pin').classList.add('oculto');
+  document.getElementById('pantalla-acceso').classList.remove('oculto');
+}
+function elegirUsuario(id) {
+  pinCandidato = db.usuarios.find(u => u.id === id);
+  pinEscrito = '';
+  document.getElementById('pin-nombre').textContent = pinCandidato.nombre;
+  document.getElementById('pin-error').textContent = '';
+  document.getElementById('paso-quien').classList.add('oculto');
+  document.getElementById('paso-pin').classList.remove('oculto');
+  pintarPuntos();
+}
+function volverAQuien() { pinEscrito = ''; pintarAcceso(); }
+function pintarPuntos() { document.getElementById('pin-puntos').textContent = '•'.repeat(pinEscrito.length) + '○'.repeat(4 - pinEscrito.length); }
+function teclaPin(t) {
+  if (t === 'borrar') { pinEscrito = pinEscrito.slice(0, -1); pintarPuntos(); return; }
+  if (pinEscrito.length >= 4) return;
+  pinEscrito += t;
+  pintarPuntos();
+  if (pinEscrito.length === 4) setTimeout(validarPin, 120);
+}
+function validarPin() {
+  if (pinEscrito === pinCandidato.pin) { entrar(pinCandidato); return; }
+  document.getElementById('pin-error').textContent = 'PIN incorrecto. Intenta de nuevo.';
+  pinEscrito = ''; pintarPuntos();
+}
+function entrar(u) {
+  sesion = u;
+  document.getElementById('pantalla-acceso').classList.add('oculto');
+  document.getElementById('quien-soy').textContent = '👤 ' + u.nombre;
+  // Cada rol ve solo sus pestañas: el resto ni aparece
+  const permitidas = VISTA_ROL[u.rol] || [];
+  PESTANAS.forEach(t => document.getElementById('tab-' + t).classList.toggle('oculto', !permitidas.includes(t)));
+  // El doctor arranca en su fila de pacientes; recepción, en la lista de pacientes
+  atencionesFecha = hoyStr();
+  cfgVista = 'precios';
+  if (verArchivados) alternarArchivados(); // cada sesión empieza viendo los pacientes activos
+  irA(permitidas[0]);
+  actualizarBadge(); actualizarBadgeStock(); actualizarBadgeAtenciones(); actualizarBadgeVentas(); actualizarBadgeControles();
+}
+function cerrarSesion() { sesion = null; pinEscrito = ''; cerrarModales(); pintarAcceso(); }
+function esDoctor() { return sesion && sesion.rol === 'doctor'; }
+
+/* ================== NAVEGACIÓN ==================
+   El doctor tiene dos sombreros y el sistema los separa:
+   MÉDICO (atenciones, pacientes) y DUEÑO (reportes, precios, usuarios).
+   Todo lo operativo del mostrador —agenda, stock, ventas— es de recepción. */
+const SECCIONES = ['atenciones','consulta','pacientes','ficha','agenda','stock','movimientos','ventas','reportes','config'];
+const PESTANAS = ['atenciones','pacientes','agenda','stock','movimientos','ventas','reportes','config'];
+const VISTA_ROL = {
+  doctor:    ['atenciones','pacientes','reportes','config'],
+  recepcion: ['pacientes','agenda','stock','movimientos','ventas']
+};
+// Secciones que no son pestaña pero cuelgan de una que sí lo es
+const PADRE = { ficha: 'pacientes', consulta: 'atenciones' };
+let fichaId = null;
+
+function puedeVer(seccion) {
+  if (!sesion) return false;
+  const permitidas = VISTA_ROL[sesion.rol] || [];
+  return permitidas.includes(PADRE[seccion] || seccion);
+}
+function irA(seccion) {
+  if (!puedeVer(seccion)) { alert('Esta sección no corresponde a tu usuario.'); return; }
+  SECCIONES.forEach(s => document.getElementById('sec-' + s).classList.toggle('oculto', s !== seccion));
+  PESTANAS.forEach(s => document.getElementById('tab-' + s).classList.toggle('activo', s === seccion || PADRE[seccion] === s));
+  if (seccion === 'atenciones') pintarAtenciones();
+  if (seccion === 'pacientes') pintarListaPacientes();
+  if (seccion === 'agenda') pintarAgenda();
+  if (seccion === 'stock') pintarStock();
+  if (seccion === 'movimientos') pintarMovimientos();
+  if (seccion === 'ventas') pintarVentas();
+  if (seccion === 'reportes') { if (!document.getElementById('r-desde').value) rangoRapido('mes'); else pintarReportes(); }
+  if (seccion === 'config') cambiarConfig(cfgVista);
+}
+function nombrePaciente(id) { const p = db.pacientes.find(x => x.id === id); return p ? p.nombre : '(paciente eliminado)'; }
+/* En una venta, sin paciente puede significar dos cosas distintas:
+   que fue una venta de mostrador, o que el paciente se eliminó después. */
+function nombreEnVenta(v) {
+  if (v.pacienteId) return nombrePaciente(v.pacienteId);
+  return v.pacienteBorrado ? v.pacienteBorrado + ' (eliminado)' : 'Mostrador';
+}
+
+/* ================== MÓDULO 1 · PACIENTES ================== */
+let verArchivados = false;
+function alternarArchivados() {
+  verArchivados = !verArchivados;
+  pintarListaPacientes(); // el botón se repinta ahí, con el conteo al día
+}
+function pintarListaPacientes() {
+  const filtro = (document.getElementById('buscador').value || '').toLowerCase().trim();
+  const cont = document.getElementById('lista-pacientes');
+  const delGrupo = db.pacientes.filter(p => !!p.archivado === verArchivados);
+  const lista = delGrupo
+    .filter(p => p.nombre.toLowerCase().includes(filtro) || (p.documento||'').toLowerCase().includes(filtro))
+    .sort((a,b) => a.nombre.localeCompare(b.nombre));
+  // El botón se muestra SIEMPRE con el conteo: una función que no se ve, no existe
+  const nArch = db.pacientes.filter(p => p.archivado).length;
+  const btnArch = document.getElementById('btn-ver-archivados');
+  btnArch.textContent = verArchivados ? '👥 Ver activos' : '🗄 Archivados (' + nArch + ')';
+  btnArch.className = verArchivados ? 'btn' : 'btn btn-sec';
+
+  if (!lista.length) {
+    cont.innerHTML = '<div class="vacio">' + (
+      verArchivados ? 'No hay pacientes archivados.'
+      : delGrupo.length ? 'Ningún paciente coincide con la búsqueda.'
+      : db.pacientes.length ? 'No hay pacientes activos. Presiona <b>🗄 Ver archivados</b> para ver los ' + nArch + ' archivados.'
+      : 'Aún no hay pacientes. Presiona <b>+ Nuevo paciente</b> o <b>Cargar datos de ejemplo</b> abajo.') + '</div>';
+    return;
+  }
+  cont.innerHTML = lista.map(p => {
+    const proc = p.procedimiento ? '<span class="chip chip-azul">' + esc(p.procedimiento) + '</span>' : '';
+    const prox = proximaCita(p.id);
+    const sub = p.archivado
+      ? 'Archivado el ' + fechaBonita(p.archivadoEl) + ' · su historia clínica se conserva'
+      : (p.documento ? esc(p.docTipo || 'Doc') + ' ' + esc(p.documento) + ' · ' : '') +
+        (prox ? 'Próxima cita: ' + fechaBonita(prox.fecha) + ' ' + prox.hora : 'Sin cita programada');
+    return '<div class="tarjeta fila-item"' + (p.archivado ? ' style="opacity:.7"' : '') + ' onclick="verFicha(\'' + p.id + '\')">' +
+      '<div class="datos"><b>' + esc(p.nombre) + '</b> ' +
+        (p.archivado ? '<span class="chip chip-gris">🗄 Archivado</span>' : proc) +
+        '<span>' + sub + '</span></div>' +
+      '<span style="color:#15557f">Ver ficha →</span></div>';
+  }).join('');
+}
+function proximaCita(pacienteId) {
+  return db.citas
+    .filter(c => c.pacienteId === pacienteId && c.estado !== 'cancelada' && c.estado !== 'atendida' && (c.fecha + 'T' + c.hora) >= (hoyStr()+'T00:00'))
+    .sort((a,b) => (a.fecha+a.hora).localeCompare(b.fecha+b.hora))[0];
+}
+
+/* Las cirugías del paciente salen de la misma lista del catálogo que usa la atención */
+let procsPac = [];
+function alternarProcPac(nombre) {
+  procsPac = procsPac.includes(nombre) ? procsPac.filter(x => x !== nombre) : procsPac.concat(nombre);
+  pintarProcsPac();
+}
+function pintarProcsPac() {
+  const lista = cirugiasDelDr();
+  const cont = document.getElementById('p-procedimientos');
+  // Un procedimiento viejo que ya no esté en el catálogo no se pierde: se sigue mostrando
+  const extra = procsPac.filter(x => !lista.includes(x));
+  const todas = lista.concat(extra);
+  cont.innerHTML = !todas.length
+    ? '<div class="sub">No hay cirugías en el catálogo. Agrégalas en ⚙️ Precios.</div>'
+    : '<div class="plazos">' + todas.map(n =>
+        '<button type="button" class="plazo' + (procsPac.includes(n) ? ' sel' : '') + '" onclick="alternarProcPac(' + JSON.stringify(n).replace(/"/g,'&quot;') + ')">' +
+        esc(n) + '</button>').join('') + '</div>';
+}
+
+const DOC_MAX = { DNI: 8, CE: 9, Otro: 20 };
+function ajustarDoc() {
+  const t = document.getElementById('p-doctipo').value;
+  const inp = document.getElementById('p-doc');
+  inp.maxLength = DOC_MAX[t] || 20;
+  inp.inputMode = (t === 'Otro') ? 'text' : 'numeric';
+  inp.placeholder = t === 'DNI' ? '8 dígitos' : t === 'CE' ? '9 dígitos' : 'N° de documento';
+  filtrarDoc();
+}
+function filtrarDoc() {
+  const t = document.getElementById('p-doctipo').value;
+  const inp = document.getElementById('p-doc');
+  if (t !== 'Otro') inp.value = inp.value.replace(/\D/g, '').slice(0, DOC_MAX[t]);
+  avisarDuplicado();
+}
+
+/* ================== UN PACIENTE, UNA FICHA ==================
+   El documento es el candado: dos fichas de la misma persona parten
+   su historia clínica en dos y el doctor pierde el rastro. */
+function pacientePorDoc(doc, ignorarId) {
+  const limpio = String(doc || '').trim().toLowerCase();
+  if (!limpio) return null;
+  return db.pacientes.find(p => p.id !== ignorarId && String(p.documento || '').trim().toLowerCase() === limpio);
+}
+function normalizar(s) {
+  // Para comparar nombres: sin tildes, sin dobles espacios, en minúscula
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+}
+function avisarDuplicado() {
+  const cont = document.getElementById('p-aviso-dup');
+  const idEdit = document.getElementById('modal-paciente').dataset.editando;
+  const doc = document.getElementById('p-doc').value;
+  const dup = pacientePorDoc(doc, idEdit);
+  if (!dup) { cont.innerHTML = ''; buscarParecidos(); return; }
+  // Ya existe: no se crea otra ficha, se abre la suya
+  cont.innerHTML = '<div class="aviso aviso-rojo" style="margin:8px 0 0">' +
+    '<b>⚠️ Ese documento ya está registrado</b><div>' + esc(dup.nombre) +
+    (dup.archivado ? ' <span class="chip chip-gris">🗄 Archivado</span>' : '') + '</div>' +
+    '<button type="button" class="btn btn-mini" style="margin-top:6px" onclick="irAFichaDesdeModal(\'' + dup.id + '\')">Ver su ficha →</button></div>';
+}
+function buscarParecidos() {
+  const cont = document.getElementById('p-aviso-dup');
+  if (cont.innerHTML.includes('ya está registrado')) return; // el aviso de documento manda
+  const idEdit = document.getElementById('modal-paciente').dataset.editando;
+  const nom = normalizar(document.getElementById('p-nombre').value);
+  if (nom.length < 4) { cont.innerHTML = ''; return; }
+  // Mismo nombre con otro documento: puede ser un tocayo o la misma persona mal registrada
+  const par = db.pacientes.filter(p => p.id !== idEdit && normalizar(p.nombre) === nom);
+  cont.innerHTML = !par.length ? '' :
+    '<div class="aviso aviso-amarillo" style="margin:8px 0 0">' +
+      '<b>Ya hay ' + (par.length > 1 ? par.length + ' pacientes' : 'un paciente') + ' con ese nombre</b>' +
+      par.map(p => '<div class="sub">' + esc(p.nombre) + ' · ' + esc(p.docTipo || 'Doc') + ' ' + esc(p.documento || '—') +
+        ' <button type="button" class="btn btn-sec btn-mini" onclick="irAFichaDesdeModal(\'' + p.id + '\')">Ver ficha</button></div>').join('') +
+      '<div class="sub" style="margin-top:4px">Si es la misma persona, abre su ficha en vez de crear otra. Si es un tocayo, continúa.</div></div>';
+}
+function irAFichaDesdeModal(id) {
+  cerrarModales();
+  const p = db.pacientes.find(x => x.id === id);
+  // Si estaba archivado hay que mirarlo en la lista de archivados
+  if (p && p.archivado && !verArchivados) alternarArchivados();
+  verFicha(id);
+}
+function abrirModalPaciente(id) {
+  const p = id ? db.pacientes.find(x => x.id === id) : null;
+  document.getElementById('titulo-modal-paciente').textContent = p ? 'Editar paciente' : 'Nuevo paciente';
+  const set = (el,v) => document.getElementById(el).value = v;
+  set('p-nombre', p ? p.nombre : ''); set('p-doctipo', p ? (p.docTipo||'DNI') : 'DNI'); set('p-doc', p ? (p.documento||'') : '');
+  document.getElementById('modal-paciente').dataset.editando = id || ''; // debe estar antes de avisar: si no, se avisa a sí mismo
+  document.getElementById('p-aviso-dup').innerHTML = '';
+  ajustarDoc();
+  set('p-edad', p ? (p.edad||'') : ''); set('p-sexo', p ? (p.sexo||'') : '');
+  set('p-telefono', p ? (p.telefono||'') : ''); set('p-email', p ? (p.email||'') : '');
+  set('p-peso', p ? (p.peso||'') : ''); set('p-altura', p ? (p.altura||'') : '');
+  set('p-fechacir', p ? (p.fechaCirugia||'') : '');
+  set('p-meta', p ? (p.pesoMeta||'') : ''); set('p-pesoinicial', p ? (p.pesoInicial||'') : '');
+  set('p-objetivo', p ? (p.objetivo||'') : ''); set('p-alergias', p ? (p.alergias||'') : '');
+  // Migra el campo viejo (un solo procedimiento en texto) a la lista nueva
+  procsPac = p ? (p.procedimientos || (p.procedimiento ? [p.procedimiento] : [])).slice() : [];
+  pintarProcsPac();
+  // La "primera cita" solo tiene sentido al crear un paciente nuevo; al editar se oculta
+  document.getElementById('bloque-primera-cita').classList.toggle('oculto', !!p);
+  set('p-cita-fecha', ''); set('p-cita-hora', ''); set('p-cita-tipo', 'consulta');
+  mesPac = mesHoy();
+  pintarCalPac(); pintarSlotsPaciente();
+  // El bloque clínico siempre arranca cerrado para no estorbar a recepción
+  document.getElementById('bloque-clinico').classList.add('oculto');
+  document.getElementById('btn-clinico').textContent = '▸ Datos clínicos (los completa el doctor)';
+  document.getElementById('modal-paciente').classList.remove('oculto');
+  document.getElementById('p-nombre').focus();
+}
+function guardarPaciente() {
+  const nombre = document.getElementById('p-nombre').value.trim();
+  if (!nombre) { alert('El nombre es obligatorio.'); return; }
+  const docTipo = document.getElementById('p-doctipo').value;
+  const documento = document.getElementById('p-doc').value.trim();
+  const idEdit = document.getElementById('modal-paciente').dataset.editando;
+
+  // El documento identifica al paciente: sin él no hay forma de evitar fichas duplicadas
+  if (!documento) { alert('El documento es obligatorio.\n\nEs lo que evita que se creen dos fichas de la misma persona.'); document.getElementById('p-doc').focus(); return; }
+  const dup = pacientePorDoc(documento, idEdit);
+  if (dup) {
+    alert('No se puede: el ' + docTipo + ' ' + documento + ' ya está registrado a nombre de ' + dup.nombre +
+      (dup.archivado ? '\n\nEse paciente está ARCHIVADO. Búscalo con "🗄 Ver archivados" y reactívalo.' : '\n\nAbre su ficha en vez de crear una nueva.'));
+    return;
+  }
+  if (documento && docTipo === 'DNI' && documento.length !== 8 && !confirm('El DNI normalmente tiene 8 dígitos y escribiste ' + documento.length + '. ¿Guardar igual?')) return;
+  if (documento && docTipo === 'CE' && documento.length !== 9 && !confirm('El CE normalmente tiene 9 dígitos y escribiste ' + documento.length + '. ¿Guardar igual?')) return;
+  const primeraFecha = document.getElementById('p-cita-fecha').value;
+  const primeraHora = document.getElementById('p-cita-hora').value;
+  if (!idEdit && primeraFecha && !primeraHora) { alert('Elige un horario disponible para la primera cita, o borra la fecha.'); return; }
+  const datos = {
+    nombre, docTipo, documento,
+    edad: document.getElementById('p-edad').value,
+    sexo: document.getElementById('p-sexo').value,
+    telefono: document.getElementById('p-telefono').value.trim(),
+    email: document.getElementById('p-email').value.trim(),
+    peso: document.getElementById('p-peso').value,
+    altura: document.getElementById('p-altura').value,
+    procedimientos: procsPac.slice(),
+    fechaCirugia: document.getElementById('p-fechacir').value,
+    pesoMeta: Number(document.getElementById('p-meta').value) || 0,
+    pesoInicial: Number(document.getElementById('p-pesoinicial').value) || 0,
+    objetivo: document.getElementById('p-objetivo').value.trim(),
+    alergias: document.getElementById('p-alergias').value.trim()
+  };
+  const pesoAct = Number(datos.peso);
+  if (datos.pesoMeta > 0 && pesoAct > 0 && datos.pesoMeta > pesoAct &&
+      !confirm('La meta (' + datos.pesoMeta + ' kg) es MAYOR que el peso actual (' + pesoAct + ' kg). ¿Es correcto?')) return;
+  // Si no se puso peso inicial pero sí peso, el de hoy es su punto de partida
+  if (!datos.pesoInicial && pesoAct > 0 && !idEdit) datos.pesoInicial = pesoAct;
+  let citaCreada = null;
+  if (idEdit) {
+    Object.assign(db.pacientes.find(x => x.id === idEdit), datos);
+  } else {
+    const idNuevo = nuevoId();
+    db.pacientes.push({ id: idNuevo, notas: [], creado: hoyStr(), ...datos });
+    // Si se llenó la primera cita, se crea y aparecerá en la Agenda
+    if (primeraFecha && primeraHora) {
+      const ct = document.getElementById('p-cita-tipo').value;
+      citaCreada = { id: nuevoId(), pacienteId: idNuevo, fecha: primeraFecha, hora: primeraHora, dur: DURACIONES[ct] || 30,
+        tipo: ct, estado: 'pendiente', motivo: 'Primera cita' };
+      db.citas.push(citaCreada);
+    }
+  }
+  guardar(); cerrarModales();
+  if (citaCreada) {
+    calFecha = citaCreada.fecha;
+    irA('agenda');
+    alert('Paciente guardado y cita agendada para el ' + fechaBonita(citaCreada.fecha) + ' a las ' + citaCreada.hora + '.');
+  } else if (idEdit && fichaId === idEdit && !document.getElementById('sec-ficha').classList.contains('oculto')) {
+    verFicha(idEdit);
+  } else {
+    pintarListaPacientes();
+  }
+}
+/* Una historia clínica no se borra: se archiva. Si el paciente vuelve en dos años
+   —o reclama algo— el doctor tiene que poder mostrar lo que hizo y cuándo.
+   Solo se borra de verdad una ficha vacía creada por error. */
+function tieneHistoria(id) {
+  return db.atenciones.some(a => a.pacienteId === id) || db.ventas.some(v => v.pacienteId === id);
+}
+let bajaId = null; // paciente que se está dando de baja
+
+function archivarPaciente(id) {
+  const p = db.pacientes.find(x => x.id === id);
+  if (!p) return;
+  if (!esDoctor()) { alert('Solo el doctor puede archivar o eliminar pacientes.'); return; }
+
+  if (p.archivado) { // reactivar
+    if (!confirm('¿Volver a activar a ' + p.nombre + '? Reaparecerá en la lista de pacientes.')) return;
+    delete p.archivado; delete p.archivadoEl; delete p.archivadoPor;
+    guardar(); verFicha(id);
+    return;
+  }
+  abrirModalBaja(id);
+}
+
+function abrirModalBaja(id) {
+  bajaId = id;
+  const p = db.pacientes.find(x => x.id === id);
+  const nAt = db.atenciones.filter(a => a.pacienteId === id).length;
+  const nVen = db.ventas.filter(v => v.pacienteId === id && !v.anulada).length;
+  const nNotas = (p.notas || []).length;
+  const nCitas = db.citas.filter(c => c.pacienteId === id).length;
+
+  const tiene = [];
+  if (nAt) tiene.push(plural(nAt, 'atención', 'atenciones'));
+  if (nNotas) tiene.push(plural(nNotas, 'nota'));
+  if (nCitas) tiene.push(plural(nCitas, 'cita'));
+  if (nVen) tiene.push(plural(nVen, 'compra'));
+
+  document.getElementById('baja-titulo').textContent = '¿Qué hacer con ' + p.nombre + '?';
+  document.getElementById('baja-resumen').textContent = tiene.length
+    ? 'Tiene ' + tiene.join(', ') + '.'
+    : 'Su ficha está vacía: nunca fue atendido ni tiene compras.';
+
+  document.getElementById('baja-txt-archivar').textContent = nAt
+    ? 'Sale de la lista, pero su historia clínica se conserva completa. Puedes reactivarlo cuando vuelva.'
+    : 'Sale de la lista, pero su ficha se conserva. Puedes reactivarlo cuando vuelva.';
+  document.getElementById('baja-txt-eliminar').textContent = nAt
+    ? 'Borra su historia clínica: ' + plural(nAt,'atención','atenciones') + ', pesos y notas. No se podrá recuperar.'
+    : 'Borra su ficha y sus citas. No se podrá recuperar.';
+
+  const seBorra = [];
+  if (nAt) seBorra.push('• Su historia clínica: ' + plural(nAt,'atención','atenciones') + ' con pesos, IMC y notas');
+  if (nNotas) seBorra.push('• ' + plural(nNotas,'nota clínica','notas clínicas'));
+  if (nCitas) seBorra.push('• ' + plural(nCitas,'cita','citas') + ' del historial');
+  if (nVen) seBorra.push('• Sus ' + plural(nVen,'compra','compras') + ' NO se borran: son registros de caja y quedan en los reportes, pero sin su nombre');
+  document.getElementById('baja-que-se-borra').innerHTML = seBorra.length
+    ? '<div style="margin-top:6px">' + seBorra.map(t => '<div>' + esc(t) + '</div>').join('') + '</div>' : '';
+  document.getElementById('baja-nombre-copiar').innerHTML = '<b>' + esc(p.nombre) + '</b>';
+
+  volverAOpcionesBaja();
+  document.getElementById('modal-baja').classList.remove('oculto');
+}
+function volverAOpcionesBaja() {
+  document.getElementById('baja-opciones').classList.remove('oculto');
+  document.getElementById('baja-cancelar').classList.remove('oculto');
+  document.getElementById('baja-confirmar').classList.add('oculto');
+  document.getElementById('baja-nombre').value = '';
+  document.getElementById('btn-baja-final').disabled = true;
+}
+function pedirConfirmacionBorrado() {
+  // Borrar una historia clínica no puede ser un clic: hay que escribir el nombre
+  document.getElementById('baja-opciones').classList.add('oculto');
+  document.getElementById('baja-cancelar').classList.add('oculto');
+  document.getElementById('baja-confirmar').classList.remove('oculto');
+  document.getElementById('baja-nombre').focus();
+}
+function validarNombreBorrado() {
+  const p = db.pacientes.find(x => x.id === bajaId);
+  const escrito = normalizar(document.getElementById('baja-nombre').value);
+  document.getElementById('btn-baja-final').disabled = escrito !== normalizar(p.nombre);
+}
+
+function confirmarArchivar() {
+  const id = bajaId;
+  const p = db.pacientes.find(x => x.id === id);
+  p.archivado = true;
+  p.archivadoEl = hoyStr();
+  p.archivadoPor = sesion ? sesion.nombre : '—';
+  // Sus citas futuras se cancelan (no se borran: quedan en el historial)
+  db.citas.filter(c => c.pacienteId === id && c.fecha >= hoyStr() && c.estado !== 'atendida')
+    .forEach(c => c.estado = 'cancelada');
+  // Sus pendientes dejan de aparecerle a recepción
+  db.ordenes.filter(o => o.pacienteId === id && o.estado === 'pendiente').forEach(o => o.estado = 'descartada');
+  db.controles.filter(c => c.pacienteId === id && c.estado === 'pendiente').forEach(c => c.estado = 'descartado');
+  guardar(); cerrarModales(); irA('pacientes'); refrescarBadges();
+  alert(p.nombre + ' quedó archivado.\n\nLo encuentras en la lista de pacientes con el botón "🗄 Archivados".');
+}
+function eliminarDefinitivo() {
+  const p = db.pacientes.find(x => x.id === bajaId);
+  if (!p) return;
+  if (normalizar(document.getElementById('baja-nombre').value) !== normalizar(p.nombre)) return;
+  const id = bajaId, nombre = p.nombre;
+  db.pacientes = db.pacientes.filter(x => x.id !== id);
+  db.citas = db.citas.filter(c => c.pacienteId !== id);
+  db.atenciones = db.atenciones.filter(a => a.pacienteId !== id);
+  db.ordenes = db.ordenes.filter(o => o.pacienteId !== id);
+  db.controles = db.controles.filter(c => c.pacienteId !== id);
+  // Las ventas NO se borran: son registros de caja. Quedan sin nombre para no descuadrar los reportes.
+  db.ventas.filter(v => v.pacienteId === id).forEach(v => { v.pacienteId = ''; v.pacienteBorrado = nombre; });
+  bajaId = null;
+  guardar(); cerrarModales(); irA('pacientes'); refrescarBadges();
+  alert(nombre + ' fue eliminado definitivamente.\n\nSus compras quedaron en los reportes de caja, sin su nombre.');
+}
+function refrescarBadges() {
+  actualizarBadge(); actualizarBadgeAtenciones(); actualizarBadgeVentas(); actualizarBadgeControles(); actualizarBadgeStock();
+}
+
+function verFicha(id) {
+  fichaId = id;
+  const p = db.pacientes.find(x => x.id === id);
+  if (!p) { irA('pacientes'); return; }
+  // Agendar y cobrar son de recepción: al doctor no se le ofrecen
+  document.getElementById('btn-ficha-cita').classList.toggle('oculto', !puedeVer('agenda') || !!p.archivado);
+  document.getElementById('btn-ficha-venta').classList.toggle('oculto', !puedeVer('ventas') || !!p.archivado);
+  // Archivar/eliminar es del doctor: recepción no borra historias clínicas
+  const btnArch = document.getElementById('btn-ficha-archivar');
+  btnArch.textContent = p.archivado ? '↩️ Reactivar paciente' : tieneHistoria(id) ? '🗄 Archivar paciente' : '🗑 Eliminar';
+  // El className se asigna antes del toggle: si no, pisaría la clase 'oculto'
+  btnArch.className = p.archivado ? 'btn btn-sec' : 'btn btn-peligro';
+  btnArch.classList.toggle('oculto', !esDoctor());
+
+  // El campo viejo era un solo procedimiento en texto; ahora son varios
+  const procs = p.procedimientos || (p.procedimiento ? [p.procedimiento] : []);
+
+  let imc = '';
+  if (p.peso > 0 && p.altura > 0) {
+    const v = (p.peso / Math.pow(p.altura/100, 2)).toFixed(1);
+    let cat = 'Normal', chip = 'chip-verde';
+    if (v >= 40) { cat = 'Obesidad III'; chip = 'chip-rojo'; }
+    else if (v >= 35) { cat = 'Obesidad II'; chip = 'chip-rojo'; }
+    else if (v >= 30) { cat = 'Obesidad I'; chip = 'chip-amarillo'; }
+    else if (v >= 25) { cat = 'Sobrepeso'; chip = 'chip-amarillo'; }
+    imc = '<div class="dato"><small>IMC</small><b>' + v + '</b> <span class="chip ' + chip + '">' + cat + '</span></div>';
+  }
+  // Cuánto le falta para su meta: lo primero que pregunta el paciente
+  const metaDato = p.pesoMeta > 0 && p.peso > 0
+    ? '<div class="dato" style="background:#f0f6fb"><small>Le falta</small><b style="color:#15557f">' +
+      (p.peso - p.pesoMeta > 0 ? (p.peso - p.pesoMeta).toFixed(1) + ' kg' : '🎉 ¡Meta!') +
+      '</b><span class="sub">meta: ' + Number(p.pesoMeta).toFixed(1) + ' kg</span></div>'
+    : '';
+
+  const citasP = db.citas.filter(c => c.pacienteId === id).sort((a,b) => (b.fecha+b.hora).localeCompare(a.fecha+a.hora));
+  // Las notas escritas en una atención ya se ven en la historia clínica: aquí solo las sueltas
+  const notas = (p.notas || []).filter(n => !n.origenCita).sort((a,b) => b.fecha.localeCompare(a.fecha));
+
+  // Evolución del peso: lo que más interesa seguir en un paciente bariátrico
+  const pesos = db.atenciones.filter(a => a.pacienteId === id && a.peso > 0)
+    .sort((a,b) => (a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+  let htmlPeso = '';
+  if (pesos.length) {
+    const ini = Number(pesos[0].peso), fin = Number(pesos[pesos.length-1].peso), dif = fin - ini;
+    const maxP = Math.max(...pesos.map(a => Number(a.peso))), minP = Math.min(...pesos.map(a => Number(a.peso)));
+    const rango = (maxP - minP) || 1;
+    // Progreso hacia la meta: desde dónde empezó, dónde está, cuánto le falta
+    const arranque = p.pesoInicial > 0 ? Number(p.pesoInicial) : ini;
+    const htmlMeta = p.pesoMeta > 0
+      ? '<div style="margin-bottom:12px">' + htmlProgresoMeta(fin, Number(p.pesoMeta), arranque) + '</div>'
+      : '<div class="aviso aviso-amarillo" style="margin-bottom:12px">Este paciente no tiene <b>peso meta</b>. Ponlo en su próxima atención para ver cuánto le falta.</div>';
+
+    htmlPeso = '<h2>Evolución del peso (' + pesos.length + (pesos.length>1?' controles':' control') + ')</h2>' +
+      '<div class="tarjeta">' +
+        htmlMeta +
+        (pesos.length > 1 ? '<div style="display:flex;justify-content:space-between;margin-bottom:10px">' +
+          '<span class="sub">Desde ' + fechaBonita(pesos[0].fecha) + ': <b style="color:' + (dif<0?'#2e7d4f':'#c0392b') + '">' +
+          (dif<0?'▼ ':'▲ ') + Math.abs(dif).toFixed(1) + ' kg</b></span>' +
+          '<span class="sub">Actual: <b>' + fin.toFixed(1) + ' kg</b></span></div>' : '') +
+        // Mini gráfico de barras: alto proporcional al peso dentro del rango medido
+        '<div style="display:flex;align-items:flex-end;gap:6px;height:90px;border-bottom:1px solid #dde3e9;padding-bottom:2px">' +
+        pesos.map(a => {
+          const alt = 25 + ((Number(a.peso) - minP) / rango) * 60;
+          return '<div style="flex:1;text-align:center" title="' + fechaBonita(a.fecha) + ': ' + Number(a.peso).toFixed(1) + ' kg">' +
+            '<div class="sub" style="font-size:11px">' + Number(a.peso).toFixed(1) + '</div>' +
+            '<div style="background:#15557f;border-radius:3px 3px 0 0;height:' + alt + 'px"></div></div>';
+        }).join('') + '</div>' +
+        '<div style="display:flex;gap:6px">' + pesos.map(a =>
+          '<div style="flex:1;text-align:center" class="sub">' + aFecha(a.fecha).toLocaleDateString('es',{day:'numeric',month:'short'}) + '</div>').join('') + '</div>' +
+      '</div>';
+  }
+
+  document.getElementById('contenido-ficha').innerHTML =
+    (p.archivado ? '<div class="aviso aviso-amarillo"><b>🗄 Paciente archivado</b> el ' + fechaBonita(p.archivadoEl) +
+      ' por ' + esc(p.archivadoPor || '—') + '. Su historia clínica se conserva completa.' +
+      (esDoctor() ? ' Puedes reactivarlo con el botón de arriba.' : '') + '</div>' : '') +
+    '<div class="tarjeta">' +
+      '<h2 style="margin-top:0">' + esc(p.nombre) + '</h2>' +
+      '<div class="grid-datos">' +
+        '<div class="dato"><small>' + esc(p.docTipo || 'Documento') + '</small><b>' + esc(p.documento || '—') + '</b></div>' +
+        '<div class="dato"><small>Edad</small><b>' + (p.edad ? esc(p.edad)+' años' : '—') + '</b></div>' +
+        '<div class="dato"><small>Sexo</small><b>' + esc(p.sexo || '—') + '</b></div>' +
+        '<div class="dato"><small>Teléfono</small><b>' + esc(p.telefono || '—') + '</b></div>' +
+        '<div class="dato"><small>Peso</small><b>' + (p.peso ? esc(p.peso)+' kg' : '—') + '</b></div>' +
+        '<div class="dato"><small>Altura</small><b>' + (p.altura ? esc(p.altura)+' cm' : '—') + '</b></div>' +
+        imc + metaDato +
+      '</div>' +
+      '<label>Cirugía / patología</label><div>' + (procs.length
+          ? procs.map(x => '<span class="chip chip-azul" style="margin-right:4px">' + esc(x) + '</span>').join('')
+          : 'Sin definir') +
+        (p.fechaCirugia ? ' <span class="sub">· operado el ' + fechaBonita(p.fechaCirugia) + '</span>' : '') + '</div>' +
+      (p.objetivo ? '<label>Objetivo</label><div>' + esc(p.objetivo) + '</div>' : '') +
+      '<label>Alergias / observaciones</label>' +
+      '<div>' + (p.alergias ? '<span class="chip chip-rojo">⚠️ ' + esc(p.alergias) + '</span>' : 'Ninguna registrada') + '</div>' +
+    '</div>' +
+
+    htmlPeso +
+
+    htmlHistoria(id) +
+
+    '<div class="barra"><h2 style="margin:0;flex:1">Notas sueltas (' + notas.length + ')</h2>' +
+    (puedeVer('atenciones') ? '<button class="btn btn-mini" onclick="abrirModalNota()">+ Agregar nota</button>' : '') + '</div>' +
+    (notas.length
+      ? notas.map(n => '<div class="nota-sesion"><small>' + fechaBonita(n.fecha) +
+          (puedeVer('atenciones') ? ' <button class="btn btn-peligro btn-mini" style="float:right" onclick="borrarNota(\'' + n.id + '\')">Borrar</button>' : '') +
+          '</small>' + esc(n.texto).replace(/\n/g,'<br>') + '</div>').join('')
+      : '<div class="vacio">Sin notas sueltas. Las notas de cada consulta están en la historia clínica.</div>') +
+
+    '<h2>Historial de citas (' + citasP.length + ')</h2>' +
+    (citasP.length
+      ? citasP.map(c => '<div class="tarjeta cita-dia"><div><b>' + fechaBonita(c.fecha) + ' · ' + rangoCita(c) + '</b> ' + chipTipo(c.tipo) +
+          '<div class="sub">' + esc(c.motivo || nombreTipo(c.tipo)) + '</div></div>' + chipEstado(c.estado) + '</div>').join('')
+      : '<div class="vacio">Sin citas registradas.</div>') +
+
+    htmlConsumo(id);
+
+  irA('ficha');
+}
+
+/* ================== HISTORIA CLÍNICA ==================
+   Cada atención completa y en un solo lugar: lo que el doctor midió,
+   escribió, recetó e indicó ese día. Es el documento del paciente. */
+function htmlHistoria(pacienteId) {
+  const ats = db.atenciones.filter(a => a.pacienteId === pacienteId)
+    .sort((a,b) => (b.fecha+b.hora).localeCompare(a.fecha+a.hora)); // la más reciente arriba
+  if (!ats.length) {
+    return '<h2>Historia clínica</h2><div class="vacio">Este paciente todavía no ha sido atendido. ' +
+      'Cuando el doctor lo atienda, aquí quedará el registro de cada consulta.</div>';
+  }
+  // Para calcular cuánto varió el peso respecto a la atención anterior
+  const cronologico = ats.slice().reverse();
+  const pesoPrevio = {};
+  let ultimo = null;
+  cronologico.forEach(a => { if (a.peso > 0) { pesoPrevio[a.id] = ultimo; ultimo = Number(a.peso); } });
+
+  return '<h2>Historia clínica (' + ats.length + (ats.length > 1 ? ' atenciones' : ' atención') + ')</h2>' +
+    ats.map(a => {
+      const r = a.imc ? { valor: a.imc, ...(calcularIMC(a.peso, a.altura) || {}) } : calcularIMC(a.peso, a.altura);
+      const prev = pesoPrevio[a.id];
+      let dif = '';
+      if (a.peso > 0 && prev != null) {
+        const d = Number(a.peso) - prev;
+        dif = '<span class="chip ' + (d < 0 ? 'chip-verde' : d > 0 ? 'chip-rojo' : 'chip-gris') + '">' +
+          (d < 0 ? '▼' : d > 0 ? '▲' : '=') + ' ' + Math.abs(d).toFixed(1) + ' kg</span>';
+      }
+      const medidas = a.peso > 0
+        ? '<div class="grid-datos" style="margin:8px 0">' +
+            '<div class="dato"><small>Peso</small><b>' + Number(a.peso).toFixed(1) + ' kg</b> ' + dif + '</div>' +
+            (a.altura > 0 ? '<div class="dato"><small>Talla</small><b>' + a.altura + ' cm</b></div>' : '') +
+            (r ? '<div class="dato"><small>IMC</small><b>' + Number(a.imc || r.valor).toFixed(1) + '</b> ' +
+              '<span class="chip ' + (r.chip || 'chip-gris') + '">' + (r.cat || '') + '</span></div>' : '') +
+          '</div>'
+        : '<div class="sub" style="margin:8px 0">Sin medidas registradas ese día.</div>';
+
+      const receta = a.prescripcion && a.prescripcion.length
+        ? '<div style="margin-top:8px"><b style="font-size:13px;color:#556">💊 Le recetó:</b>' +
+          a.prescripcion.map(i => '<div class="sub">• ' + i.cant + '× ' + esc(i.nombre) +
+            (i.indicacion ? ' — <i>' + esc(i.indicacion) + '</i>' : '') + '</div>').join('') + '</div>'
+        : '';
+      const proximo = a.plazoControl
+        ? '<div class="sub" style="margin-top:8px">📅 Citó a control en <b>' + esc(textoPlazo(a.plazoControl)) + '</b></div>' : '';
+
+      // El motivo puede venir de la atención o, si es antigua, del que puso recepción en la cita
+      const cita = db.citas.find(c => c.id === a.citaId);
+      const motivo = a.motivo || (cita ? cita.motivo : '');
+
+      return '<div class="tarjeta ' + claseTipo(a.tipo) + '" style="border-left:4px solid">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">' +
+          '<b>' + fechaBonita(a.fecha) + ' · ' + a.hora + '</b>' +
+          '<span>' + chipTipo(a.tipo) + ' <span class="sub">' + esc(a.usuarioNombre || '—') + '</span></span>' +
+        '</div>' +
+        (motivo ? '<div style="margin-top:6px"><b style="font-size:13px;color:#556">Motivo:</b> ' + esc(motivo) + '</div>' : '') +
+        ((a.cirugias && a.cirugias.length) ? '<div style="margin-top:6px">' +
+          a.cirugias.map(x => '<span class="chip chip-morado" style="margin-right:4px">' + esc(x) + '</span>').join('') + '</div>' : '') +
+        medidas +
+        (a.notas ? '<div class="nota-sesion" style="margin:0">' + esc(a.notas).replace(/\n/g,'<br>') + '</div>' : '') +
+        receta + proximo +
+      '</div>';
+    }).join('');
+}
+
+/* Consumo de suplementos: se deduce de las ventas, no se registra aparte.
+   Sirve para saber si el paciente sigue tomando lo que se le indicó. */
+function htmlConsumo(pacienteId) {
+  const ventasP = db.ventas.filter(v => v.pacienteId === pacienteId && !v.anulada)
+    .sort((a,b) => (b.fecha+b.hora).localeCompare(a.fecha+a.hora));
+  const gastado = ventasP.reduce((s,v) => s + totalVenta(v), 0);
+  const prod = {};
+  ventasP.forEach(v => v.items.filter(i => i.tipo === 'producto').forEach(i => {
+    const p = prod[i.nombre] || (prod[i.nombre] = { cant: 0, ultima: v.fecha });
+    p.cant += i.cant;
+    if (v.fecha > p.ultima) p.ultima = v.fecha;
+  }));
+  const nombres = Object.keys(prod);
+
+  return '<h2>Consumo de suplementos</h2>' +
+    (!nombres.length
+      ? '<div class="vacio">Este paciente aún no ha comprado suplementos.</div>'
+      : '<table class="tabla"><thead><tr><th>Suplemento</th><th>Total comprado</th><th>Última compra</th><th>Hace</th></tr></thead><tbody>' +
+        nombres.sort().map(n => {
+          const p = prod[n];
+          const dias = -diasHasta(p.ultima);
+          // Si hace más de 45 días que no compra, probablemente dejó de tomarlo
+          const alerta = dias > 45 ? ' <span class="chip chip-amarillo">Podría haberlo dejado</span>' : '';
+          return '<tr><td><b>' + esc(n) + '</b></td><td>' + p.cant + '</td>' +
+            '<td>' + fechaBonita(p.ultima) + '</td>' +
+            '<td>' + (dias === 0 ? 'Hoy' : dias + ' días') + alerta + '</td></tr>';
+        }).join('') + '</tbody></table>') +
+
+    '<h2>Compras y atenciones (' + ventasP.length + ')</h2>' +
+    (!ventasP.length
+      ? '<div class="vacio">Sin compras registradas.</div>'
+      : '<div class="tarjeta" style="display:flex;justify-content:space-between;align-items:center">' +
+          '<span class="sub">Total gastado por este paciente</span><b style="font-size:18px">' + money(gastado) + '</b></div>' +
+        '<table class="tabla"><thead><tr><th>#</th><th>Fecha</th><th>Detalle</th><th>Total</th><th></th></tr></thead><tbody>' +
+        ventasP.map(v => '<tr><td><b>#' + v.numero + '</b></td><td>' + fechaBonita(v.fecha) + '</td>' +
+          '<td class="sub">' + v.items.map(i => i.cant + '× ' + esc(i.nombre)).join('<br>') + '</td>' +
+          '<td><b>' + money(totalVenta(v)) + '</b></td>' +
+          '<td><button class="btn btn-sec btn-mini" onclick="verTicket(\'' + v.id + '\')">🖨</button></td></tr>').join('') +
+        '</tbody></table>');
+}
+
+function toggleClinico() {
+  const b = document.getElementById('bloque-clinico');
+  b.classList.toggle('oculto');
+  const abierto = !b.classList.contains('oculto');
+  document.getElementById('btn-clinico').textContent = (abierto ? '▾' : '▸') + ' Datos clínicos (los completa el doctor)';
+}
+
+/* ================== NOTAS DE SESIÓN ================== */
+function abrirModalNota() {
+  document.getElementById('n-fecha').value = hoyStr();
+  document.getElementById('n-texto').value = '';
+  document.getElementById('modal-nota').classList.remove('oculto');
+  document.getElementById('n-texto').focus();
+}
+function guardarNota() {
+  if (!esDoctor()) { alert('Solo el doctor puede escribir notas clínicas.'); return; }
+  const texto = document.getElementById('n-texto').value.trim();
+  if (!texto) { alert('Escribe la nota.'); return; }
+  const p = db.pacientes.find(x => x.id === fichaId);
+  p.notas = p.notas || [];
+  p.notas.push({ id: nuevoId(), fecha: document.getElementById('n-fecha').value || hoyStr(), texto });
+  guardar(); cerrarModales(); verFicha(fichaId);
+}
+function borrarNota(idNota) {
+  // Las notas son clínicas: recepción no las toca
+  if (!esDoctor()) { alert('Solo el doctor puede borrar notas clínicas.'); return; }
+  if (!confirm('¿Borrar esta nota?')) return;
+  const p = db.pacientes.find(x => x.id === fichaId);
+  p.notas = p.notas.filter(n => n.id !== idNota);
+  guardar(); verFicha(fichaId);
+}
+
+/* ================== MÓDULO 2 · AGENDA ================== */
+let calVista = 'semana';
+let calFecha = hoyStr();
+let controlAgendando = null; // si la cita viene de un control que pidió el doctor
+let pagaAhora = false;       // al agendar: ¿cobra en el momento o al salir?
+
+/* ¿Qué servicio se le cobra a una cita? Se deduce de su tipo, para que la consulta
+   no dependa de que alguien se acuerde de agregarla a mano. */
+function servicioDeCita(c) {
+  if (!c || c.tipo === 'reunion') return null;
+  if (c.tipo === 'cirugia') {
+    // En una cirugía se cobra la cirugía que se hizo: la marca el doctor en la atención
+    const at = atencionDeCita(c.id);
+    const nombre = at && at.cirugias && at.cirugias.length ? at.cirugias[0] : null;
+    if (nombre) return db.catalogo.find(k => k.tipo === 'servicio' && k.nombre === nombre && Number(k.precio) > 0) || null;
+    return null;
+  }
+  const cat = c.tipo === 'control' ? 'Control' : 'Consulta';
+  return db.catalogo.find(k => k.tipo === 'servicio' && k.categoria === cat && Number(k.precio) > 0) || null;
+}
+/* La consulta queda pendiente de cobro mientras nadie la haya pagado */
+function citaPorCobrar(c) {
+  return !c.pagada && c.estado !== 'cancelada' && !!servicioDeCita(c);
+}
+const DURACIONES = { consulta: 45, control: 20, cirugia: 120, reunion: 60 }; // minutos por tipo
+function durCita(c) { return Number(c.dur) || DURACIONES[c.tipo] || 30; }
+function catDe(tipo) { return (tipo === 'consulta' || tipo === 'control') ? 'paciente' : tipo; } // paciente | cirugia | reunion
+function minutosDe(h) { const [a,b] = h.split(':').map(Number); return a*60 + (b||0); }
+function aHora(min) { min = ((min%1440)+1440)%1440; return String(Math.floor(min/60)).padStart(2,'0') + ':' + String(min%60).padStart(2,'0'); }
+function finCita(c) { return aHora(minutosDe(c.hora) + durCita(c)); }
+function rangoCita(c) { return c.hora + '–' + finCita(c); }
+function autoDuracion() { document.getElementById('c-dur').value = DURACIONES[document.getElementById('c-tipo').value] || 30; }
+function alTipoCita() {
+  autoDuracion();
+  document.getElementById('c-pac-wrap').classList.toggle('oculto', document.getElementById('c-tipo').value === 'reunion');
+  pintarSlotsCita();
+  pintarPagoCita();
+}
+function elegirPagoCita(v) { pagaAhora = v; pintarPagoCita(); }
+function pintarPagoCita() {
+  const tipo = document.getElementById('c-tipo').value;
+  const idEdit = document.getElementById('modal-cita').dataset.editando;
+  const cEdit = idEdit ? db.citas.find(x => x.id === idEdit) : null;
+  const wrap = document.getElementById('c-pago-wrap');
+  const editable = document.getElementById('c-pago-editable');
+  const yaPagada = document.getElementById('c-pago-yapagada');
+
+  // Una reunión no se cobra
+  if (tipo === 'reunion') { wrap.classList.add('oculto'); return; }
+  wrap.classList.remove('oculto');
+
+  // Una cita ya pagada no se vuelve a cobrar: se muestra su ticket y se esconden los botones
+  if (cEdit && cEdit.pagada) {
+    editable.classList.add('oculto');
+    yaPagada.classList.remove('oculto');
+    const v = db.ventas.find(x => x.id === cEdit.ventaId);
+    yaPagada.innerHTML = '<div class="aviso" style="border-color:#2e7d4f;background:#f2f9f4;margin:0">' +
+      '<b style="color:#2e7d4f">💰 Ya pagada</b>' +
+      (v ? '<div class="sub">Ticket #' + v.numero + ' · ' + fechaBonita(v.fecha) + ' · ' + esc(v.metodoPago||'') + '</div>' : '') + '</div>';
+    return;
+  }
+  editable.classList.remove('oculto');
+  yaPagada.classList.add('oculto');
+  const serv = servicioDeCita({ tipo, id: idEdit });
+  document.getElementById('c-pago-no').classList.toggle('sel', !pagaAhora);
+  document.getElementById('c-pago-si').classList.toggle('sel', pagaAhora);
+  const det = document.getElementById('c-pago-detalle');
+
+  if (!serv) {
+    det.innerHTML = '<div class="sub">No hay un precio de ' + (tipo === 'control' ? 'control' : 'consulta') +
+      ' en ⚙️ Precios, así que no se puede cobrar desde aquí.</div>';
+    document.getElementById('c-pago-si').disabled = true;
+    pagaAhora = false;
+    document.getElementById('c-pago-no').classList.add('sel');
+    document.getElementById('c-pago-si').classList.remove('sel');
+    return;
+  }
+  document.getElementById('c-pago-si').disabled = false;
+  det.innerHTML = pagaAhora
+    ? '<div class="aviso" style="border-color:#15557f;background:#f0f6fb;margin:0">' +
+        'Se cobrará <b>' + esc(serv.nombre) + ' · ' + money(serv.precio) + '</b> al guardar' +
+        '<label style="margin-top:8px">Método de pago</label>' +
+        '<select id="c-pago-metodo"><option>Efectivo</option><option>Yape / Plin</option><option>Tarjeta</option><option>Transferencia</option></select>' +
+      '</div>'
+    : '<div class="sub">Quedará pendiente. Al salir del consultorio se le cobrará en <b>💰 Caja</b>, junto con lo que el doctor le recete.</div>';
+  document.getElementById('btn-guardar-cita').textContent = pagaAhora ? 'Guardar y cobrar' : 'Guardar';
+}
+function citasQueChocan(fecha, hora, dur, idIgnorar) {
+  const ini = minutosDe(hora), fin = ini + Number(dur);
+  return db.citas.filter(c => c.id !== idIgnorar && c.fecha === fecha && c.estado !== 'cancelada'
+    && minutosDe(c.hora) < fin && ini < minutosDe(c.hora) + durCita(c));
+}
+function avisarChoque(fecha, hora, dur, idIgnorar) {
+  const ch = citasQueChocan(fecha, hora, dur, idIgnorar);
+  if (!ch.length) return true;
+  const c = ch[0];
+  return confirm('⚠️ El doctor ya está ocupado a esa hora: ' + nombreTipo(c.tipo) + ' (' + nombreEvento(c) + ') ' + rangoCita(c) + '.\n\n¿Agendar de todos modos?');
+}
+
+/* --- Jornada del doctor según la actividad (ajustable) --- */
+const HORARIOS = {
+  paciente: { inicio: '09:00', fin: '19:00' }, // consultas y controles
+  cirugia:  { inicio: '05:00', fin: '19:00' }, // el Dr. opera desde temprano (~5am)
+  reunion:  { inicio: '09:00', fin: '19:00' }
+};
+function generarSlots(fecha, dur, idIgnorar, cat) {
+  const r = HORARIOS[cat] || HORARIOS.paciente;
+  const iniJ = minutosDe(r.inicio), finJ = minutosDe(r.fin);
+  // TODO lo que hace el doctor ese día le ocupa tiempo (consulta, control, cirugía o reunión)
+  const ocup = db.citas
+    .filter(c => c.id !== idIgnorar && c.fecha === fecha && c.estado !== 'cancelada')
+    .map(c => [minutosDe(c.hora), minutosDe(c.hora) + durCita(c)])
+    .sort((a, b) => a[0] - b[0]);
+  // armar los huecos libres de la jornada
+  const huecos = [];
+  let cur = iniJ;
+  ocup.forEach(([s, e]) => { if (s > cur) huecos.push([cur, Math.min(s, finJ)]); cur = Math.max(cur, e); });
+  if (cur < finJ) huecos.push([cur, finJ]);
+  // dentro de cada hueco, ofrecer inicios encadenados de la nueva duración
+  const out = [];
+  huecos.forEach(([hs, he]) => { for (let t = hs; t + dur <= he; t += dur) out.push({ hora: aHora(t) }); });
+  return out;
+}
+function htmlSlots(fecha, dur, idIgnorar, horaSel, fnClick, cat) {
+  if (!fecha) return '<div class="sub">Elige un día para ver los horarios libres.</div>';
+  let slots = generarSlots(fecha, dur, idIgnorar, cat);
+  if (horaSel && !slots.some(s => s.hora === horaSel)) slots.push({ hora: horaSel });
+  slots.sort((a, b) => a.hora.localeCompare(b.hora));
+  if (!slots.length) return '<div class="sub">No quedan horarios libres ese día. Prueba otro día.</div>';
+  return '<div class="slots">' + slots.map(s =>
+    '<button type="button" class="slot' + (s.hora === horaSel ? ' sel' : '') + '" onclick="' + fnClick + '(\'' + s.hora + '\')">' + s.hora + '</button>'
+  ).join('') + '</div>';
+}
+function pintarSlotsCita() {
+  const fecha = document.getElementById('c-fecha').value;
+  const tipo = document.getElementById('c-tipo').value;
+  const dur = Number(document.getElementById('c-dur').value) || DURACIONES[tipo] || 30;
+  const idEdit = document.getElementById('modal-cita').dataset.editando || null;
+  const sel = document.getElementById('c-hora').value;
+  document.getElementById('c-hora-sel').textContent = sel ? '→ ' + sel + '–' + aHora(minutosDe(sel) + dur) : '';
+  document.getElementById('c-slots').innerHTML = htmlSlots(fecha, dur, idEdit, sel, 'seleccionarSlotCita', catDe(tipo));
+}
+function seleccionarSlotCita(h) { document.getElementById('c-hora').value = h; pintarSlotsCita(); }
+function pintarSlotsPaciente() {
+  const fecha = document.getElementById('p-cita-fecha').value;
+  const tipo = document.getElementById('p-cita-tipo').value;
+  const dur = DURACIONES[tipo] || 30;
+  const sel = document.getElementById('p-cita-hora').value;
+  document.getElementById('p-cita-hora-sel').textContent = sel ? '→ ' + sel + '–' + aHora(minutosDe(sel) + dur) : '';
+  document.getElementById('p-cita-slots').innerHTML = htmlSlots(fecha, dur, null, sel, 'seleccionarSlotPaciente', catDe(tipo));
+}
+function seleccionarSlotPaciente(h) { document.getElementById('p-cita-hora').value = h; pintarSlotsPaciente(); }
+
+/* --- Calendario mensual visual (estilo Calendly) --- */
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const DOW = ['L','M','M','J','V','S','D'];
+function mesHoy() { return hoyStr().slice(0,7); }
+function sumarMes(mesStr, dir) {
+  const [a,m] = mesStr.split('-').map(Number);
+  const d = new Date(a, m-1+dir, 1);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+function htmlCalendario(mesStr, fechaSel, fnDia, fnNav) {
+  const [an, me] = mesStr.split('-').map(Number);
+  const offset = (new Date(an, me-1, 1).getDay()+6)%7; // lunes = 0
+  const dias = new Date(an, me, 0).getDate();
+  const hoy = hoyStr();
+  const puedeRetro = mesStr > mesHoy();
+  let html = '<div class="cal"><div class="cal-head">' +
+    '<button type="button" class="btn btn-sec btn-mini" ' + (puedeRetro?'':'disabled') + ' onclick="' + fnNav + '(-1)">◀</button>' +
+    '<b>' + MESES[me-1] + ' ' + an + '</b>' +
+    '<button type="button" class="btn btn-sec btn-mini" onclick="' + fnNav + '(1)">▶</button></div><div class="cal-grid">' +
+    DOW.map(d => '<div class="cal-dow">' + d + '</div>').join('');
+  for (let i=0;i<offset;i++) html += '<div class="cal-day vacio"></div>';
+  for (let d=1; d<=dias; d++) {
+    const fecha = mesStr + '-' + String(d).padStart(2,'0');
+    let cls = 'cal-day';
+    if (fecha < hoy) cls += ' pasado';
+    if (fecha === hoy) cls += ' hoy';
+    if (fecha === fechaSel) cls += ' sel';
+    html += '<button type="button" class="' + cls + '" ' +
+      (fecha < hoy ? 'disabled' : 'onclick="' + fnDia + '(\'' + fecha + '\')"') + '>' + d + '</button>';
+  }
+  return html + '</div></div>';
+}
+let mesCita = mesHoy();
+function pintarCalCita() { document.getElementById('c-cal').innerHTML = htmlCalendario(mesCita, document.getElementById('c-fecha').value, 'elegirDiaCita', 'navMesCita'); }
+function navMesCita(dir) { mesCita = sumarMes(mesCita, dir); pintarCalCita(); }
+function elegirDiaCita(fecha) {
+  document.getElementById('c-fecha').value = fecha;
+  document.getElementById('c-hora').value = '';
+  mesCita = fecha.slice(0,7);
+  pintarCalCita(); pintarSlotsCita();
+}
+let mesPac = mesHoy();
+function pintarCalPac() { document.getElementById('p-cita-cal').innerHTML = htmlCalendario(mesPac, document.getElementById('p-cita-fecha').value, 'elegirDiaPac', 'navMesPac'); }
+function navMesPac(dir) { mesPac = sumarMes(mesPac, dir); pintarCalPac(); }
+function elegirDiaPac(fecha) {
+  document.getElementById('p-cita-fecha').value = fecha;
+  document.getElementById('p-cita-hora').value = '';
+  mesPac = fecha.slice(0,7);
+  pintarCalPac(); pintarSlotsPaciente();
+}
+function nombreTipo(t) { return t === 'control' ? 'Control post-operatorio' : t === 'cirugia' ? 'Cirugía' : t === 'reunion' ? 'Reunión' : 'Consulta'; }
+function claseTipo(t) { return t === 'control' ? 't-control' : t === 'cirugia' ? 't-cirugia' : t === 'reunion' ? 't-reunion' : 't-consulta'; }
+function chipTipo(t) {
+  const c = t === 'control' ? 'chip-azul' : t === 'cirugia' ? 'chip-rojo' : t === 'reunion' ? 'chip-amarillo' : 'chip-verde';
+  return '<span class="chip ' + c + '">' + nombreTipo(t) + '</span>';
+}
+function nombreEvento(c) { return c.tipo === 'reunion' ? (c.motivo || 'Reunión') : nombrePaciente(c.pacienteId); }
+function chipEstado(e) {
+  const map = { pendiente:['chip-gris','Pendiente'], confirmada:['chip-azul','Confirmada'], atendida:['chip-verde','Atendida'], cancelada:['chip-rojo','Cancelada'] };
+  const [cls,txt] = map[e] || map.pendiente;
+  return '<span class="chip ' + cls + '">' + txt + '</span>';
+}
+/* De un vistazo: quién ya pagó y quién no. Las reuniones no se cobran. */
+function chipPago(c) {
+  if (c.tipo === 'reunion' || c.estado === 'cancelada') return '';
+  if (c.pagada) return '<span class="chip chip-verde">💰 Pagada</span>';
+  if (!servicioDeCita(c)) return '';
+  return '<span class="chip chip-amarillo">⏳ Por pagar</span>';
+}
+
+function cambiarVista(v) {
+  calVista = v;
+  document.getElementById('btn-vista-dia').style.cssText = v==='dia' ? '' : 'background:#fff;color:#333;border:1px solid #c4ccd4';
+  document.getElementById('btn-vista-semana').style.cssText = v==='semana' ? '' : 'background:#fff;color:#333;border:1px solid #c4ccd4';
+  pintarAgenda();
+}
+function moverCalendario(dir) { calFecha = sumarDias(calFecha, dir * (calVista === 'semana' ? 7 : 1)); pintarAgenda(); }
+function lunesDe(str) { const d = aFecha(str); return sumarDias(str, -((d.getDay()+6)%7)); }
+
+/* --- Controles que indicó el doctor: recepción cuadra la fecha con el paciente --- */
+function controlesPendientes() { return db.controles.filter(c => c.estado === 'pendiente'); }
+function actualizarBadgeControles() {
+  const n = controlesPendientes().length;
+  const badge = document.getElementById('badge-controles');
+  badge.textContent = n; badge.classList.toggle('oculto', n === 0);
+}
+function pintarControles() {
+  const pend = controlesPendientes().sort((a,b) => a.fechaSugerida.localeCompare(b.fechaSugerida));
+  document.getElementById('controles-pendientes').innerHTML = !pend.length ? '' :
+    '<h2 style="margin-top:0">📅 El doctor pidió volver a ver a estos pacientes (' + pend.length + ')</h2>' +
+    pend.map(c => '<div class="tarjeta" style="border-left:4px solid #7b3fa0;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">' +
+      '<div><b>' + esc(nombrePaciente(c.pacienteId)) + '</b>' +
+        '<div class="sub">Control en <b>' + esc(c.plazoTexto) + '</b> · sugerido ' +
+        aFecha(c.fechaSugerida).toLocaleDateString('es', { weekday:'long', day:'numeric', month:'long' }) +
+        ' · indicó ' + esc(c.indicadoPor) + '</div></div>' +
+      '<div style="display:flex;gap:8px">' +
+        '<button class="btn" onclick="agendarControl(\'' + c.id + '\')">📅 Agendar</button>' +
+        '<button class="btn btn-peligro btn-mini" onclick="descartarControl(\'' + c.id + '\')">Descartar</button>' +
+      '</div></div>').join('');
+  actualizarBadgeControles();
+}
+function agendarControl(id) {
+  const c = db.controles.find(x => x.id === id);
+  if (!c) return;
+  // Abre la cita precargada en la fecha sugerida; recepción elige la hora con el paciente delante
+  abrirModalCita(c.pacienteId);
+  document.getElementById('c-tipo').value = 'control';
+  alTipoCita();
+  document.getElementById('c-motivo').value = 'Control · indicado por ' + c.indicadoPor;
+  controlAgendando = c.id;
+  elegirDiaCita(c.fechaSugerida < hoyStr() ? hoyStr() : c.fechaSugerida);
+}
+function descartarControl(id) {
+  const c = db.controles.find(x => x.id === id);
+  if (!confirm('¿Descartar el control de ' + nombrePaciente(c.pacienteId) + '?\n\nÚsalo si el paciente no quiso agendar. Queda registrado en su atención.')) return;
+  c.estado = 'descartado';
+  guardar(); pintarAgenda();
+}
+
+function pintarAgenda() {
+  pintarControles();
+  const cont = document.getElementById('vista-agenda');
+  const titulo = document.getElementById('cal-titulo');
+  const nombresDia = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+  document.getElementById('leyenda-agenda').innerHTML =
+    '<span style="color:#2e7d4f">Consulta (paciente nuevo)</span>' +
+    '<span style="color:#15557f">Control post-op</span>' +
+    '<span style="color:#c0392b">Cirugía</span>' +
+    '<span style="color:#e0a800">Reunión del Dr.</span>';
+  const nada = 'eventos';
+
+  if (calVista === 'dia') {
+    titulo.textContent = aFecha(calFecha).toLocaleDateString('es', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+    const citas = db.citas.filter(c => c.fecha === calFecha).sort((a,b) => a.hora.localeCompare(b.hora));
+    cont.innerHTML = citas.length
+      ? citas.map(c => '<div class="tarjeta cita-dia ' + claseTipo(c.tipo) + '" style="border-left:4px solid;cursor:pointer" onclick="abrirModalCitaEdit(\'' + c.id + '\')"><div>' +
+          '<b>' + rangoCita(c) + ' · ' + esc(nombreEvento(c)) + '</b> ' + chipTipo(c.tipo) +
+          '<div class="sub">' + esc(c.motivo || nombreTipo(c.tipo)) + '</div></div>' +
+          '<div style="display:flex;gap:8px;align-items:center">' + chipPago(c) + chipEstado(c.estado) +
+          (atencionDeCita(c.id) ? '' : '<button class="btn btn-peligro btn-mini" onclick="event.stopPropagation();borrarCita(\'' + c.id + '\')">Borrar</button>') +
+          '</div></div>').join('')
+      : '<div class="vacio">No hay ' + nada + ' este día.</div>';
+  } else {
+    const lunes = lunesDe(calFecha), domingo = sumarDias(lunes, 6);
+    titulo.textContent = 'Semana del ' + fechaBonita(lunes) + ' al ' + fechaBonita(domingo);
+    let html = '<div class="semana">';
+    for (let i = 0; i < 7; i++) {
+      const dia = sumarDias(lunes, i);
+      const citas = db.citas.filter(c => c.fecha === dia).sort((a,b) => a.hora.localeCompare(b.hora));
+      html += '<div class="dia-col' + (dia === hoyStr() ? ' hoy' : '') + '">' +
+        '<h4>' + nombresDia[i] + ' ' + aFecha(dia).getDate() + '</h4>' +
+        citas.map(c => '<div class="cita ' + claseTipo(c.tipo) + (c.estado==='cancelada'?'" style="opacity:.5;text-decoration:line-through':'') + '" onclick="abrirModalCitaEdit(\'' + c.id + '\')">' +
+          '<b>' + rangoCita(c) + '</b>' + esc(nombreEvento(c)) + '</div>').join('') +
+        '</div>';
+    }
+    cont.innerHTML = html + '</div>';
+  }
+  actualizarBadge();
+}
+
+function llenarSelectPacientes(idSelect, seleccion) {
+  const sel = document.getElementById(idSelect);
+  const orden = db.pacientes.slice().sort((a,b) => a.nombre.localeCompare(b.nombre));
+  sel.innerHTML = orden.map(p => '<option value="' + p.id + '"' + (p.id===seleccion?' selected':'') + '>' + esc(p.nombre) + '</option>').join('');
+  return orden.length > 0;
+}
+function abrirModalCita(pacienteId) {
+  controlAgendando = null; // agendarControl() lo setea después si viene de un control
+  pagaAhora = false;
+  llenarSelectPacientes('c-paciente', pacienteId);
+  document.getElementById('titulo-modal-cita').textContent = 'Nuevo evento';
+  document.getElementById('modal-cita').dataset.editando = '';
+  document.getElementById('c-tipo').value = 'consulta';
+  alTipoCita();
+  document.getElementById('c-fecha').value = (calFecha >= hoyStr() ? calFecha : hoyStr());
+  document.getElementById('c-hora').value = '';
+  mesCita = document.getElementById('c-fecha').value.slice(0,7);
+  document.getElementById('c-estado').value = 'pendiente';
+  document.getElementById('c-motivo').value = '';
+  pintarCalCita(); pintarSlotsCita();
+  document.getElementById('modal-cita').classList.remove('oculto');
+}
+function abrirModalCitaEdit(id) {
+  const c = db.citas.find(x => x.id === id);
+  if (!c) return;
+  controlAgendando = null;
+  pagaAhora = false;
+  llenarSelectPacientes('c-paciente', c.pacienteId);
+  document.getElementById('titulo-modal-cita').textContent = 'Editar evento';
+  document.getElementById('modal-cita').dataset.editando = id;
+  document.getElementById('c-fecha').value = c.fecha;
+  document.getElementById('c-hora').value = c.hora;
+  document.getElementById('c-tipo').value = c.tipo;
+  document.getElementById('c-pac-wrap').classList.toggle('oculto', c.tipo === 'reunion');
+  document.getElementById('c-dur').value = durCita(c);
+  document.getElementById('c-estado').value = c.estado;
+  document.getElementById('c-motivo').value = c.motivo || '';
+  mesCita = c.fecha.slice(0,7);
+  pintarCalCita(); pintarSlotsCita(); pintarPagoCita();
+  document.getElementById('modal-cita').classList.remove('oculto');
+}
+function guardarCita() {
+  const fecha = document.getElementById('c-fecha').value;
+  const hora = document.getElementById('c-hora').value;
+  if (!fecha || !hora) { alert('Elige la fecha y un horario disponible.'); return; }
+  const idEdit = document.getElementById('modal-cita').dataset.editando;
+  const tipo = document.getElementById('c-tipo').value;
+  if (tipo !== 'reunion' && !document.getElementById('c-paciente').value) { alert('Elige un paciente, o cambia el tipo a Reunión.'); return; }
+  const estado = document.getElementById('c-estado').value;
+  const dur = Number(document.getElementById('c-dur').value) || DURACIONES[tipo] || 30;
+  if (estado !== 'cancelada' && !avisarChoque(fecha, hora, dur, idEdit)) return;
+  const datos = {
+    pacienteId: tipo === 'reunion' ? '' : document.getElementById('c-paciente').value,
+    fecha, hora, dur, tipo, estado,
+    motivo: document.getElementById('c-motivo').value.trim()
+  };
+  let citaNueva = null;
+  if (idEdit) Object.assign(db.citas.find(x => x.id === idEdit), datos);
+  else { citaNueva = { id: nuevoId(), ...datos }; db.citas.push(citaNueva); }
+  const laCita = citaNueva || db.citas.find(x => x.id === idEdit);
+  // Si la cita nace de un control que pidió el doctor, ese pendiente queda resuelto
+  if (controlAgendando && citaNueva) {
+    const c = db.controles.find(x => x.id === controlAgendando);
+    if (c) { c.estado = 'agendado'; c.citaId = citaNueva.id; }
+    controlAgendando = null;
+  }
+  // Si paga por adelantado, la venta se registra ahora y la cita queda saldada
+  let ventaCreada = null;
+  if (pagaAhora && !laCita.pagada) {
+    const serv = servicioDeCita(laCita);
+    if (serv) {
+      const metodoEl = document.getElementById('c-pago-metodo');
+      ventaCreada = registrarVenta({
+        pacienteId: laCita.pacienteId,
+        items: [{ catalogoId: serv.id, nombre: serv.nombre, tipo: 'servicio', categoria: serv.categoria || '', precio: Number(serv.precio), cant: 1 }],
+        metodoPago: metodoEl ? metodoEl.value : 'Efectivo',
+        nota: 'Pagado por adelantado al agendar',
+        citaId: laCita.id
+      });
+    }
+  }
+  pagaAhora = false;
+  guardar(); cerrarModales();
+  if (ventaCreada) { irA('ventas'); verTicket(ventaCreada.id); return; }
+  if (!document.getElementById('sec-ficha').classList.contains('oculto')) verFicha(fichaId);
+  else pintarAgenda();
+}
+function borrarCita(id) {
+  const c = db.citas.find(x => x.id === id);
+  // Una cita ya atendida tiene una atención detrás: borrarla dejaría la historia clínica huérfana
+  if (atencionDeCita(id)) {
+    alert('No se puede borrar: esta cita ya fue atendida y tiene una atención registrada en la historia clínica del paciente.\n\nSi la cita está mal, cámbiala a "cancelada" desde el editor.');
+    return;
+  }
+  if (!confirm('¿Borrar el evento de ' + nombreEvento(c) + ' el ' + fechaBonita(c.fecha) + ' a las ' + c.hora + '?')) return;
+  db.citas = db.citas.filter(x => x.id !== id);
+  // Si esta cita resolvía un control pedido por el doctor, vuelve a quedar pendiente
+  const ctrl = db.controles.find(x => x.citaId === id && x.estado === 'agendado');
+  if (ctrl) { ctrl.estado = 'pendiente'; ctrl.citaId = ''; }
+  guardar(); pintarAgenda();
+}
+function actualizarBadge() {
+  const n = db.citas.filter(c => c.fecha === hoyStr() && c.estado !== 'cancelada').length;
+  const badge = document.getElementById('badge-agenda');
+  badge.textContent = n; badge.classList.toggle('oculto', n === 0);
+}
+
+/* ================== MÓDULO 3 · CATÁLOGO ================== */
+let catTipo = 'servicio';
+const CATEGORIAS = {
+  servicio: ['Consulta', 'Cirugía', 'Procedimiento', 'Control', 'Otro'],
+  producto: ['Suplemento', 'Vitamina', 'Insumo médico', 'Otro']
+};
+function cambiarCatalogo(t) {
+  catTipo = t;
+  document.getElementById('btn-cat-servicios').style.cssText = t==='servicio' ? '' : 'background:#fff;color:#333;border:1px solid #c4ccd4';
+  document.getElementById('btn-cat-productos').style.cssText = t==='producto' ? '' : 'background:#fff;color:#333;border:1px solid #c4ccd4';
+  pintarCatalogo();
+}
+function pintarCatalogo() {
+  const cont = document.getElementById('lista-catalogo');
+  const lista = db.catalogo.filter(k => k.tipo === catTipo).sort((a,b) => a.nombre.localeCompare(b.nombre));
+  if (!lista.length) { cont.innerHTML = '<div class="vacio">No hay ' + (catTipo==='servicio'?'servicios':'productos') + ' registrados. Presiona <b>+ Nuevo</b>.</div>'; return; }
+
+  if (catTipo === 'servicio') {
+    cont.innerHTML = '<table class="tabla"><thead><tr><th>Servicio</th><th>Categoría</th><th>Precio</th><th></th></tr></thead><tbody>' +
+      lista.map(k => '<tr><td><b>' + esc(k.nombre) + '</b></td><td>' + esc(k.categoria||'—') + '</td><td>' + money(k.precio) + '</td>' +
+        '<td><div class="acc-tabla"><button class="btn btn-sec btn-mini" onclick="abrirModalCatalogo(\'' + k.id + '\')">Editar</button>' +
+        '<button class="btn btn-peligro btn-mini" onclick="borrarCatalogo(\'' + k.id + '\')">Borrar</button></div></td></tr>').join('') +
+      '</tbody></table>';
+  } else {
+    cont.innerHTML = '<table class="tabla"><thead><tr><th>Producto</th><th>Marca</th><th>Precio</th><th>Stock</th><th></th></tr></thead><tbody>' +
+      lista.map(k => {
+        const bajo = Number(k.stock||0) <= Number(k.stockMin||0);
+        const stockCell = (k.stock||0) + ' ' + esc(k.unidad||'') + (bajo ? ' <span class="chip chip-rojo">Bajo</span>' : '');
+        return '<tr><td><b>' + esc(k.nombre) + '</b> <span class="sub">' + esc(k.categoria||'') + '</span></td>' +
+          '<td>' + (k.marca==='B&N' ? '<span class="chip chip-azul">B&amp;N</span>' : esc(k.marca||'—')) + '</td>' +
+          '<td>' + money(k.precio) + '</td><td>' + stockCell + '</td>' +
+          '<td><div class="acc-tabla"><button class="btn btn-sec btn-mini" onclick="abrirModalCatalogo(\'' + k.id + '\')">Editar</button>' +
+          '<button class="btn btn-peligro btn-mini" onclick="borrarCatalogo(\'' + k.id + '\')">Borrar</button></div></td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+}
+function llenarCategorias(tipo, sel) {
+  document.getElementById('k-categoria').innerHTML = CATEGORIAS[tipo].map(c => '<option' + (c===sel?' selected':'') + '>' + c + '</option>').join('');
+}
+function alternarCamposCatalogo() {
+  const tipo = document.getElementById('k-tipo').value;
+  document.getElementById('campos-producto').classList.toggle('oculto', tipo !== 'producto');
+  llenarCategorias(tipo);
+}
+function abrirModalCatalogo(id) {
+  const k = id ? db.catalogo.find(x => x.id === id) : null;
+  const tipo = k ? k.tipo : catTipo;
+  document.getElementById('titulo-modal-catalogo').textContent = k ? 'Editar ítem' : 'Nuevo ' + (tipo==='servicio'?'servicio':'producto');
+  document.getElementById('k-tipo').value = tipo;
+  alternarCamposCatalogo();
+  llenarCategorias(tipo, k ? k.categoria : '');
+  document.getElementById('k-nombre').value = k ? k.nombre : '';
+  document.getElementById('k-precio').value = k ? (k.precio||'') : '';
+  document.getElementById('k-marca').value = k ? (k.marca||'B&N') : 'B&N';
+  document.getElementById('k-unidad').value = k ? (k.unidad||'') : '';
+  document.getElementById('k-stock').value = k ? (k.stock||'') : '';
+  document.getElementById('k-stockmin').value = k ? (k.stockMin||'') : '';
+  document.getElementById('modal-catalogo').dataset.editando = id || '';
+  document.getElementById('modal-catalogo').classList.remove('oculto');
+  document.getElementById('k-nombre').focus();
+}
+function guardarCatalogo() {
+  const nombre = document.getElementById('k-nombre').value.trim();
+  if (!nombre) { alert('El nombre es obligatorio.'); return; }
+  const tipo = document.getElementById('k-tipo').value;
+  const datos = {
+    tipo, nombre,
+    categoria: document.getElementById('k-categoria').value,
+    precio: document.getElementById('k-precio').value,
+    activo: true
+  };
+  if (tipo === 'producto') {
+    datos.marca = document.getElementById('k-marca').value;
+    datos.unidad = document.getElementById('k-unidad').value.trim();
+    datos.stock = document.getElementById('k-stock').value || 0;
+    datos.stockMin = document.getElementById('k-stockmin').value || 0;
+  }
+  const idEdit = document.getElementById('modal-catalogo').dataset.editando;
+  if (idEdit) Object.assign(db.catalogo.find(x => x.id === idEdit), datos);
+  else db.catalogo.push({ id: nuevoId(), ...datos });
+  catTipo = tipo;
+  cambiarCatalogo(tipo);
+  guardar(); cerrarModales();
+}
+function borrarCatalogo(id) {
+  if (!confirm('¿Borrar este ítem del catálogo?')) return;
+  db.catalogo = db.catalogo.filter(x => x.id !== id);
+  guardar(); pintarCatalogo();
+}
+
+/* --- Lista real del Dr. Arredondo (servicios sin precio aún + suplementos a precio de venta) --- */
+function cargarCatalogoDr() {
+  const servicios = [
+    { nombre:'Bypass gástrico',  categoria:'Cirugía' },
+    { nombre:'Manga gástrica',   categoria:'Cirugía' },
+    { nombre:'Balón gástrico',   categoria:'Procedimiento' },
+    { nombre:'Hernia',           categoria:'Cirugía' },
+    { nombre:'Hemorroides',      categoria:'Cirugía' },
+    { nombre:'Fístulas',         categoria:'Cirugía' },
+    { nombre:'Apéndice',         categoria:'Cirugía' },
+    { nombre:'Vesícula',         categoria:'Cirugía' }
+  ];
+  const productos = [
+    { nombre:'Proteína polvo vainilla 1.5kg',    categoria:'Suplemento', precio:280, unidad:'bolsa' },
+    { nombre:'Proteína polvo chocolate 1.5kg',   categoria:'Suplemento', precio:280, unidad:'bolsa' },
+    { nombre:'Proteína líquida fresa 1L',        categoria:'Suplemento', precio:200, unidad:'botella' },
+    { nombre:'Proteína líquida maracumango 1L',  categoria:'Suplemento', precio:200, unidad:'botella' },
+    { nombre:'Gomitas multivitamin 90u',         categoria:'Vitamina',   precio:150, unidad:'frasco' },
+    { nombre:'Gomitas biotina 90u',              categoria:'Vitamina',   precio:150, unidad:'frasco' },
+    { nombre:'Gomitas hierro + vitamina C 30u',  categoria:'Vitamina',   precio:150, unidad:'frasco' },
+    { nombre:'Gomitas B12 + ácido fólico 90u',   categoria:'Vitamina',   precio:150, unidad:'frasco' },
+    { nombre:'Fibra soluble 320g',               categoria:'Suplemento', precio:85,  unidad:'bolsa' }
+  ];
+  const existe = (tipo, nombre) => db.catalogo.some(k => k.tipo === tipo && k.nombre.trim().toLowerCase() === nombre.trim().toLowerCase());
+  let nuevos = 0;
+  servicios.forEach(s => {
+    if (existe('servicio', s.nombre)) return;
+    db.catalogo.push({ id:nuevoId(), tipo:'servicio', nombre:s.nombre, categoria:s.categoria, precio:'', activo:true });
+    nuevos++;
+  });
+  productos.forEach(p => {
+    if (existe('producto', p.nombre)) return;
+    db.catalogo.push({ id:nuevoId(), tipo:'producto', nombre:p.nombre, categoria:p.categoria, marca:'B&N',
+      unidad:p.unidad, precio:p.precio, stock:0, stockMin:5, activo:true });
+    nuevos++;
+  });
+  guardar();
+  cambiarCatalogo(catTipo);
+  alert(nuevos
+    ? 'Se agregaron ' + nuevos + (nuevos===1?' ítem':' ítems') + ' al catálogo.\n\n• Los 8 servicios quedaron SIN precio — edítalos cuando el Dr. te los pase.\n• Los 9 suplementos entraron con su precio de venta y stock en 0.'
+    : 'La lista ya estaba cargada. No se agregó nada nuevo.');
+}
+
+/* ================== ATENCIONES · LA FILA DEL ESPECIALISTA ==================
+   El doctor no necesita el calendario (eso es de recepción): necesita
+   saber a quién le toca ahora y poder abrir la atención de un clic. */
+let atencionesFecha = hoyStr();
+
+function atencionDeCita(citaId) { return db.atenciones.find(a => a.citaId === citaId); }
+function actualizarBadgeAtenciones() {
+  const n = db.citas.filter(c => c.fecha === hoyStr() && c.estado !== 'cancelada' && c.tipo !== 'reunion' && !atencionDeCita(c.id)).length;
+  const badge = document.getElementById('badge-atenciones');
+  badge.textContent = n; badge.classList.toggle('oculto', n === 0);
+}
+function pintarAtenciones() {
+  const esHoy = atencionesFecha === hoyStr();
+  document.getElementById('atenciones-titulo').textContent = (esHoy ? 'Hoy · ' : '') +
+    aFecha(atencionesFecha).toLocaleDateString('es', { weekday:'long', day:'numeric', month:'long' });
+
+  const eventos = db.citas.filter(c => c.fecha === atencionesFecha && c.estado !== 'cancelada')
+    .sort((a,b) => a.hora.localeCompare(b.hora));
+  const atendibles = eventos.filter(c => c.tipo !== 'reunion');
+  const hechos = atendibles.filter(c => atencionDeCita(c.id));
+  // "Ahora" = el primer paciente del día que todavía no ha sido atendido
+  const siguiente = atendibles.find(c => !atencionDeCita(c.id));
+
+  document.getElementById('atenciones-resumen').innerHTML = !atendibles.length ? '' :
+    '<div class="grid-datos">' +
+      '<div class="dato"><small>Pacientes del día</small><b>' + atendibles.length + '</b></div>' +
+      '<div class="dato"><small>Ya atendidos</small><b style="color:#2e7d4f">' + hechos.length + '</b></div>' +
+      '<div class="dato"><small>Faltan</small><b style="color:#15557f">' + (atendibles.length - hechos.length) + '</b></div>' +
+    '</div>';
+
+  document.getElementById('atenciones-lista').innerHTML = !eventos.length
+    ? '<div class="vacio">No hay pacientes agendados este día. 🎉</div>'
+    : eventos.map(c => {
+        if (c.tipo === 'reunion') {
+          return '<div class="turno" style="border-left-color:#e0a800"><div class="hora">' + c.hora + '</div>' +
+            '<div class="quien"><b>' + esc(c.motivo || 'Reunión') + '</b><span class="sub">Reunión · ' + rangoCita(c) + '</span></div></div>';
+        }
+        const at = atencionDeCita(c.id);
+        const p = db.pacientes.find(x => x.id === c.pacienteId);
+        const esAhora = siguiente && c.id === siguiente.id && esHoy;
+        const sub = [nombreTipo(c.tipo), c.motivo].filter(Boolean).join(' · ');
+        const extra = p && p.alergias ? ' <span class="chip chip-rojo">⚠️ ' + esc(p.alergias) + '</span>' : '';
+        return '<div class="turno ' + claseTipo(c.tipo) + (at ? ' listo' : esAhora ? ' ahora' : '') + '" style="border-left-color:' +
+            (c.tipo==='cirugia'?'#c0392b':c.tipo==='control'?'#15557f':'#2e7d4f') + '">' +
+          '<div class="hora">' + c.hora + '</div>' +
+          '<div class="quien"><b>' + esc(nombreEvento(c)) + (esAhora ? ' <span class="etiqueta-ahora">AHORA</span>' : '') + '</b>' +
+            '<span class="sub">' + esc(sub) + extra + '</span></div>' +
+          (at
+            ? '<span class="chip chip-verde">✓ Atendido</span>' +
+              '<button class="btn btn-sec btn-mini" onclick="abrirAtencion(\'' + c.id + '\')">Ver</button>'
+            : '<button class="btn" onclick="abrirAtencion(\'' + c.id + '\')">Atender →</button>') +
+        '</div>';
+      }).join('');
+  actualizarBadgeAtenciones();
+}
+
+/* ================== ATENCIÓN ================== */
+let atencionCita = null;      // cita que se está atendiendo
+let prescripcion = [];        // suplementos indicados en esta atención
+let plazoControl = null;      // en cuántos días quiere volver a verlo
+let cirugiasAt = [];          // a qué cirugía/patología corresponde esta atención
+
+/* Las cirugías salen del catálogo (⚙️ Precios): una sola lista real.
+   Si el Dr. agrega una nueva ahí, aparece sola aquí y en la ficha. */
+function cirugiasDelDr() {
+  return db.catalogo
+    .filter(k => k.tipo === 'servicio' && ['Cirugía','Procedimiento'].includes(k.categoria))
+    .map(k => k.nombre)
+    .sort((a,b) => a.localeCompare(b));
+}
+function alternarCirugia(nombre) {
+  cirugiasAt = cirugiasAt.includes(nombre) ? cirugiasAt.filter(c => c !== nombre) : cirugiasAt.concat(nombre);
+  pintarCirugias();
+}
+function pintarCirugias() {
+  const lista = cirugiasDelDr();
+  const cont = document.getElementById('at-cirugias');
+  if (!lista.length) {
+    cont.innerHTML = '<div class="sub">No hay cirugías en el catálogo. Agrégalas en ⚙️ Precios (o usa "📋 Cargar lista del Dr.").</div>';
+    return;
+  }
+  cont.innerHTML = lista.map(n =>
+    '<button type="button" class="plazo' + (cirugiasAt.includes(n) ? ' sel' : '') + '" onclick="alternarCirugia(' + JSON.stringify(n).replace(/"/g,'&quot;') + ')">' +
+    esc(n) + '</button>').join('');
+}
+
+// Plazos típicos de seguimiento bariátrico (ajustar si el Dr. usa otros)
+const PLAZOS = [
+  { dias: 7,   txt: '1 semana' },
+  { dias: 15,  txt: '15 días' },
+  { dias: 30,  txt: '1 mes' },
+  { dias: 90,  txt: '3 meses' },
+  { dias: 180, txt: '6 meses' },
+  { dias: 365, txt: '1 año' }
+];
+function elegirPlazo(dias) {
+  plazoControl = (plazoControl === dias) ? null : dias; // volver a tocarlo lo desmarca
+  pintarPlazos();
+}
+function plazoPersonalizado() {
+  const r = prompt('¿En cuántos días quieres volver a verlo?', plazoControl || 45);
+  if (r === null) return;
+  const n = Number(r);
+  if (!(n > 0)) { alert('Escribe un número de días válido.'); return; }
+  plazoControl = Math.round(n);
+  pintarPlazos();
+}
+function pintarPlazos() {
+  document.getElementById('at-plazos').innerHTML =
+    PLAZOS.map(p => '<button type="button" class="plazo' + (plazoControl === p.dias ? ' sel' : '') + '" onclick="elegirPlazo(' + p.dias + ')">' + p.txt + '</button>').join('') +
+    '<button type="button" class="plazo' + (plazoControl && !PLAZOS.some(p => p.dias === plazoControl) ? ' sel' : '') + '" onclick="plazoPersonalizado()">Otro…</button>';
+
+  const info = document.getElementById('at-plazo-info');
+  if (!plazoControl) { info.innerHTML = '<span class="sub">Sin próximo control. El paciente no volverá salvo que pida cita.</span>'; return; }
+  const fecha = sumarDias(hoyStr(), plazoControl);
+  const nombre = textoPlazo(plazoControl);
+  info.innerHTML = '<div class="aviso" style="border-color:#15557f;background:#f0f6fb;margin:0">' +
+    '📅 Volver en <b>' + nombre + '</b> → sugerido <b>' + aFecha(fecha).toLocaleDateString('es', { weekday:'long', day:'numeric', month:'long' }) + '</b>' +
+    '<div class="sub">Recepción coordinará el día y la hora exactos con el paciente.</div></div>';
+}
+function textoPlazo(dias) {
+  const p = PLAZOS.find(x => x.dias === dias);
+  return p ? p.txt : dias + ' días';
+}
+
+function abrirAtencion(citaId) {
+  const c = db.citas.find(x => x.id === citaId);
+  if (!c) return;
+  const p = db.pacientes.find(x => x.id === c.pacienteId);
+  if (!p) { alert('Este evento no tiene un paciente asociado.'); return; }
+  atencionCita = c;
+  const previa = atencionDeCita(citaId); // si ya se atendió, se abre para consultar/corregir
+
+  document.getElementById('at-nombre').textContent = p.nombre;
+  document.getElementById('at-datos').textContent =
+    [nombreTipo(c.tipo), c.hora, p.edad ? p.edad + ' años' : '', p.procedimiento || ''].filter(Boolean).join(' · ');
+  document.getElementById('at-alergias').innerHTML = p.alergias
+    ? '<div class="aviso aviso-rojo"><b>⚠️ Alergias / observaciones:</b> ' + esc(p.alergias) + '</div>' : '';
+
+  // Se precarga con lo último medido (no con el registro inicial, que puede ser viejo)
+  const ultima = db.atenciones.filter(a => a.pacienteId === p.id && a.citaId !== citaId && a.peso > 0)
+    .sort((a,b) => (b.fecha+b.hora).localeCompare(a.fecha+a.hora))[0];
+  document.getElementById('at-peso').value = previa ? previa.peso : (ultima ? ultima.peso : (p.peso || ''));
+  document.getElementById('at-altura').value = previa ? previa.altura : (ultima ? ultima.altura : (p.altura || ''));
+  // El motivo lo escribió recepción al agendar; el doctor lo confirma o lo corrige
+  document.getElementById('at-motivo').value = previa ? (previa.motivo || '') : (c.motivo || '');
+  document.getElementById('at-motivo-origen').textContent = (!previa && c.motivo)
+    ? 'Lo anotó recepción al agendar. Corrígelo si el paciente viene por otra cosa.' : '';
+  document.getElementById('at-notas').value = previa ? previa.notas : '';
+  prescripcion = previa ? previa.prescripcion.map(i => ({ ...i })) : [];
+  plazoControl = previa ? (previa.plazoControl || null) : null;
+  // La meta vive en el paciente, no en la atención: es una sola para todo su tratamiento
+  document.getElementById('at-meta').value = p.pesoMeta || '';
+  // Las cirugías se heredan de la atención previa o de lo que ya tenga el paciente
+  cirugiasAt = previa ? (previa.cirugias || []).slice()
+    : (ultima ? (ultima.cirugias || []).slice() : (p.procedimientos || []).slice());
+
+  // Sin precios: el doctor prescribe por criterio clínico, no por lo que cuesta. De cobrar se encarga recepción.
+  const sups = db.catalogo.filter(k => k.tipo === 'producto').sort((a,b) => a.nombre.localeCompare(b.nombre));
+  document.getElementById('at-suplemento').innerHTML = '<option value="">+ Agregar suplemento…</option>' +
+    sups.map(k => '<option value="' + k.id + '">' + esc(k.nombre) + '</option>').join('');
+
+  calcularAtencion(); pintarPrescripcion(); pintarPlazos(); pintarCirugias();
+  irA('consulta');
+  window.scrollTo(0, 0);
+}
+/* El IMC y su categoría se calculan igual en todo el sistema */
+function calcularIMC(peso, altura) {
+  if (!(peso > 0 && altura > 0)) return null;
+  const imc = peso / Math.pow(altura/100, 2);
+  let cat = 'Normal', color = '#2e7d4f', chip = 'chip-verde';
+  if (imc >= 40) { cat = 'Obesidad III'; color = '#c0392b'; chip = 'chip-rojo'; }
+  else if (imc >= 35) { cat = 'Obesidad II'; color = '#c0392b'; chip = 'chip-rojo'; }
+  else if (imc >= 30) { cat = 'Obesidad I'; color = '#b5651d'; chip = 'chip-naranja'; }
+  else if (imc >= 25) { cat = 'Sobrepeso'; color = '#9a7b00'; chip = 'chip-amarillo'; }
+  else if (imc < 18.5) { cat = 'Bajo peso'; color = '#9a7b00'; chip = 'chip-amarillo'; }
+  return { valor: imc, cat, color, chip };
+}
+function calcularAtencion() {
+  const peso = Number(document.getElementById('at-peso').value);
+  const altura = Number(document.getElementById('at-altura').value);
+  const cont = document.getElementById('at-imc');
+  pintarProgresoMeta(peso); // la meta no depende de la talla: se pinta siempre
+  const r = calcularIMC(peso, altura);
+  if (!r) { cont.innerHTML = '<span class="sub">Escribe peso y talla para calcular el IMC.</span>'; return; }
+  const imc = r.valor, cat = r.cat, color = r.color;
+
+  // Comparar con la atención anterior es lo que más le importa a un bariátrico
+  const p = db.pacientes.find(x => x.id === atencionCita.pacienteId);
+  const previas = db.atenciones.filter(a => a.pacienteId === p.id && a.citaId !== atencionCita.id && a.peso > 0)
+    .sort((a,b) => (b.fecha+b.hora).localeCompare(a.fecha+a.hora));
+  let evo = '';
+  if (previas.length) {
+    const ant = previas[0];
+    const dif = peso - Number(ant.peso);
+    const signo = dif < 0 ? '▼' : dif > 0 ? '▲' : '=';
+    const colorEvo = dif < 0 ? '#2e7d4f' : dif > 0 ? '#c0392b' : '#66707a';
+    evo = '<div class="evolucion" style="color:' + colorEvo + '">' + signo + ' ' + Math.abs(dif).toFixed(1) + ' kg' +
+      '</div><div class="sub">desde ' + fechaBonita(ant.fecha) + ' (' + Number(ant.peso).toFixed(1) + ' kg)</div>';
+  } else if (p.peso > 0 && Math.abs(peso - Number(p.peso)) > 0.05) {
+    const dif = peso - Number(p.peso);
+    evo = '<div class="evolucion" style="color:' + (dif < 0 ? '#2e7d4f' : '#c0392b') + '">' +
+      (dif < 0 ? '▼' : '▲') + ' ' + Math.abs(dif).toFixed(1) + ' kg</div><div class="sub">desde el registro inicial</div>';
+  }
+  cont.innerHTML = '<small style="color:#6b7580;font-weight:600">IMC</small>' +
+    '<div class="num">' + imc.toFixed(1) + '</div>' +
+    '<span class="chip" style="background:' + color + '22;color:' + color + '">' + cat + '</span>' + evo;
+}
+
+/* Cuánto le falta para su peso meta. Es la pregunta que el paciente
+   siempre hace, y hasta ahora el objetivo era texto libre ("bajar 30 kg"). */
+function pesoInicialDe(pacienteId, excluirCita) {
+  const ats = db.atenciones.filter(a => a.pacienteId === pacienteId && a.peso > 0 && a.citaId !== excluirCita)
+    .sort((a,b) => (a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+  const p = db.pacientes.find(x => x.id === pacienteId);
+  if (ats.length) return Number(ats[0].peso);
+  return p && p.pesoInicial > 0 ? Number(p.pesoInicial) : null;
+}
+function htmlProgresoMeta(pesoActual, meta, inicial) {
+  if (!(meta > 0) || !(pesoActual > 0)) return '';
+  const falta = pesoActual - meta;
+  if (falta <= 0) {
+    return '<div class="aviso" style="border-color:#2e7d4f;background:#f2f9f4;margin:0">' +
+      '<b style="color:#2e7d4f">🎉 ¡Llegó a su meta!</b>' +
+      '<div class="sub">Meta ' + meta.toFixed(1) + ' kg · está en ' + pesoActual.toFixed(1) + ' kg</div></div>';
+  }
+  // El progreso se mide desde el peso con el que empezó, no desde cero
+  let barra = '';
+  if (inicial > 0 && inicial > meta) {
+    const pct = Math.max(0, Math.min(100, Math.round((inicial - pesoActual) / (inicial - meta) * 100)));
+    barra = '<div style="background:#eef2f5;border-radius:4px;height:8px;margin-top:6px">' +
+      '<div style="background:#2e7d4f;height:8px;border-radius:4px;width:' + pct + '%"></div></div>' +
+      '<div class="sub" style="margin-top:3px">' + pct + '% del camino · empezó en ' + inicial.toFixed(1) + ' kg</div>';
+  }
+  return '<div class="dato" style="background:#f0f6fb">' +
+    '<small>LE FALTA PARA SU META</small>' +
+    '<b style="font-size:19px;color:#15557f">' + falta.toFixed(1) + ' kg</b>' +
+    '<div class="sub">meta: ' + meta.toFixed(1) + ' kg</div>' + barra + '</div>';
+}
+function pintarProgresoMeta(pesoActual) {
+  const meta = Number(document.getElementById('at-meta').value);
+  const cont = document.getElementById('at-progreso');
+  if (!(meta > 0)) {
+    cont.innerHTML = '<div class="sub">Sin meta definida. Ponla aquí y en cada control se verá cuánto le falta.</div>';
+    return;
+  }
+  const inicial = pesoInicialDe(atencionCita.pacienteId, atencionCita.id) || pesoActual;
+  cont.innerHTML = htmlProgresoMeta(pesoActual, meta, inicial);
+}
+function agregarPrescripcion() {
+  const sel = document.getElementById('at-suplemento');
+  const k = db.catalogo.find(x => x.id === sel.value);
+  sel.value = '';
+  if (!k) return;
+  if (prescripcion.some(i => i.catalogoId === k.id)) return;
+  prescripcion.push({ catalogoId: k.id, nombre: k.nombre, tipo: 'producto', categoria: k.categoria || '', precio: Number(k.precio), cant: 1, indicacion: '' });
+  pintarPrescripcion();
+}
+function cambiarCantPresc(id, v) { prescripcion.find(i => i.catalogoId === id).cant = Math.max(1, Number(v) || 1); pintarPrescripcion(); }
+function cambiarIndicacion(id, v) { prescripcion.find(i => i.catalogoId === id).indicacion = v; }
+function quitarPrescripcion(id) { prescripcion = prescripcion.filter(i => i.catalogoId !== id); pintarPrescripcion(); }
+function pintarPrescripcion() {
+  const cont = document.getElementById('at-prescripcion');
+  if (!prescripcion.length) { cont.innerHTML = '<div class="vacio" style="padding:14px">Sin suplementos indicados en esta atención.</div>'; return; }
+  // Nada de precios ni totales: eso es asunto de recepción. Aquí solo qué, cuánto y cómo tomarlo.
+  cont.innerHTML = prescripcion.map(i => {
+    const k = db.catalogo.find(x => x.id === i.catalogoId);
+    const sinStock = k && Number(k.stock||0) < i.cant;
+    return '<div class="presc-item"><span class="nom"><b>' + esc(i.nombre) + '</b>' +
+      (sinStock ? ' <span class="chip chip-amarillo">Quedan ' + (k.stock||0) + '</span>' : '') + '</span>' +
+      '<input type="number" min="1" step="1" value="' + i.cant + '" onchange="cambiarCantPresc(\'' + i.catalogoId + '\',this.value)">' +
+      '<input type="text" placeholder="Indicación: ej. 1 al día con desayuno" value="' + esc(i.indicacion) + '" onchange="cambiarIndicacion(\'' + i.catalogoId + '\',this.value)">' +
+      '<button class="btn btn-peligro btn-mini" onclick="quitarPrescripcion(\'' + i.catalogoId + '\')">✕</button></div>';
+  }).join('') +
+  '<div class="sub" style="margin-top:8px">' + plural(prescripcion.length, 'suplemento indicado', 'suplementos indicados') + ' · recepción se encarga del cobro</div>';
+}
+function salirAtencion() { atencionCita = null; prescripcion = []; plazoControl = null; cirugiasAt = []; irA('atenciones'); }
+function guardarAtencion() {
+  const peso = Number(document.getElementById('at-peso').value);
+  const altura = Number(document.getElementById('at-altura').value);
+  const notas = document.getElementById('at-notas').value.trim();
+  const motivo = document.getElementById('at-motivo').value.trim();
+  const meta = Number(document.getElementById('at-meta').value) || 0;
+  if (!peso && !notas && !motivo && !prescripcion.length && !plazoControl && !cirugiasAt.length &&
+      !confirm('No registraste nada de la atención. ¿Marcarla como terminada igual?')) return;
+  if (meta > 0 && peso > 0 && meta > peso &&
+      !confirm('La meta (' + meta + ' kg) es MAYOR que el peso actual (' + peso + ' kg).\n\n¿Es correcto? En un paciente bariátrico la meta suele ser menor.')) return;
+
+  const p = db.pacientes.find(x => x.id === atencionCita.pacienteId);
+  const previa = atencionDeCita(atencionCita.id);
+  const datos = {
+    citaId: atencionCita.id, pacienteId: p.id, tipo: atencionCita.tipo,
+    fecha: hoyStr(), hora: horaAhora(),
+    peso, altura, motivo, notas, prescripcion: prescripcion.map(i => ({ ...i })),
+    cirugias: cirugiasAt.slice(),
+    plazoControl,
+    // Se guarda el IMC de ese día: si mañana cambia la talla, la historia no se reescribe sola
+    imc: calcularIMC(peso, altura) ? Number(calcularIMC(peso, altura).valor.toFixed(1)) : null,
+    usuarioId: sesion ? sesion.id : '', usuarioNombre: sesion ? sesion.nombre : '—'
+  };
+  if (previa) Object.assign(previa, datos);
+  else db.atenciones.push({ id: nuevoId(), ...datos });
+
+  // El peso/talla más recientes pasan a ser los del paciente (su ficha muestra lo actual)
+  if (peso > 0) {
+    // El primer peso que se le registra queda como su punto de partida, para medir el avance
+    if (!(p.pesoInicial > 0)) p.pesoInicial = pesoInicialDe(p.id, atencionCita.id) || peso;
+    p.peso = peso;
+  }
+  if (altura > 0) p.altura = altura;
+  if (meta > 0) p.pesoMeta = meta; else delete p.pesoMeta;
+  // Las cirugías del paciente son la suma de las de todas sus atenciones
+  if (cirugiasAt.length) p.procedimientos = [...new Set((p.procedimientos || []).concat(cirugiasAt))];
+  // La nota de la atención también entra al historial de notas de la ficha
+  if (notas) {
+    p.notas = p.notas || [];
+    const yaHay = p.notas.find(n => n.origenCita === atencionCita.id);
+    if (yaHay) yaHay.texto = notas;
+    else p.notas.push({ id: nuevoId(), fecha: hoyStr(), texto: notas, origenCita: atencionCita.id });
+  }
+  // Si el doctor corrigió el motivo, la cita queda con el motivo real, no con el que supuso recepción
+  if (motivo) atencionCita.motivo = motivo;
+  atencionCita.estado = 'atendida';
+
+  // La prescripción NO cobra ni descuenta stock: crea una orden para recepción
+  const ordenPrevia = db.ordenes.find(o => o.citaId === atencionCita.id && o.estado === 'pendiente');
+  if (prescripcion.length) {
+    if (ordenPrevia) { ordenPrevia.items = prescripcion.map(i => ({ ...i })); }
+    else db.ordenes.push({
+      id: nuevoId(), citaId: atencionCita.id, pacienteId: p.id,
+      fecha: hoyStr(), hora: horaAhora(), items: prescripcion.map(i => ({ ...i })),
+      estado: 'pendiente', indicadaPor: sesion ? sesion.nombre : '—'
+    });
+  } else if (ordenPrevia) {
+    ordenPrevia.estado = 'anulada'; // borró la prescripción: la orden ya no debe cobrarse
+  }
+
+  // El próximo control se indica en plazo; recepción cuadra la fecha exacta con el paciente
+  const ctrlPrevio = db.controles.find(c => c.citaOrigenId === atencionCita.id && c.estado === 'pendiente');
+  if (plazoControl) {
+    const sugerida = sumarDias(hoyStr(), plazoControl);
+    if (ctrlPrevio) Object.assign(ctrlPrevio, { dias: plazoControl, fechaSugerida: sugerida, plazoTexto: textoPlazo(plazoControl) });
+    else db.controles.push({
+      id: nuevoId(), citaOrigenId: atencionCita.id, pacienteId: p.id,
+      dias: plazoControl, plazoTexto: textoPlazo(plazoControl), fechaSugerida: sugerida,
+      indicadoEl: hoyStr(), indicadoPor: sesion ? sesion.nombre : '—',
+      estado: 'pendiente', citaId: ''
+    });
+  } else if (ctrlPrevio) {
+    ctrlPrevio.estado = 'descartado'; // quitó el próximo control: recepción ya no debe agendarlo
+  }
+
+  guardar();
+  const lineas = ['Atención de ' + p.nombre + ' guardada.'];
+  if (prescripcion.length || plazoControl) {
+    lineas.push('', 'Recepción ya tiene pendiente:');
+    if (prescripcion.length) lineas.push('💰 Cobrar: ' + prescripcion.map(i => i.cant + '× ' + i.nombre).join(', '));
+    if (plazoControl) lineas.push('📅 Agendar control en ' + textoPlazo(plazoControl) + ' (sugerido ' + fechaBonita(sumarDias(hoyStr(), plazoControl)) + ')');
+  }
+  atencionCita = null; prescripcion = []; plazoControl = null; cirugiasAt = [];
+  irA('atenciones');
+  alert(lineas.join('\n'));
+}
+
+/* ================== MÓDULO 4 · STOCK ==================
+   El stock vive en el producto del catálogo (k.stock). Cada cambio deja
+   un movimiento en db.movimientos para poder auditar qué pasó y quién lo hizo. */
+function productos() { return db.catalogo.filter(k => k.tipo === 'producto'); }
+function stockBajo(k) { return Number(k.stock || 0) <= Number(k.stockMin || 0); }
+function productosBajos() { return productos().filter(stockBajo); }
+
+function actualizarBadgeStock() {
+  const n = productosBajos().length;
+  const badge = document.getElementById('badge-stock');
+  badge.textContent = n; badge.classList.toggle('oculto', n === 0);
+}
+function registrarMov(productoId, tipo, cantidad, motivo, ventaId) {
+  db.movimientos.push({
+    id: nuevoId(), productoId, tipo, cantidad: Number(cantidad),
+    motivo: motivo || '', ventaId: ventaId || '',
+    fecha: hoyStr(), hora: horaAhora(),
+    usuarioId: sesion ? sesion.id : '', usuarioNombre: sesion ? sesion.nombre : '—'
+  });
+}
+function pintarStock() {
+  const filtro = (document.getElementById('buscador-stock').value || '').toLowerCase().trim();
+  const bajos = productosBajos();
+  document.getElementById('alertas-stock').innerHTML = bajos.length
+    ? '<div class="aviso aviso-rojo"><b>⚠️ ' + plural(bajos.length,'producto','productos') + ' en stock bajo:</b> ' +
+      bajos.map(k => esc(k.nombre) + ' (' + (k.stock||0) + ')').join(' · ') + '</div>'
+    : '<div class="aviso aviso-amarillo" style="border-color:#2e7d4f;background:#f2f9f4">✅ Todos los productos están por encima del stock mínimo.</div>';
+
+  const lista = productos().filter(k => k.nombre.toLowerCase().includes(filtro)).sort((a,b) => a.nombre.localeCompare(b.nombre));
+  document.getElementById('lista-stock').innerHTML = !lista.length
+    ? '<div class="vacio">No hay productos. Agrégalos en la pestaña <b>Catálogo</b>.</div>'
+    : '<table class="tabla"><thead><tr><th>Producto</th><th>Stock</th><th>Mínimo</th><th>Valor</th><th></th></tr></thead><tbody>' +
+      lista.map(k => '<tr><td><b>' + esc(k.nombre) + '</b> <span class="sub">' + esc(k.categoria||'') + '</span></td>' +
+        '<td><b>' + (k.stock||0) + '</b> ' + esc(k.unidad||'') + (stockBajo(k) ? ' <span class="chip chip-rojo">Bajo</span>' : '') + '</td>' +
+        '<td>' + (k.stockMin||0) + '</td>' +
+        '<td>' + money(Number(k.stock||0) * Number(k.precio||0)) + '</td>' +
+        '<td><button class="btn btn-sec btn-mini" onclick="abrirModalMov(\'' + k.id + '\')">Mover</button></td></tr>').join('') +
+      '</tbody></table>';
+
+  actualizarBadgeStock();
+}
+
+/* Los movimientos viven en su propia pestaña: son la auditoría del inventario
+   (qué entró, qué salió, quién lo movió y por qué). */
+const TIPO_MOV = {
+  entrada:   ['chip-verde',   '+ Entrada'],
+  salida:    ['chip-rojo',    '− Salida'],
+  venta:     ['chip-azul',    '− Venta'],
+  ajuste:    ['chip-amarillo','= Ajuste'],
+  anulacion: ['chip-morado',  '+ Anulación']
+};
+function pintarMovimientos() {
+  const filtro = (document.getElementById('buscador-mov').value || '').toLowerCase().trim();
+  const tipo = document.getElementById('filtro-mov').value;
+  const nombreDe = id => { const k = db.catalogo.find(x => x.id === id); return k ? k.nombre : '(producto borrado)'; };
+
+  const movs = db.movimientos
+    .filter(m => !tipo || m.tipo === tipo)
+    .filter(m => !filtro || nombreDe(m.productoId).toLowerCase().includes(filtro) || (m.motivo||'').toLowerCase().includes(filtro))
+    .sort((a,b) => (b.fecha+b.hora).localeCompare(a.fecha+a.hora));
+
+  const hoy = db.movimientos.filter(m => m.fecha === hoyStr());
+  document.getElementById('resumen-mov').innerHTML =
+    '<div class="grid-datos">' +
+      '<div class="dato"><small>Movimientos hoy</small><b>' + hoy.length + '</b></div>' +
+      '<div class="dato"><small>Entradas hoy</small><b style="color:#2e7d4f">' + hoy.filter(m => m.tipo==='entrada').length + '</b></div>' +
+      '<div class="dato"><small>Salidas y ventas hoy</small><b style="color:#c0392b">' + hoy.filter(m => m.tipo==='salida'||m.tipo==='venta').length + '</b></div>' +
+      '<div class="dato"><small>Total registrado</small><b>' + db.movimientos.length + '</b></div>' +
+    '</div>';
+
+  document.getElementById('lista-movimientos').innerHTML = !movs.length
+    ? '<div class="vacio">' + (db.movimientos.length ? 'Ningún movimiento coincide con el filtro.' : 'Sin movimientos registrados todavía.') + '</div>'
+    : '<table class="tabla"><thead><tr><th>Fecha</th><th>Producto</th><th>Movimiento</th><th>Motivo</th><th>Registró</th></tr></thead><tbody>' +
+      movs.map(m => {
+        const [cls,txt] = TIPO_MOV[m.tipo] || TIPO_MOV.ajuste;
+        return '<tr><td>' + fechaBonita(m.fecha) + '<br><span class="sub">' + m.hora + '</span></td>' +
+          '<td>' + esc(nombreDe(m.productoId)) + '</td>' +
+          '<td><span class="chip ' + cls + '">' + txt + ' ' + m.cantidad + '</span></td>' +
+          '<td class="sub">' + esc(m.motivo || '—') + '</td>' +
+          '<td class="sub">' + esc(m.usuarioNombre || '—') + '</td></tr>';
+      }).join('') + '</tbody></table>';
+}
+function abrirModalMov(productoId) {
+  const lista = productos().sort((a,b) => a.nombre.localeCompare(b.nombre));
+  if (!lista.length) { alert('Primero registra productos en la pestaña Catálogo.'); return; }
+  document.getElementById('m-producto').innerHTML = lista.map(k =>
+    '<option value="' + k.id + '"' + (k.id===productoId?' selected':'') + '>' + esc(k.nombre) + '</option>').join('');
+  document.getElementById('m-tipo').value = 'entrada';
+  document.getElementById('m-cantidad').value = '';
+  document.getElementById('m-motivo').value = '';
+  pintarStockActual();
+  document.getElementById('modal-mov').classList.remove('oculto');
+  document.getElementById('m-cantidad').focus();
+}
+function pintarStockActual() {
+  const k = db.catalogo.find(x => x.id === document.getElementById('m-producto').value);
+  if (!k) return;
+  const tipo = document.getElementById('m-tipo').value;
+  const cant = Number(document.getElementById('m-cantidad').value || 0);
+  const actual = Number(k.stock || 0);
+  const queda = tipo === 'entrada' ? actual + cant : tipo === 'salida' ? actual - cant : cant;
+  document.getElementById('m-lbl-cant').textContent =
+    tipo === 'entrada' ? 'Cantidad que entra *' : tipo === 'salida' ? 'Cantidad que sale *' : 'Cantidad real contada *';
+  document.getElementById('m-actual').innerHTML =
+    'Stock actual: <b>' + actual + '</b> ' + esc(k.unidad||'') +
+    (cant ? ' → queda <b style="color:' + (queda < 0 ? '#c0392b' : '#15557f') + '">' + queda + '</b>' : '');
+}
+function guardarMov() {
+  const k = db.catalogo.find(x => x.id === document.getElementById('m-producto').value);
+  const tipo = document.getElementById('m-tipo').value;
+  const cant = Number(document.getElementById('m-cantidad').value || 0);
+  if (!k) return;
+  if (cant < 0 || (tipo !== 'ajuste' && cant <= 0)) { alert('Escribe una cantidad válida.'); return; }
+  const actual = Number(k.stock || 0);
+  if (tipo === 'salida' && cant > actual && !confirm('Solo hay ' + actual + ' en stock y quieres sacar ' + cant + '. El stock quedaría negativo. ¿Continuar?')) return;
+  k.stock = tipo === 'entrada' ? actual + cant : tipo === 'salida' ? actual - cant : cant;
+  // En un ajuste guardamos la diferencia, que es lo que realmente se movió
+  registrarMov(k.id, tipo, tipo === 'ajuste' ? cant - actual : cant, document.getElementById('m-motivo').value.trim());
+  guardar(); cerrarModales();
+  // El modal se abre desde Stock o desde Movimientos: se repintan los dos
+  pintarStock(); pintarMovimientos();
+}
+
+/* ================== MÓDULO 5 · CAJA ================== */
+let carrito = [];
+let ordenCobrando = null;      // si la venta viene de una orden del doctor, para marcarla cobrada
+let citaCobrando = null;       // si la venta salda la consulta de una cita
+let controlTrasCobrar = null;  // control que hay que agendar apenas termine el cobro
+function horaAhora() { const d = new Date(); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
+function totalVenta(v) { return v.items.reduce((s,i) => s + Number(i.precio) * Number(i.cant), 0) - Number(v.descuento || 0); }
+
+/* Toda venta pasa por aquí: se cobre desde la caja, al agendar o al salir del
+   consultorio. Así el correlativo, el stock y los pendientes siempre cuadran. */
+function registrarVenta({ pacienteId, items, metodoPago, nota, descuento, ordenId, citaId }) {
+  const venta = {
+    id: nuevoId(),
+    numero: db.config.correlativo++,
+    fecha: hoyStr(), hora: horaAhora(),
+    pacienteId: pacienteId || '',
+    items: items.map(i => ({ ...i })),
+    descuento: Number(descuento) || 0,
+    metodoPago: metodoPago || 'Efectivo',
+    nota: nota || '',
+    usuarioId: sesion ? sesion.id : '',
+    usuarioNombre: sesion ? sesion.nombre : '—',
+    ordenId: ordenId || '',
+    citaId: citaId || '',
+    anulada: false
+  };
+  db.ventas.push(venta);
+  // Cada producto vendido descuenta stock y deja su movimiento
+  venta.items.filter(i => i.tipo === 'producto').forEach(i => {
+    const k = db.catalogo.find(x => x.id === i.catalogoId);
+    if (!k) return;
+    k.stock = Number(k.stock || 0) - i.cant;
+    registrarMov(k.id, 'venta', i.cant, 'Ticket #' + venta.numero, venta.id);
+  });
+  // Lo que recetó el doctor deja de estar pendiente
+  if (ordenId) {
+    const o = db.ordenes.find(x => x.id === ordenId);
+    if (o) { o.estado = 'cobrada'; o.ventaId = venta.id; }
+  }
+  // La consulta queda saldada
+  if (citaId) {
+    const c = db.citas.find(x => x.id === citaId);
+    if (c) { c.pagada = true; c.ventaId = venta.id; }
+  }
+  return venta;
+}
+
+function abrirModalVenta(pacienteId) {
+  const vendibles = db.catalogo.filter(k => Number(k.precio) > 0).sort((a,b) => a.nombre.localeCompare(b.nombre));
+  if (!vendibles.length) { alert('No hay servicios ni productos con precio en el catálogo. Agrégalos primero.'); return; }
+  carrito = [];
+  ordenCobrando = null; citaCobrando = null; controlTrasCobrar = null;
+  document.getElementById('v-quien').textContent = 'Registra: ' + (sesion ? sesion.nombre : '—') + ' · ' + fechaBonita(hoyStr()) + ' ' + horaAhora();
+  llenarSelectPacientes('v-paciente', pacienteId);
+  const sel = document.getElementById('v-paciente');
+  sel.insertAdjacentHTML('afterbegin', '<option value=""' + (pacienteId ? '' : ' selected') + '>— Venta sin paciente (mostrador) —</option>');
+  document.getElementById('v-item').innerHTML = '<option value="">+ Elegir servicio o producto…</option>' +
+    '<optgroup label="Servicios">' + vendibles.filter(k => k.tipo==='servicio').map(k =>
+      '<option value="' + k.id + '">' + esc(k.nombre) + ' — ' + money(k.precio) + '</option>').join('') + '</optgroup>' +
+    '<optgroup label="Productos">' + vendibles.filter(k => k.tipo==='producto').map(k =>
+      '<option value="' + k.id + '">' + esc(k.nombre) + ' — ' + money(k.precio) + ' (stock ' + (k.stock||0) + ')</option>').join('') + '</optgroup>';
+  document.getElementById('v-descuento').value = 0;
+  document.getElementById('v-nota').value = '';
+  document.getElementById('v-pago').value = 'Efectivo';
+  pintarCarrito();
+  document.getElementById('modal-venta').classList.remove('oculto');
+}
+function agregarAlCarrito() {
+  const sel = document.getElementById('v-item');
+  const k = db.catalogo.find(x => x.id === sel.value);
+  sel.value = '';
+  if (!k) return;
+  const ya = carrito.find(i => i.catalogoId === k.id);
+  if (ya) ya.cant++;
+  else carrito.push({ catalogoId: k.id, nombre: k.nombre, tipo: k.tipo, categoria: k.categoria || '', precio: Number(k.precio), cant: 1 });
+  pintarCarrito();
+}
+function cambiarCant(catalogoId, cant) {
+  const i = carrito.find(x => x.catalogoId === catalogoId);
+  i.cant = Math.max(1, Number(cant) || 1);
+  pintarCarrito();
+}
+function quitarDelCarrito(catalogoId) { carrito = carrito.filter(i => i.catalogoId !== catalogoId); pintarCarrito(); }
+function pintarCarrito() {
+  const cont = document.getElementById('v-carrito');
+  if (!carrito.length) { cont.innerHTML = '<div class="vacio" style="padding:16px">Aún no agregas nada a la venta.</div>'; return; }
+  const desc = Number(document.getElementById('v-descuento').value || 0);
+  const bruto = carrito.reduce((s,i) => s + i.precio * i.cant, 0);
+  cont.innerHTML = carrito.map(i => {
+    const k = db.catalogo.find(x => x.id === i.catalogoId);
+    const falta = i.tipo === 'producto' && k && Number(k.stock||0) < i.cant;
+    return '<div class="carrito-item"><span class="nom">' + esc(i.nombre) +
+      (falta ? ' <span class="chip chip-rojo">Solo hay ' + (k.stock||0) + '</span>' : '') +
+      '<br><span class="sub">' + money(i.precio) + ' c/u</span></span>' +
+      '<input type="number" min="1" step="1" value="' + i.cant + '" onchange="cambiarCant(\'' + i.catalogoId + '\',this.value)">' +
+      '<b style="min-width:80px;text-align:right">' + money(i.precio * i.cant) + '</b>' +
+      '<button class="btn btn-peligro btn-mini" onclick="quitarDelCarrito(\'' + i.catalogoId + '\')">✕</button></div>';
+  }).join('') +
+  (desc > 0 ? '<div class="carrito-item"><span class="nom sub">Descuento</span><b style="color:#c0392b">− ' + money(desc) + '</b></div>' : '') +
+  '<div class="total-venta"><span>TOTAL</span><span>' + money(bruto - desc) + '</span></div>';
+}
+function guardarVenta() {
+  if (!carrito.length) { alert('Agrega al menos un servicio o producto.'); return; }
+  const desc = Number(document.getElementById('v-descuento').value || 0);
+  const bruto = carrito.reduce((s,i) => s + i.precio * i.cant, 0);
+  if (desc > bruto) { alert('El descuento no puede ser mayor que el total.'); return; }
+  // Avisar (sin bloquear) si se vende más de lo que hay en stock
+  const sinStock = carrito.filter(i => {
+    const k = db.catalogo.find(x => x.id === i.catalogoId);
+    return i.tipo === 'producto' && k && Number(k.stock||0) < i.cant;
+  });
+  if (sinStock.length && !confirm('No hay stock suficiente de: ' + sinStock.map(i => i.nombre).join(', ') +
+      '.\n\nSi continúas, el stock quedará en negativo (señal de que falta registrar una entrada). ¿Continuar?')) return;
+
+  const venta = registrarVenta({
+    pacienteId: document.getElementById('v-paciente').value,
+    items: carrito,
+    descuento: desc,
+    metodoPago: document.getElementById('v-pago').value,
+    nota: document.getElementById('v-nota').value.trim(),
+    ordenId: ordenCobrando,
+    citaId: citaCobrando
+  });
+  ordenCobrando = null; citaCobrando = null;
+  guardar(); cerrarModales();
+  irA('ventas');
+  verTicket(venta.id);
+  // Si el doctor pidió un control, se agenda con el paciente todavía en el mostrador
+  if (controlTrasCobrar) {
+    const idCtrl = controlTrasCobrar;
+    controlTrasCobrar = null;
+    const c = db.controles.find(x => x.id === idCtrl && x.estado === 'pendiente');
+    if (c) document.getElementById('ticket-luego').innerHTML =
+      '<div class="aviso" style="border-color:#7b3fa0;background:#f8f4fb;margin:10px 0 0" class="no-print">' +
+        '📅 El doctor lo citó en <b>' + esc(c.plazoTexto) + '</b>. Agéndalo antes de que se vaya.' +
+        '<button class="btn btn-mini" style="margin-top:6px;background:#7b3fa0" onclick="agendarControl(\'' + c.id + '\')">Agendar control ahora</button>' +
+      '</div>';
+  }
+}
+function anularVenta(id) {
+  const v = db.ventas.find(x => x.id === id);
+  if (v.anulada) return;
+  if (!confirm('¿Anular el ticket #' + v.numero + ' por ' + money(totalVenta(v)) + '?\n\nEl ticket queda registrado como anulado y los productos vuelven al stock.')) return;
+  v.anulada = true;
+  v.anuladaPor = sesion ? sesion.nombre : '—';
+  v.anuladaFecha = hoyStr();
+  // Si venía de una receta, vuelve a quedar pendiente de cobro (no se pierde la indicación)
+  if (v.ordenId) {
+    const o = db.ordenes.find(x => x.id === v.ordenId);
+    if (o) { o.estado = 'pendiente'; o.ventaId = ''; }
+  }
+  // Y si saldaba una consulta, esa consulta vuelve a estar por cobrar
+  if (v.citaId) {
+    const c = db.citas.find(x => x.id === v.citaId);
+    if (c) { c.pagada = false; c.ventaId = ''; }
+  }
+  v.items.filter(i => i.tipo === 'producto').forEach(i => {
+    const k = db.catalogo.find(x => x.id === i.catalogoId);
+    if (!k) return;
+    k.stock = Number(k.stock || 0) + i.cant;
+    registrarMov(k.id, 'anulacion', i.cant, 'Anulación ticket #' + v.numero, v.id);
+  });
+  guardar(); pintarVentas();
+}
+/* ================== EL MOSTRADOR ==================
+   El momento que faltaba: el paciente sale del consultorio y hay que cobrarle
+   TODO de una vez —la consulta y lo que el doctor le recetó— y agendarle el
+   control. Antes eso vivía en tres pantallas y la consulta se cobraba de memoria. */
+function ordenesPendientes() { return db.ordenes.filter(o => o.estado === 'pendiente'); }
+
+/* Todo lo que un paciente debe o tiene pendiente, junto */
+function pendientesDe(pacienteId) {
+  const orden = ordenesPendientes().find(o => o.pacienteId === pacienteId);
+  const control = controlesPendientes().find(c => c.pacienteId === pacienteId);
+  // Consultas ya atendidas que nadie cobró (incluye días anteriores: una deuda no vence)
+  const citas = db.citas.filter(c => c.pacienteId === pacienteId && atencionDeCita(c.id) && citaPorCobrar(c))
+    .sort((a,b) => (a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+  const items = [];
+  citas.forEach(c => {
+    const s = servicioDeCita(c);
+    if (s) items.push({ catalogoId:s.id, nombre:s.nombre, tipo:'servicio', categoria:s.categoria||'', precio:Number(s.precio), cant:1, _citaId:c.id });
+  });
+  if (orden) orden.items.forEach(i => items.push({ catalogoId:i.catalogoId, nombre:i.nombre, tipo:'producto', categoria:i.categoria||'', precio:Number(i.precio), cant:i.cant, indicacion:i.indicacion }));
+  return { pacienteId, orden, control, citas, items, total: items.reduce((s,i) => s + i.precio * i.cant, 0) };
+}
+/* Quién está saliendo del consultorio ahora mismo, o dejó algo pendiente */
+function pacientesEnMostrador() {
+  const ids = new Set();
+  ordenesPendientes().forEach(o => ids.add(o.pacienteId));
+  controlesPendientes().forEach(c => ids.add(c.pacienteId));
+  db.citas.filter(c => atencionDeCita(c.id) && citaPorCobrar(c)).forEach(c => ids.add(c.pacienteId));
+  return [...ids]
+    .filter(id => db.pacientes.some(p => p.id === id && !p.archivado))
+    .map(id => pendientesDe(id))
+    .sort((a,b) => nombrePaciente(a.pacienteId).localeCompare(nombrePaciente(b.pacienteId)));
+}
+function actualizarBadgeVentas() {
+  const n = pacientesEnMostrador().length;
+  const badge = document.getElementById('badge-ventas');
+  badge.textContent = n; badge.classList.toggle('oculto', n === 0);
+}
+
+function pintarOrdenes() {
+  const gente = pacientesEnMostrador();
+  document.getElementById('ordenes-pendientes').innerHTML = !gente.length ? '' :
+    '<h2 style="margin-top:0">🚪 Saliendo del consultorio (' + gente.length + ')</h2>' +
+    gente.map(p => {
+      const lineas = p.items.map(i =>
+        '<div style="display:flex;justify-content:space-between;gap:10px;padding:3px 0">' +
+          '<span>' + (i.cant > 1 ? '<b>' + i.cant + '×</b> ' : '') + esc(i.nombre) +
+            (i.indicacion ? '<br><span class="sub">' + esc(i.indicacion) + '</span>' : '') +
+            (i.tipo === 'servicio' ? ' <span class="chip chip-azul">consulta</span>' : '') + '</span>' +
+          '<b style="white-space:nowrap">' + money(i.precio * i.cant) + '</b>' +
+        '</div>').join('');
+      const ctrl = p.control
+        ? '<div class="sub" style="margin-top:8px;padding-top:8px;border-top:1px dashed #c4ccd4">📅 El doctor lo citó en <b>' + esc(p.control.plazoTexto) +
+          '</b> · sugerido ' + fechaBonita(p.control.fechaSugerida) + '</div>' : '';
+      const botones =
+        (p.items.length ? '<button class="btn" onclick="atenderEnCaja(\'' + p.pacienteId + '\')">💰 Cobrar' + (p.control ? ' y agendar' : '') + ' · ' + money(p.total) + '</button>'
+                        : '<button class="btn" onclick="agendarControl(\'' + p.control.id + '\')">📅 Agendar control</button>') +
+        '<button class="btn btn-sec btn-mini" onclick="verFicha(\'' + p.pacienteId + '\')">Ver ficha</button>' +
+        (p.orden ? '<button class="btn btn-peligro btn-mini" onclick="descartarOrden(\'' + p.orden.id + '\')">No lo lleva</button>' : '');
+
+      return '<div class="tarjeta" style="border-left:4px solid #7b3fa0">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">' +
+          '<b style="font-size:16px">' + esc(nombrePaciente(p.pacienteId)) + '</b>' +
+          (p.total ? '<b style="font-size:19px;color:#123c5a">' + money(p.total) + '</b>' : '') +
+        '</div>' +
+        lineas + ctrl +
+        '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">' + botones + '</div>' +
+      '</div>';
+    }).join('');
+  actualizarBadgeVentas();
+}
+
+/* Un solo cobro por todo lo que el paciente debe */
+function atenderEnCaja(pacienteId) {
+  const p = pendientesDe(pacienteId);
+  if (!p.items.length) { alert('Este paciente no tiene nada por cobrar.'); return; }
+  abrirModalVenta(pacienteId);
+  carrito = p.items.map(i => ({ ...i }));
+  ordenCobrando = p.orden ? p.orden.id : null;
+  // Solo se marca una cita como pagada por venta; si debe varias consultas, se cobran de a una
+  citaCobrando = p.citas.length ? p.citas[0].id : null;
+  controlTrasCobrar = p.control ? p.control.id : null;
+  const notas = [];
+  if (p.citas.length) notas.push('Consulta');
+  if (p.orden) notas.push('recetado por ' + (p.orden.indicadaPor || 'el doctor'));
+  document.getElementById('v-nota').value = notas.join(' + ');
+  pintarCarrito();
+}
+function cobrarOrden(id) {
+  const o = db.ordenes.find(x => x.id === id);
+  if (o) atenderEnCaja(o.pacienteId);
+}
+function descartarOrden(id) {
+  const o = db.ordenes.find(x => x.id === id);
+  if (!confirm('¿Descartar lo recetado a ' + nombrePaciente(o.pacienteId) + '?\n\nÚsalo si el paciente decidió no llevarlo. Queda registrado en su atención.')) return;
+  o.estado = 'descartada';
+  guardar(); pintarVentas();
+}
+
+function pintarVentas() {
+  pintarOrdenes();
+  const filtro = (document.getElementById('buscador-ventas').value || '').toLowerCase().trim();
+  const hoy = db.ventas.filter(v => v.fecha === hoyStr() && !v.anulada);
+  const totalHoy = hoy.reduce((s,v) => s + totalVenta(v), 0);
+  const mias = hoy.filter(v => sesion && v.usuarioId === sesion.id);
+  document.getElementById('resumen-hoy').innerHTML =
+    '<div class="grid-datos">' +
+      '<div class="dato"><small>Ventas de hoy</small><b>' + hoy.length + '</b></div>' +
+      '<div class="dato"><small>Ingresos de hoy</small><b>' + money(totalHoy) + '</b></div>' +
+      '<div class="dato"><small>Registradas por ' + esc(sesion ? sesion.nombre : '—') + '</small><b>' + mias.length + ' · ' + money(mias.reduce((s,v) => s + totalVenta(v), 0)) + '</b></div>' +
+    '</div>';
+
+  const lista = db.ventas.filter(v => {
+    if (!filtro) return true;
+    const pac = v.pacienteId ? nombrePaciente(v.pacienteId).toLowerCase() : 'mostrador';
+    return String(v.numero).includes(filtro) || pac.includes(filtro);
+  }).sort((a,b) => b.numero - a.numero);
+
+  document.getElementById('lista-ventas').innerHTML = !lista.length
+    ? '<div class="vacio">' + (db.ventas.length ? 'Ninguna venta coincide con la búsqueda.' : 'Aún no hay ventas registradas. Presiona <b>+ Nueva venta</b>.') + '</div>'
+    : '<table class="tabla"><thead><tr><th>#</th><th>Fecha</th><th>Paciente</th><th>Detalle</th><th>Total</th><th>Registró</th><th></th></tr></thead><tbody>' +
+      lista.map(v => '<tr' + (v.anulada ? ' style="opacity:.55"' : '') + '>' +
+        '<td><b>#' + v.numero + '</b>' + (v.anulada ? '<br><span class="chip chip-rojo">Anulada</span>' : '') + '</td>' +
+        '<td>' + fechaBonita(v.fecha) + '<br><span class="sub">' + v.hora + '</span></td>' +
+        '<td>' + esc(nombreEnVenta(v)) + '</td>' +
+        '<td class="sub">' + v.items.map(i => i.cant + '× ' + esc(i.nombre)).join('<br>') + '</td>' +
+        '<td><b>' + money(totalVenta(v)) + '</b><br><span class="sub">' + esc(v.metodoPago||'') + '</span></td>' +
+        '<td class="sub">' + esc(v.usuarioNombre || '—') + '</td>' +
+        '<td><div class="acc-tabla"><button class="btn btn-sec btn-mini" onclick="verTicket(\'' + v.id + '\')">🖨 Ticket</button>' +
+        (!v.anulada ? '<button class="btn btn-peligro btn-mini" onclick="anularVenta(\'' + v.id + '\')">Anular</button>' : '') +
+        '</div></td></tr>').join('') + '</tbody></table>';
+}
+
+/* ================== MÓDULO 6 · TICKET IMPRIMIBLE ==================
+   Comprobante interno (NO es boleta ni factura ante SUNAT).
+   Diseñado para ticketera térmica de 80mm. */
+function verTicket(id) {
+  const v = db.ventas.find(x => x.id === id);
+  if (!v) return;
+  document.getElementById('ticket-luego').innerHTML = '';
+  const bruto = v.items.reduce((s,i) => s + i.precio * i.cant, 0);
+  document.getElementById('ticket').innerHTML =
+    '<div class="t-centro"><b>CONSULTORIO B&amp;N</b><br>Dr. Mariano Arredondo<br>Cirugía bariátrica</div>' +
+    '<hr>' +
+    '<div>TICKET N° ' + String(v.numero).padStart(5,'0') + (v.anulada ? '  ** ANULADO **' : '') + '</div>' +
+    '<div>' + fechaBonita(v.fecha) + '  ' + v.hora + '</div>' +
+    '<div>Atendió: ' + esc(v.usuarioNombre || '—') + '</div>' +
+    '<div>Paciente: ' + esc(nombreEnVenta(v)) + '</div>' +
+    '<hr>' +
+    '<table>' + v.items.map(i =>
+      '<tr><td colspan="2">' + esc(i.nombre) + '</td></tr>' +
+      '<tr><td>&nbsp;&nbsp;' + i.cant + ' x ' + Number(i.precio).toFixed(2) + '</td><td class="der">' + (i.precio * i.cant).toFixed(2) + '</td></tr>'
+    ).join('') + '</table>' +
+    '<hr>' +
+    '<table>' +
+      (v.descuento > 0 ? '<tr><td>Subtotal</td><td class="der">' + bruto.toFixed(2) + '</td></tr>' +
+        '<tr><td>Descuento</td><td class="der">-' + Number(v.descuento).toFixed(2) + '</td></tr>' : '') +
+      '<tr><td><b>TOTAL S/</b></td><td class="der"><b>' + totalVenta(v).toFixed(2) + '</b></td></tr>' +
+      '<tr><td>Pago</td><td class="der">' + esc(v.metodoPago || '') + '</td></tr>' +
+    '</table>' +
+    (v.nota ? '<hr><div>Nota: ' + esc(v.nota) + '</div>' : '') +
+    '<hr>' +
+    '<div class="t-centro">¡Gracias por su preferencia!<br><br>Documento interno.<br>No válido como comprobante de pago.</div>';
+  document.getElementById('modal-ticket').classList.remove('oculto');
+}
+
+/* ================== MÓDULO 7 · REPORTES ================== */
+function rangoRapido(cual) {
+  const hoy = hoyStr();
+  let desde = hoy;
+  if (cual === 'semana') desde = sumarDias(hoy, -6);
+  if (cual === 'mes') desde = hoy.slice(0,8) + '01';
+  if (cual === 'anio') desde = hoy.slice(0,4) + '-01-01';
+  document.getElementById('r-desde').value = desde;
+  document.getElementById('r-hasta').value = hoy;
+  pintarReportes();
+}
+function filtrosReporte() {
+  const desde = document.getElementById('r-desde').value || '0000-01-01';
+  const hasta = document.getElementById('r-hasta').value || '9999-12-31';
+  const usuario = document.getElementById('r-usuario').value || '';
+  return { desde, hasta, usuario };
+}
+function ventasFiltradas() {
+  const f = filtrosReporte();
+  return db.ventas.filter(v => !v.anulada && v.fecha >= f.desde && v.fecha <= f.hasta && (!f.usuario || v.usuarioId === f.usuario));
+}
+/* Qué patologías atiende más el Dr. — se cuenta desde las atenciones, no desde
+   las ventas: una consulta por hernia cuenta aunque el paciente no compre nada. */
+function htmlPatologias(f) {
+  const ats = db.atenciones.filter(a => a.fecha >= f.desde && a.fecha <= f.hasta &&
+    (!f.usuario || a.usuarioId === f.usuario));
+  const cuenta = {}, pacientesPor = {};
+  ats.forEach(a => (a.cirugias || []).forEach(c => {
+    cuenta[c] = (cuenta[c] || 0) + 1;
+    (pacientesPor[c] = pacientesPor[c] || new Set()).add(a.pacienteId);
+  }));
+  const filas = Object.entries(cuenta).sort((a,b) => b[1] - a[1]);
+  const sinClasificar = ats.filter(a => !(a.cirugias || []).length).length;
+
+  if (!filas.length) {
+    return '<h2>Qué atiende más</h2><div class="vacio">' +
+      (ats.length
+        ? 'Hay ' + plural(ats.length, 'atención', 'atenciones') + ' en este rango, pero ninguna tiene la cirugía o patología marcada.<br>' +
+          '<span class="sub">El doctor la marca en la pantalla de atención, debajo del motivo de consulta.</span>'
+        : 'Sin atenciones en este rango.') + '</div>';
+  }
+  const maxN = filas[0][1];
+  return '<h2>Qué atiende más</h2>' +
+    '<table class="tabla"><thead><tr><th>Cirugía / patología</th><th>Atenciones</th><th>Pacientes</th><th></th></tr></thead><tbody>' +
+    filas.map(([nombre, n]) =>
+      '<tr><td><b>' + esc(nombre) + '</b></td>' +
+        '<td><b>' + n + '</b></td>' +
+        '<td>' + pacientesPor[nombre].size + '</td>' +
+        '<td style="width:40%"><div style="background:#eef2f5;border-radius:4px;height:8px">' +
+          '<div style="background:#7b3fa0;height:8px;border-radius:4px;width:' + Math.round(n/maxN*100) + '%"></div></div></td></tr>').join('') +
+    '</tbody></table>' +
+    (sinClasificar ? '<div class="sub" style="margin-top:6px">' + plural(sinClasificar, 'atención', 'atenciones') + ' sin clasificar en este rango.</div>' : '');
+}
+
+function pintarReportes() {
+  // El selector de usuario se llena aquí para reflejar altas/bajas
+  const selU = document.getElementById('r-usuario');
+  const prev = selU.value;
+  selU.innerHTML = '<option value="">Todos los usuarios</option>' +
+    db.usuarios.map(u => '<option value="' + u.id + '">' + esc(u.nombre) + '</option>').join('');
+  selU.value = prev;
+
+  const f = filtrosReporte();
+  const ventas = ventasFiltradas();
+  const total = ventas.reduce((s,v) => s + totalVenta(v), 0);
+  const anuladas = db.ventas.filter(v => v.anulada && v.fecha >= f.desde && v.fecha <= f.hasta && (!f.usuario || v.usuarioId === f.usuario));
+
+  // Ingresos separando lo que deja el consultorio (servicios) de lo que deja la marca B&N (productos)
+  let porServicios = 0, porProductos = 0;
+  const porItem = {}, porCategoria = {};
+  ventas.forEach(v => {
+    const ratio = totalVenta(v) / (v.items.reduce((s,i) => s + i.precio * i.cant, 0) || 1); // reparte el descuento
+    v.items.forEach(i => {
+      const monto = i.precio * i.cant * ratio;
+      if (i.tipo === 'servicio') porServicios += monto; else porProductos += monto;
+      const k = porItem[i.nombre] || (porItem[i.nombre] = { nombre: i.nombre, tipo: i.tipo, cant: 0, monto: 0 });
+      k.cant += i.cant; k.monto += monto;
+      const c = i.categoria || 'Sin categoría';
+      porCategoria[c] = (porCategoria[c] || 0) + monto;
+    });
+  });
+
+  // Citas del rango (por eso el reporte no depende solo de las ventas)
+  const citas = db.citas.filter(c => c.fecha >= f.desde && c.fecha <= f.hasta);
+  const atendidas = citas.filter(c => c.estado === 'atendida').length;
+  const canceladas = citas.filter(c => c.estado === 'cancelada').length;
+  const pendientes = citas.filter(c => c.estado === 'pendiente' || c.estado === 'confirmada').length;
+  const tasa = (atendidas + canceladas) ? Math.round(atendidas / (atendidas + canceladas) * 100) : 0;
+
+  // Cuánto vendió cada persona
+  const porUsuario = {};
+  ventas.forEach(v => {
+    const u = porUsuario[v.usuarioNombre] || (porUsuario[v.usuarioNombre] = { n: 0, monto: 0 });
+    u.n++; u.monto += totalVenta(v);
+  });
+  const porPago = {};
+  ventas.forEach(v => { porPago[v.metodoPago || '—'] = (porPago[v.metodoPago || '—'] || 0) + totalVenta(v); });
+
+  const topItems = Object.values(porItem).sort((a,b) => b.monto - a.monto);
+  const barra = (parte, todo) => {
+    const pct = todo ? Math.round(parte / todo * 100) : 0;
+    return '<div style="background:#eef2f5;border-radius:4px;height:6px;margin-top:4px"><div style="background:#15557f;height:6px;border-radius:4px;width:' + pct + '%"></div></div>';
+  };
+
+  document.getElementById('contenido-reportes').innerHTML =
+    '<h2>Resumen · ' + fechaBonita(f.desde) + ' al ' + fechaBonita(f.hasta) + (f.usuario ? ' · ' + esc(db.usuarios.find(u=>u.id===f.usuario)?.nombre || '') : '') + '</h2>' +
+    '<div class="grid-datos">' +
+      '<div class="dato"><small>Ingresos totales</small><b style="font-size:19px">' + money(total) + '</b></div>' +
+      '<div class="dato"><small>N° de ventas</small><b style="font-size:19px">' + ventas.length + '</b></div>' +
+      '<div class="dato"><small>Ticket promedio</small><b style="font-size:19px">' + money(ventas.length ? total/ventas.length : 0) + '</b></div>' +
+      '<div class="dato"><small>Anuladas</small><b style="font-size:19px">' + anuladas.length + '</b></div>' +
+    '</div>' +
+
+    '<h2>Ingresos por tipo</h2>' +
+    '<div class="tarjeta">' +
+      '<div style="display:flex;justify-content:space-between"><b>Servicios (consultas, cirugías)</b><b>' + money(porServicios) + '</b></div>' + barra(porServicios, total) +
+      '<div style="display:flex;justify-content:space-between;margin-top:12px"><b>Productos (suplementos B&amp;N)</b><b>' + money(porProductos) + '</b></div>' + barra(porProductos, total) +
+    '</div>' +
+
+    '<h2>Ingresos por categoría</h2>' +
+    (Object.keys(porCategoria).length
+      ? '<table class="tabla"><thead><tr><th>Categoría</th><th>Ingresos</th><th>%</th></tr></thead><tbody>' +
+        Object.entries(porCategoria).sort((a,b) => b[1]-a[1]).map(([c,m]) =>
+          '<tr><td>' + esc(c) + '</td><td><b>' + money(m) + '</b></td><td>' + (total ? Math.round(m/total*100) : 0) + '%</td></tr>').join('') +
+        '</tbody></table>'
+      : '<div class="vacio">Sin datos en este rango.</div>') +
+
+    '<h2>Más vendidos</h2>' +
+    (topItems.length
+      ? '<table class="tabla"><thead><tr><th>#</th><th>Ítem</th><th>Tipo</th><th>Cantidad</th><th>Ingresos</th></tr></thead><tbody>' +
+        topItems.map((i,n) => '<tr><td>' + (n+1) + '</td><td><b>' + esc(i.nombre) + '</b></td>' +
+          '<td>' + (i.tipo==='producto' ? '<span class="chip chip-verde">Producto</span>' : '<span class="chip chip-azul">Servicio</span>') + '</td>' +
+          '<td><b>' + i.cant + '</b></td><td>' + money(i.monto) + '</td></tr>').join('') + '</tbody></table>'
+      : '<div class="vacio">Sin ventas en este rango.</div>') +
+
+    htmlPatologias(f) +
+
+    '<h2>Citas: atendidas vs. canceladas</h2>' +
+    '<div class="grid-datos">' +
+      '<div class="dato"><small>Atendidas</small><b style="color:#2e7d4f">' + atendidas + '</b></div>' +
+      '<div class="dato"><small>Canceladas</small><b style="color:#c0392b">' + canceladas + '</b></div>' +
+      '<div class="dato"><small>Aún por atender</small><b>' + pendientes + '</b></div>' +
+      '<div class="dato"><small>Tasa de asistencia</small><b>' + tasa + '%</b></div>' +
+    '</div>' +
+    '<div class="sub">La tasa compara atendidas contra canceladas. Las citas pendientes o confirmadas no cuentan todavía.</div>' +
+
+    '<h2>Ventas por usuario</h2>' +
+    (Object.keys(porUsuario).length
+      ? '<table class="tabla"><thead><tr><th>Usuario</th><th>N° ventas</th><th>Ingresos</th><th>%</th></tr></thead><tbody>' +
+        Object.entries(porUsuario).sort((a,b) => b[1].monto - a[1].monto).map(([n,u]) =>
+          '<tr><td><b>' + esc(n) + '</b></td><td>' + u.n + '</td><td>' + money(u.monto) + '</td><td>' + (total ? Math.round(u.monto/total*100) : 0) + '%</td></tr>').join('') +
+        '</tbody></table>'
+      : '<div class="vacio">Sin ventas en este rango.</div>') +
+
+    '<h2>Cómo pagaron</h2>' +
+    (Object.keys(porPago).length
+      ? '<table class="tabla"><thead><tr><th>Método</th><th>Monto</th><th>%</th></tr></thead><tbody>' +
+        Object.entries(porPago).sort((a,b) => b[1]-a[1]).map(([m,v]) =>
+          '<tr><td>' + esc(m) + '</td><td><b>' + money(v) + '</b></td><td>' + (total ? Math.round(v/total*100) : 0) + '%</td></tr>').join('') +
+        '</tbody></table>'
+      : '');
+}
+function exportarReporte() {
+  const f = filtrosReporte();
+  const filas = [['Ticket','Fecha','Hora','Paciente','Item','Tipo','Categoria','Cantidad','Precio unit','Subtotal','Descuento venta','Total venta','Metodo pago','Registro']];
+  ventasFiltradas().sort((a,b) => a.numero - b.numero).forEach(v => {
+    v.items.forEach((i,n) => filas.push([
+      v.numero, v.fecha, v.hora, nombreEnVenta(v),
+      i.nombre, i.tipo, i.categoria || '', i.cant, Number(i.precio).toFixed(2), (i.precio*i.cant).toFixed(2),
+      n === 0 ? Number(v.descuento||0).toFixed(2) : '', n === 0 ? totalVenta(v).toFixed(2) : '',
+      v.metodoPago || '', v.usuarioNombre || ''
+    ]));
+  });
+  if (filas.length === 1) { alert('No hay ventas en el rango elegido.'); return; }
+  // sep=; y BOM para que Excel en español lo abra en columnas y respete las tildes
+  const csv = 'sep=;\n' + filas.map(f2 => f2.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(';')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type:'text/csv;charset=utf-8' }));
+  a.download = 'reporte-consultoriobn-' + f.desde + '_a_' + f.hasta + '.csv';
+  a.click();
+}
+
+/* ================== CONFIG · EL DOCTOR COMO DUEÑO ==================
+   Aquí no se atiende: se administra. Precios y usuarios se tocan
+   de vez en cuando, no en el día a día — por eso no son pestaña. */
+let cfgVista = 'precios';
+function cambiarConfig(v) {
+  cfgVista = v;
+  ['precios','usuarios','datos'].forEach(x => {
+    document.getElementById('btn-cfg-' + x).style.cssText = v===x ? '' : 'background:#fff;color:#333;border:1px solid #c4ccd4';
+    document.getElementById('cfg-' + x).classList.toggle('oculto', v !== x);
+  });
+  if (v === 'precios') pintarCatalogo();
+  if (v === 'usuarios') pintarUsuarios();
+  if (v === 'datos') pintarDatos();
+}
+function pintarDatos() {
+  const n = {
+    pacientes: db.pacientes.length,
+    atenciones: db.atenciones.length,
+    citas: db.citas.length,
+    ventas: db.ventas.filter(v => !v.anulada).length,
+    movimientos: db.movimientos.length
+  };
+  const vacio = !n.pacientes && !n.citas && !n.ventas;
+  const kb = ((localStorage.getItem(CLAVE) || '').length / 1024).toFixed(1);
+  document.getElementById('cfg-datos-resumen').innerHTML =
+    (vacio ? '<div class="aviso" style="border-color:#2e7d4f;background:#f2f9f4"><b>✅ El sistema está en cero.</b> Listo para empezar con pacientes reales.</div>' : '') +
+    '<div class="grid-datos">' +
+      '<div class="dato"><small>Pacientes</small><b>' + n.pacientes + '</b></div>' +
+      '<div class="dato"><small>Atenciones</small><b>' + n.atenciones + '</b></div>' +
+      '<div class="dato"><small>Citas</small><b>' + n.citas + '</b></div>' +
+      '<div class="dato"><small>Ventas</small><b>' + n.ventas + '</b></div>' +
+      '<div class="dato"><small>Ocupado</small><b>' + kb + ' KB</b></div>' +
+    '</div>';
+}
+
+/* Borrar todo pide escribir BORRAR: es lo mismo que exigimos para eliminar
+   a un solo paciente, y aquí se van todas las historias clínicas de una vez. */
+function abrirBorrarTodo() {
+  if (!esDoctor()) { alert('Solo el doctor puede borrar los datos.'); return; }
+  const n = db.pacientes.length, a = db.atenciones.length;
+  if (!n && !db.citas.length && !db.ventas.length) { alert('El sistema ya está en cero: no hay nada que borrar.'); return; }
+  const r = prompt('⚠️ Vas a borrar TODO:\n\n' +
+    '• ' + plural(n, 'paciente') + '\n' +
+    '• ' + plural(a, 'atención', 'atenciones') + ' (historias clínicas)\n' +
+    '• ' + plural(db.citas.length, 'cita') + '\n' +
+    '• ' + plural(db.ventas.length, 'venta') + '\n' +
+    '• ' + plural(db.movimientos.length, 'movimiento') + ' de stock\n\n' +
+    'Los usuarios, sus PIN y los precios se conservan.\n' +
+    'Esto NO se puede deshacer.\n\n' +
+    'Escribe BORRAR para confirmar:');
+  if (r === null) return;
+  if (normalizar(r) !== 'borrar') { alert('No se borró nada.'); return; }
+  borrarTodo();
+}
+function borrarTodo() {
+  db.pacientes = [];
+  db.citas = [];
+  db.atenciones = [];
+  db.ordenes = [];
+  db.controles = [];
+  db.ventas = [];
+  db.movimientos = [];
+  db.config.correlativo = 1; // el próximo ticket vuelve a ser el #1
+  // Los productos quedan, pero su stock arranca en cero: lo que había era inventado
+  db.catalogo.filter(k => k.tipo === 'producto').forEach(k => k.stock = 0);
+  guardar();
+  irA('config'); cambiarConfig('datos');
+  refrescarBadges();
+  alert('Listo. El sistema quedó en cero.\n\nSe conservaron los usuarios, sus PIN y los precios del catálogo.');
+}
+
+function pintarUsuarios() {
+  const deFabrica = db.usuarios.some(u => USUARIOS_INICIALES.some(i => i.id === u.id && i.pin === u.pin));
+  document.getElementById('lista-usuarios').innerHTML =
+    (deFabrica ? '<div class="aviso aviso-amarillo">⚠️ Todavía hay usuarios con el PIN de fábrica (1234 / 4321). Cámbialos antes de instalar el sistema en el consultorio.</div>' : '') +
+    '<table class="tabla"><thead><tr><th>Nombre</th><th>Rol</th><th>PIN</th><th></th></tr></thead><tbody>' +
+    db.usuarios.map(u => '<tr><td><b>' + esc(u.nombre) + '</b></td>' +
+      '<td>' + (u.rol === 'doctor' ? '<span class="chip chip-morado">Doctor / dueño</span>' : '<span class="chip chip-azul">Recepción</span>') + '</td>' +
+      '<td>••••</td>' +
+      '<td><div class="acc-tabla"><button class="btn btn-sec btn-mini" onclick="abrirModalUsuario(\'' + u.id + '\')">Editar</button>' +
+      (db.usuarios.length > 1 ? '<button class="btn btn-peligro btn-mini" onclick="borrarUsuario(\'' + u.id + '\')">Borrar</button>' : '') +
+      '</div></td></tr>').join('') + '</tbody></table>';
+}
+function abrirModalUsuario(id) {
+  const u = id ? db.usuarios.find(x => x.id === id) : null;
+  document.getElementById('titulo-modal-usuario').textContent = u ? 'Editar usuario' : 'Nuevo usuario';
+  document.getElementById('u-nombre').value = u ? u.nombre : '';
+  document.getElementById('u-rol').value = u ? u.rol : 'recepcion';
+  document.getElementById('u-pin').value = u ? u.pin : '';
+  document.getElementById('modal-usuario').dataset.editando = id || '';
+  document.getElementById('modal-usuario').classList.remove('oculto');
+  document.getElementById('u-nombre').focus();
+}
+function guardarUsuario() {
+  const nombre = document.getElementById('u-nombre').value.trim();
+  const pin = document.getElementById('u-pin').value;
+  if (!nombre) { alert('El nombre es obligatorio.'); return; }
+  if (pin.length !== 4) { alert('El PIN debe tener 4 dígitos.'); return; }
+  const idEdit = document.getElementById('modal-usuario').dataset.editando;
+  // Dos personas con el mismo PIN harían imposible saber quién vendió
+  if (db.usuarios.some(u => u.id !== idEdit && u.pin === pin)) { alert('Ese PIN ya lo usa otra persona. Elige uno distinto.'); return; }
+  const datos = { nombre, rol: document.getElementById('u-rol').value, pin };
+  if (idEdit) Object.assign(db.usuarios.find(u => u.id === idEdit), datos);
+  else db.usuarios.push({ id: nuevoId(), ...datos });
+  guardar(); cerrarModales(); pintarUsuarios();
+}
+function borrarUsuario(id) {
+  if (db.usuarios.length <= 1) { alert('Debe quedar al menos un usuario.'); return; }
+  const u = db.usuarios.find(x => x.id === id);
+  if (!confirm('¿Borrar a ' + u.nombre + '? Las ventas que ya registró seguirán mostrando su nombre.')) return;
+  db.usuarios = db.usuarios.filter(x => x.id !== id);
+  guardar(); pintarUsuarios();
+}
+
+/* ================== RESPALDO ================== */
+function descargarRespaldo() {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(db, null, 2)], { type:'application/json' }));
+  a.download = 'respaldo-consultoriobn-' + hoyStr() + '.json';
+  a.click();
+}
+function restaurarRespaldo(input) {
+  const archivo = input.files[0]; if (!archivo) return;
+  const lector = new FileReader();
+  lector.onload = () => {
+    try {
+      const datos = JSON.parse(lector.result);
+      if (!datos.pacientes) throw new Error('formato');
+      if (!confirm('Esto reemplazará TODOS los datos actuales por los del respaldo. ¿Continuar?')) return;
+      db = datos;
+      // cargar() rellena lo que falte: un respaldo viejo puede no traer usuarios ni movimientos
+      guardar(); cargar(); guardar();
+      alert('Respaldo restaurado correctamente. Vuelve a entrar con tu PIN.');
+      cerrarSesion();
+    } catch (e) { alert('El archivo no es un respaldo válido.'); }
+  };
+  lector.readAsText(archivo); input.value = '';
+}
+
+/* ================== DATOS DE EJEMPLO ================== */
+function cargarDemo() {
+  if (!esDoctor()) { alert('Solo el doctor puede cargar los datos de ejemplo.'); return; }
+  // Reemplaza TODO: si ya hay pacientes reales, hay que ser explícito
+  if (db.atenciones.length || db.ventas.length) {
+    const r = prompt('⚠️ Ya hay datos en el sistema (' + plural(db.pacientes.length, 'paciente') + ', ' +
+      plural(db.atenciones.length, 'atención', 'atenciones') + ').\n\n' +
+      'Los datos de ejemplo REEMPLAZAN todo lo que hay, incluidas las historias clínicas.\n\n' +
+      'Escribe EJEMPLO para confirmar:');
+    if (r === null || normalizar(r) !== 'ejemplo') { alert('No se cargó nada.'); return; }
+  } else if (db.pacientes.length && !confirm('¿Reemplazar lo que hay por los datos de ejemplo?')) return;
+  const p1 = nuevoId(), p2 = nuevoId(), p3 = nuevoId();
+  const usuariosActuales = db.usuarios.map(u => ({ ...u })); // los usuarios y sus PIN no se pisan con la demo
+  db = {
+    pacientes: [
+      { id:p1, nombre:'María González Ruiz', documento:'45678912', docTipo:'DNI', edad:38, sexo:'Femenino', telefono:'987654321', email:'', peso:98, altura:162, procedimientos:['Manga gástrica'], fechaCirugia:sumarDias(hoyStr(),-45), pesoInicial:96.5, pesoMeta:65, objetivo:'Llegar bien al matrimonio de su hija', alergias:'Intolerante a lactosa', creado:hoyStr(),
+        notas:[{ id:nuevoId(), fecha:sumarDias(hoyStr(),-10), texto:'Control de 1 mes. Buen avance, -8 kg. Se refuerza proteína B&N 2 veces al día.' }] },
+      { id:p2, nombre:'Jorge Salazar Peña', documento:'40011223', docTipo:'DNI', edad:45, sexo:'Masculino', telefono:'999888777', email:'', peso:120, altura:175, procedimientos:[], fechaCirugia:'', pesoInicial:120, pesoMeta:85, objetivo:'', alergias:'', creado:hoyStr(), notas:[] },
+      { id:p3, nombre:'Lucía Fernández', documento:'71234567', docTipo:'DNI', edad:29, sexo:'Femenino', telefono:'955444333', email:'', peso:82, altura:168, procedimientos:['Balón gástrico'], fechaCirugia:sumarDias(hoyStr(),15), pesoInicial:82, pesoMeta:67, objetivo:'', alergias:'', creado:hoyStr(), notas:[] }
+    ],
+    citas: [],
+    catalogo: [],
+    ventas: [], movimientos: [], atenciones: [], ordenes: [], controles: [],
+    usuarios: usuariosActuales,
+    config: { correlativo:1, negocio:NEGOCIO }
+  };
+  const k1 = { id:nuevoId(), tipo:'servicio', nombre:'Consulta de valoración bariátrica', categoria:'Consulta', precio:150, activo:true };
+  const k2 = { id:nuevoId(), tipo:'servicio', nombre:'Control post-operatorio', categoria:'Control', precio:80, activo:true };
+  // Las 8 que el Dr. anuncia como especialidad: cirugía digestiva y de la obesidad
+  const k3 = { id:nuevoId(), tipo:'servicio', nombre:'Manga gástrica', categoria:'Cirugía', precio:12000, activo:true };
+  const k4 = { id:nuevoId(), tipo:'servicio', nombre:'Balón gástrico', categoria:'Procedimiento', precio:6500, activo:true };
+  const kBypass = { id:nuevoId(), tipo:'servicio', nombre:'Bypass gástrico', categoria:'Cirugía', precio:15000, activo:true };
+  const kHernia = { id:nuevoId(), tipo:'servicio', nombre:'Hernia', categoria:'Cirugía', precio:5500, activo:true };
+  const kHemo = { id:nuevoId(), tipo:'servicio', nombre:'Hemorroides', categoria:'Cirugía', precio:4000, activo:true };
+  const kFist = { id:nuevoId(), tipo:'servicio', nombre:'Fístulas', categoria:'Cirugía', precio:4500, activo:true };
+  const kApen = { id:nuevoId(), tipo:'servicio', nombre:'Apéndice', categoria:'Cirugía', precio:6000, activo:true };
+  const kVesi = { id:nuevoId(), tipo:'servicio', nombre:'Vesícula', categoria:'Cirugía', precio:7000, activo:true };
+  const k5 = { id:nuevoId(), tipo:'producto', nombre:'Proteína B&N vainilla 500g', categoria:'Suplemento', marca:'B&N', unidad:'frasco', precio:120, stock:18, stockMin:5, activo:true };
+  const k6 = { id:nuevoId(), tipo:'producto', nombre:'Multivitamínico bariátrico B&N', categoria:'Vitamina', marca:'B&N', unidad:'frasco', precio:85, stock:4, stockMin:6, activo:true };
+  const k7 = { id:nuevoId(), tipo:'producto', nombre:'Hierro masticable', categoria:'Vitamina', marca:'Otra marca', unidad:'caja', precio:45, stock:12, stockMin:5, activo:true };
+  db.catalogo = [k1,k2,k3,k4,kBypass,kHernia,kHemo,kFist,kApen,kVesi,k5,k6,k7];
+
+  const uRec = db.usuarios.find(u => u.rol === 'recepcion') || db.usuarios[0];
+  const uDoc = db.usuarios.find(u => u.rol === 'doctor') || db.usuarios[0];
+
+  // Citas: las pasadas ya atendidas, las de hoy son la fila del doctor
+  const cita = (pacienteId, dias, hora, tipo, estado, motivo, dur) =>
+    ({ id:nuevoId(), pacienteId, fecha:sumarDias(hoyStr(), dias), hora, tipo, estado, motivo, ...(dur?{dur}:{}) });
+  const c1 = cita(p1, -45, '09:00', 'control', 'atendida', 'Control post-op 1 semana');
+  const c2 = cita(p1, -30, '09:20', 'control', 'atendida', 'Control post-op 3 semanas');
+  const c3 = cita(p1, -10, '10:00', 'control', 'atendida', 'Control post-op 1 mes');
+  db.citas = [
+    c1, c2, c3,
+    cita(p1, 0, '09:00', 'control', 'confirmada', 'Control post-op 6 semanas'),
+    cita(p2, 0, '11:00', 'consulta', 'pendiente', 'Primera consulta'),
+    cita(p3, 1, '10:30', 'consulta', 'confirmada', 'Pre-operatorio'),
+    cita(p3, 15, '07:30', 'cirugia', 'pendiente', 'Colocación balón gástrico'),
+    { id:nuevoId(), pacienteId:'', fecha:hoyStr(), hora:'13:00', dur:60, tipo:'reunion', estado:'confirmada', motivo:'Reunión con laboratorio B&N' }
+  ];
+  // Atenciones pasadas de María: muestran la curva de bajada de peso tras la manga gástrica
+  const atencion = (c, peso, notas, presc) => ({
+    id:nuevoId(), citaId:c.id, pacienteId:c.pacienteId, tipo:c.tipo, fecha:c.fecha, hora:c.hora,
+    peso, altura:162, motivo:c.motivo, notas, prescripcion:presc || [], cirugias:['Manga gástrica'],
+    usuarioId:uDoc.id, usuarioNombre:uDoc.nombre
+  });
+  db.atenciones = [
+    atencion(c1, 96.5, 'Primera semana post-manga. Tolera líquidos. Herida sin signos de infección.'),
+    atencion(c2, 92.0, 'Buena evolución, -4.5 kg. Se inicia dieta blanda. Refuerzo de proteína.'),
+    atencion(c3, 88.5, 'Control de 1 mes, -8 kg acumulados. Se indica multivitamínico diario.')
+  ];
+  // Pacientes con sus atenciones, para que "Qué atiende más" muestre la mezcla real del
+  // consultorio: cirugía digestiva y obesidad conviven (el Dr. anuncia ambas especialidades)
+  const otros = [
+    ['Rosa Chávez Díaz',      '43219876', 'Femenino', 54, 'Vesícula',        -40],
+    ['Carlos Medina Soto',    '08765432', 'Masculino', 61, 'Vesícula',       -33],
+    ['Ana Torres Vega',       '46813579', 'Femenino', 47, 'Vesícula',        -12],
+    ['Luis Paredes Rojas',    '09182736', 'Masculino', 39, 'Hernia',         -38],
+    ['Miguel Ángel Cruz',     '47382910', 'Masculino', 52, 'Hernia',         -25],
+    ['Patricia Núñez',        '42536170', 'Femenino', 44, 'Bypass gástrico', -28],
+    ['Elena Ríos Campos',     '45091827', 'Femenino', 36, 'Bypass gástrico',  -6],
+    ['Roberto Aguilar',       '07654321', 'Masculino', 48, 'Manga gástrica', -19],
+    ['Sofía Delgado',         '48192736', 'Femenino', 33, 'Hemorroides',     -16],
+    ['Diego Ramos Flores',    '49283746', 'Masculino', 27, 'Apéndice',        -3]
+  ];
+  otros.forEach(([nombre, doc, sexo, edad, cir, dias]) => {
+    const id = nuevoId();
+    db.pacientes.push({ id, nombre, documento:doc, docTipo:'DNI', edad, sexo, telefono:'9' + doc,
+      email:'', peso:0, altura:0, procedimientos:[cir], fechaCirugia:'', pesoInicial:0, pesoMeta:0,
+      objetivo:'', alergias:'', creado:sumarDias(hoyStr(), dias), notas:[] });
+    const c = cita(id, dias, '10:00', 'consulta', 'atendida', 'Evaluación por ' + cir.toLowerCase());
+    db.citas.push(c);
+    db.atenciones.push({
+      id:nuevoId(), citaId:c.id, pacienteId:id, tipo:'consulta', fecha:c.fecha, hora:c.hora,
+      peso:0, altura:0, motivo:c.motivo, notas:'Evaluación inicial. Se explica el procedimiento.',
+      prescripcion:[], cirugias:[cir], usuarioId:uDoc.id, usuarioNombre:uDoc.nombre
+    });
+  });
+
+  db.atenciones[2].plazoControl = 30; // en su último control el Dr. la citó en 1 mes: por eso tiene cita hoy
+  db.atenciones[2].imc = Number((88.5 / Math.pow(1.62, 2)).toFixed(1));
+  db.atenciones[1].imc = Number((92.0 / Math.pow(1.62, 2)).toFixed(1));
+  db.atenciones[0].imc = Number((96.5 / Math.pow(1.62, 2)).toFixed(1));
+  db.atenciones[2].prescripcion = [{ catalogoId:k6.id, nombre:k6.nombre, tipo:'producto', categoria:k6.categoria, precio:k6.precio, cant:1, indicacion:'1 al día con el desayuno' }];
+
+  // Ventas de ejemplo repartidas en el mes para que los reportes muestren algo real
+  const it = (k, cant) =>({ catalogoId:k.id, nombre:k.nombre, tipo:k.tipo, categoria:k.categoria, precio:k.precio, cant });
+  const venta = (dias, hora, pacienteId, items, pago, usuario, descuento) => ({
+    id:nuevoId(), numero:db.config.correlativo++, fecha:sumarDias(hoyStr(), dias), hora,
+    pacienteId, items, descuento:descuento||0, metodoPago:pago, nota:'',
+    usuarioId:usuario.id, usuarioNombre:usuario.nombre, anulada:false
+  });
+  db.ventas = [
+    venta(-22, '10:15', p1, [it(k1,1)], 'Efectivo', uRec),
+    venta(-20, '11:40', p2, [it(k1,1), it(k5,1)], 'Yape / Plin', uRec),
+    venta(-18, '09:30', p1, [it(k5,2), it(k6,1)], 'Tarjeta', uRec, 20),
+    venta(-14, '16:00', p3, [it(k4,1)], 'Transferencia', uDoc),
+    venta(-9,  '12:10', p1, [it(k2,1), it(k5,1)], 'Efectivo', uRec),
+    venta(-7,  '10:00', p2, [it(k1,1), it(k7,2)], 'Yape / Plin', uRec),
+    venta(-4,  '15:20', p3, [it(k6,1), it(k7,1)], 'Efectivo', uRec),
+    venta(-2,  '09:50', p1, [it(k2,1)], 'Efectivo', uDoc),
+    venta(0,   '10:30', p2, [it(k5,1), it(k6,1)], 'Tarjeta', uRec)
+  ];
+  // Las consultas ya atendidas de días pasados están cobradas: si no, aparecerían
+  // todas como deuda en el mostrador. Solo la de hoy queda por cobrar.
+  const pagos = ['Efectivo','Yape / Plin','Tarjeta'];
+  db.citas.filter(c => c.estado === 'atendida' && c.fecha < hoyStr()).forEach((c, n) => {
+    const serv = c.tipo === 'control' ? k2 : k1;
+    const v = { id:nuevoId(), numero:0, fecha:c.fecha, hora:c.hora,
+      pacienteId:c.pacienteId, items:[it(serv,1)], descuento:0,
+      metodoPago:pagos[n % pagos.length], nota:'', citaId:c.id,
+      usuarioId:uRec.id, usuarioNombre:uRec.nombre, anulada:false };
+    db.ventas.push(v);
+    c.pagada = true; c.ventaId = v.id;
+  });
+  // El correlativo se reasigna en orden cronológico: un ticket #12 no puede ser anterior al #3
+  db.ventas.sort((a,b) => (a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+  db.config.correlativo = 1;
+  db.ventas.forEach(v => v.numero = db.config.correlativo++);
+  // El stock de la demo ya refleja lo vendido, así que no se descuenta otra vez
+  guardar(); refrescarBadges(); irA('atenciones');
+  alert('Datos de ejemplo cargados: 13 pacientes, agenda, catálogo con las 8 cirugías, ventas y la historia de María con su curva de peso.\n\n' +
+    'OJO: los precios de las cirugías son inventados. Cámbialos en ⚙️ Precios cuando el Dr. te los pase.');
+}
+
+/* ================== MODALES / INICIO ================== */
+function cerrarModales() { document.querySelectorAll('.fondo-modal').forEach(m => m.classList.add('oculto')); }
+document.querySelectorAll('.fondo-modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) cerrarModales(); }));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModales(); });
+
+cargar();
+pintarAcceso();
+</script>
+</body>
+</html>
