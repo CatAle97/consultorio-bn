@@ -29,6 +29,8 @@
 
   .btn { background:#15557f; color:#fff; border:none; padding:9px 16px; border-radius:6px; cursor:pointer; font-size:14px; white-space:nowrap; }
   .btn:hover { background:#124a6e; }
+  .btn:disabled { background:#c4ccd4; cursor:not-allowed; }
+  .btn:disabled:hover { background:#c4ccd4; }
   .btn-sec { background:#fff; color:#333; border:1px solid #c4ccd4; }
   .btn-sec:hover { background:#f0f3f6; }
   .btn-peligro { background:#fff; color:#c0392b; border:1px solid #e0b4ae; }
@@ -711,7 +713,7 @@
     <input id="v-nota" placeholder="Ej: pago parcial, promoción…">
     <div class="acciones">
       <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
-      <button class="btn" onclick="guardarVenta()">Cobrar y guardar</button>
+      <button class="btn" id="btn-cobrar" onclick="guardarVenta()">Cobrar y guardar</button>
     </div>
   </div>
 </div>
@@ -2719,36 +2721,68 @@ function cambiarCant(catalogoId, cant) {
   pintarCarrito();
 }
 function quitarDelCarrito(catalogoId) { carrito = carrito.filter(i => i.catalogoId !== catalogoId); pintarCarrito(); }
+
+/* Qué productos del carrito no alcanzan. Se cobra solo lo que se puede entregar. */
+function faltaStock() {
+  return carrito.reduce((out, i) => {
+    if (i.tipo !== 'producto') return out;
+    const k = db.catalogo.find(x => x.id === i.catalogoId);
+    const hay = k ? Number(k.stock || 0) : 0;
+    if (!k || hay < i.cant) out.push({ nombre: i.nombre, pide: i.cant, hay, catalogoId: i.catalogoId });
+    return out;
+  }, []);
+}
 function pintarCarrito() {
   const cont = document.getElementById('v-carrito');
-  if (!carrito.length) { cont.innerHTML = '<div class="vacio" style="padding:16px">Aún no agregas nada a la venta.</div>'; return; }
+  const btn = document.getElementById('btn-cobrar');
+  if (!carrito.length) {
+    cont.innerHTML = '<div class="vacio" style="padding:16px">Aún no agregas nada a la venta.</div>';
+    btn.disabled = true; btn.textContent = 'Cobrar y guardar';
+    return;
+  }
   const desc = Number(document.getElementById('v-descuento').value || 0);
   const bruto = carrito.reduce((s,i) => s + i.precio * i.cant, 0);
+  const faltan = faltaStock();
+
   cont.innerHTML = carrito.map(i => {
     const k = db.catalogo.find(x => x.id === i.catalogoId);
-    const falta = i.tipo === 'producto' && k && Number(k.stock||0) < i.cant;
-    return '<div class="carrito-item"><span class="nom">' + esc(i.nombre) +
-      (falta ? ' <span class="chip chip-rojo">Solo hay ' + (k.stock||0) + '</span>' : '') +
+    const f = faltan.find(x => x.catalogoId === i.catalogoId);
+    return '<div class="carrito-item"' + (f ? ' style="background:#fdf1ef;border-radius:6px"' : '') + '>' +
+      '<span class="nom">' + esc(i.nombre) +
+      (f ? ' <span class="chip chip-rojo">' + (f.hay > 0 ? 'Solo quedan ' + f.hay : 'Sin stock') + '</span>' : '') +
       '<br><span class="sub">' + money(i.precio) + ' c/u</span></span>' +
       '<input type="number" min="1" step="1" value="' + i.cant + '" onchange="cambiarCant(\'' + i.catalogoId + '\',this.value)">' +
       '<b style="min-width:80px;text-align:right">' + money(i.precio * i.cant) + '</b>' +
       '<button class="btn btn-peligro btn-mini" onclick="quitarDelCarrito(\'' + i.catalogoId + '\')">✕</button></div>';
   }).join('') +
   (desc > 0 ? '<div class="carrito-item"><span class="nom sub">Descuento</span><b style="color:#c0392b">− ' + money(desc) + '</b></div>' : '') +
-  '<div class="total-venta"><span>TOTAL</span><span>' + money(bruto - desc) + '</span></div>';
+  '<div class="total-venta"><span>TOTAL</span><span>' + money(bruto - desc) + '</span></div>' +
+  // No se puede cobrar lo que no se puede entregar: se avisa aquí, no al final
+  (faltan.length
+    ? '<div class="aviso aviso-rojo" style="margin:10px 0 0">' +
+        '<b>⚠️ No hay stock para cobrar esto</b>' +
+        faltan.map(f => '<div class="sub">• ' + esc(f.nombre) + ': pide <b>' + f.pide + '</b>, ' +
+          (f.hay > 0 ? 'quedan <b>' + f.hay + '</b>' : '<b>no queda ninguno</b>') + '</div>').join('') +
+        '<div class="sub" style="margin-top:6px">Registra la entrada en <b>Stock</b>, o quita el producto de la venta.</div>' +
+      '</div>'
+    : '');
+
+  btn.disabled = faltan.length > 0;
+  btn.textContent = faltan.length ? '🚫 Sin stock' : 'Cobrar y guardar';
 }
 function guardarVenta() {
   if (!carrito.length) { alert('Agrega al menos un servicio o producto.'); return; }
   const desc = Number(document.getElementById('v-descuento').value || 0);
   const bruto = carrito.reduce((s,i) => s + i.precio * i.cant, 0);
   if (desc > bruto) { alert('El descuento no puede ser mayor que el total.'); return; }
-  // Avisar (sin bloquear) si se vende más de lo que hay en stock
-  const sinStock = carrito.filter(i => {
-    const k = db.catalogo.find(x => x.id === i.catalogoId);
-    return i.tipo === 'producto' && k && Number(k.stock||0) < i.cant;
-  });
-  if (sinStock.length && !confirm('No hay stock suficiente de: ' + sinStock.map(i => i.nombre).join(', ') +
-      '.\n\nSi continúas, el stock quedará en negativo (señal de que falta registrar una entrada). ¿Continuar?')) return;
+  // No se cobra lo que no hay: entregarían menos de lo que el paciente pagó
+  const sinStock = faltaStock();
+  if (sinStock.length) {
+    alert('No se puede cobrar: no hay stock suficiente.\n\n' +
+      sinStock.map(f => '• ' + f.nombre + ': pide ' + f.pide + ', quedan ' + f.hay).join('\n') +
+      '\n\nRegistra la entrada en Stock, o quita el producto de la venta.');
+    return;
+  }
 
   const venta = registrarVenta({
     pacienteId: document.getElementById('v-paciente').value,
@@ -2843,13 +2877,24 @@ function pintarOrdenes() {
   document.getElementById('ordenes-pendientes').innerHTML = !gente.length ? '' :
     '<h2 style="margin-top:0">🚪 Saliendo del consultorio (' + gente.length + ')</h2>' +
     gente.map(p => {
-      const lineas = p.items.map(i =>
-        '<div style="display:flex;justify-content:space-between;gap:10px;padding:3px 0">' +
+      // Si el doctor recetó algo agotado, recepción lo ve antes de intentar cobrar
+      const faltantes = p.items.filter(i => {
+        if (i.tipo !== 'producto') return false;
+        const k = db.catalogo.find(x => x.id === i.catalogoId);
+        return !k || Number(k.stock || 0) < i.cant;
+      });
+      const lineas = p.items.map(i => {
+        const k = db.catalogo.find(x => x.id === i.catalogoId);
+        const falta = faltantes.includes(i);
+        return '<div style="display:flex;justify-content:space-between;gap:10px;padding:3px 0">' +
           '<span>' + (i.cant > 1 ? '<b>' + i.cant + '×</b> ' : '') + esc(i.nombre) +
+            (falta ? ' <span class="chip chip-rojo">' + (k && k.stock > 0 ? 'solo ' + k.stock : 'sin stock') + '</span>' : '') +
             (i.indicacion ? '<br><span class="sub">' + esc(i.indicacion) + '</span>' : '') +
             (i.tipo === 'servicio' ? ' <span class="chip chip-azul">consulta</span>' : '') + '</span>' +
           '<b style="white-space:nowrap">' + money(i.precio * i.cant) + '</b>' +
-        '</div>').join('');
+        '</div>';
+      }).join('') +
+      (faltantes.length ? '<div class="sub" style="color:#c0392b;margin-top:4px">⚠️ Falta stock: no se podrá cobrar hasta registrar la entrada</div>' : '');
       const ctrl = p.control
         ? '<div class="sub" style="margin-top:8px;padding-top:8px;border-top:1px dashed #c4ccd4">📅 El doctor lo citó en <b>' + esc(p.control.plazoTexto) +
           '</b> · sugerido ' + fechaBonita(p.control.fechaSugerida) + '</div>' : '';
@@ -3466,6 +3511,16 @@ window.addEventListener('storage', e => { if (e.key === CLAVE) sincronizarDesdeO
 // Y al volver a la pestaña, por si el aviso se perdió mientras estaba en segundo plano
 document.addEventListener('visibilitychange', () => { if (!document.hidden) sincronizarDesdeOtraPestana(); });
 window.addEventListener('focus', () => sincronizarDesdeOtraPestana());
+
+/* Red de seguridad: abriendo el archivo con doble clic (file://) el navegador NO
+   dispara 'storage' entre pestañas, así que el aviso nunca llega. Revisar el disco
+   cada 2 segundos funciona igual, se abra como se abra. Son ~20 KB: no se nota. */
+const REVISION_MS = 2000;
+setInterval(() => {
+  if (!sesion || document.hidden) return;
+  const enDisco = localStorage.getItem(CLAVE);
+  if (enDisco && enDisco !== selloDisco) sincronizarDesdeOtraPestana();
+}, REVISION_MS);
 
 /* ================== MODALES / INICIO ================== */
 function cerrarModales() {
