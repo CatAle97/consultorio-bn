@@ -845,7 +845,7 @@
       <div><label>Categoría</label>
         <select id="k-categoria"></select>
       </div>
-      <div><label>Precio al paciente</label><input id="k-precio" type="number" step="0.01" min="0" placeholder="Ej: 280" oninput="pintarMargenCatalogo()"></div>
+      <div><label>Precio Venta</label><input id="k-precio" type="number" step="0.01" min="0" placeholder="Ej: 280" oninput="pintarMargenCatalogo()"></div>
     </div>
     <div id="campos-producto" class="oculto">
       <div class="fila-2">
@@ -858,12 +858,12 @@
         <div><label>Stock actual</label><input id="k-stock" type="number" min="0" step="1" placeholder="Ej: 24"></div>
         <div><label>Stock mínimo (alerta)</label><input id="k-stockmin" type="number" min="0" step="1" placeholder="Ej: 5"></div>
       </div>
-      <!-- Costo y precio a colegas: esto no lo ve recepción en ninguna pantalla -->
+      <!-- Costo y precio distribuidor: esto no lo ve recepción en ninguna pantalla -->
       <div class="fila-2">
         <div><label>Le cuesta (S/)</label>
           <input id="k-costo" type="number" step="0.01" min="0" placeholder="Ej: 150" oninput="pintarMargenCatalogo()">
         </div>
-        <div><label>Precio a colegas (S/)</label>
+        <div><label>Precio distribuidor (S/)</label>
           <input id="k-mayor" type="number" step="0.01" min="0" placeholder="Ej: 200" oninput="pintarMargenCatalogo()">
         </div>
       </div>
@@ -928,7 +928,7 @@
       <label style="margin-top:0">¿A quién le vendes?</label>
       <div class="canales">
         <button type="button" class="canal sel" id="lista-paciente" onclick="cambiarListaPrecio('paciente')">Paciente</button>
-        <button type="button" class="canal" id="lista-colega" onclick="cambiarListaPrecio('colega')">Colega / reventa</button>
+        <button type="button" class="canal" id="lista-colega" onclick="cambiarListaPrecio('colega')">Distribuidor</button>
       </div>
     </div>
 
@@ -2307,7 +2307,7 @@ function pintarCatalogo() {
           '<td data-th="Marca">' + (k.marca==='B&N' ? '<span class="chip chip-azul">B&amp;N</span>' : esc(k.marca||'—')) + '</td>' +
           '<td data-th="Precio">' + money(k.precio) +
             (Number(k.costo) ? '<br><span class="sub">gana ' + money(gananciaUnidad(k)) + ' · ' + margenPct(k) + '%</span>' : '') +
-            (Number(k.precioMayor) ? '<br><span class="sub">colegas ' + money(k.precioMayor) + '</span>' : '') + '</td>' +
+            (Number(k.precioMayor) ? '<br><span class="sub">distribuidor ' + money(k.precioMayor) + '</span>' : '') + '</td>' +
           '<td data-th="Stock">' + stockCell + '</td>' +
           '<td data-th=""><div class="acc-tabla"><button class="btn btn-sec btn-mini" onclick="abrirModalCatalogo(\'' + k.id + '\')">Editar</button>' +
           '<button class="btn btn-peligro btn-mini" onclick="borrarCatalogo(\'' + k.id + '\')">Borrar</button></div></td></tr>';
@@ -2445,7 +2445,7 @@ function cargarCatalogoDr() {
   alert(nuevos
     ? 'Se agregaron ' + nuevos + (nuevos===1?' ítem':' ítems') + ' al catálogo.\n\n' +
       '• Los 8 servicios quedaron SIN precio — edítalos cuando el Dr. te los pase.\n' +
-      '• Los 9 suplementos entraron con su precio al paciente y su precio a colegas.\n' +
+      '• Los 9 suplementos entraron con su precio venta y su precio distribuidor.\n' +
       '• Falta el STOCK (entró en 0): regístralo desde Stock → Registrar entrada.\n' +
       '• Falta el COSTO de cada uno: sin eso el sistema sabe cuánto se vendió, pero no cuánto se ganó.'
     : 'La lista ya estaba cargada. No se agregó nada nuevo.');
