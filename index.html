@@ -1569,6 +1569,9 @@ function entrar(u) {
   if (verArchivados) alternarArchivados(); // cada sesión empieza viendo los pacientes activos
   irA(permitidas[0]);
   actualizarBadge(); actualizarBadgeStock(); actualizarBadgeAtenciones(); actualizarBadgeVentas(); actualizarBadgeControles();
+  // Al entrar se baja lo último: si no, se empieza el turno con los datos de
+  // la última vez que este equipo estuvo abierto
+  sincronizar(true);
 }
 function cerrarSesion() { sesion = null; pinEscrito = ''; cerrarModales(); pintarAcceso(); }
 function esDoctor() { return sesion && sesion.rol === 'doctor'; }
@@ -4693,8 +4696,12 @@ function sincronizarDesdeOtraPestana() {
 // El navegador dispara 'storage' en las OTRAS pestañas cuando una guarda
 window.addEventListener('storage', e => { if (e.key === CLAVE) sincronizarDesdeOtraPestana(); });
 // Y al volver a la pestaña, por si el aviso se perdió mientras estaba en segundo plano
-document.addEventListener('visibilitychange', () => { if (!document.hidden) sincronizarDesdeOtraPestana(); });
-window.addEventListener('focus', () => sincronizarDesdeOtraPestana());
+/* En un celular esto es lo que más importa: la app se pausa al apagar la
+   pantalla o al cambiar de aplicación, y el reloj de sincronización se detiene.
+   Al volver hay que mirar el disco Y la nube, o recepción sigue viendo lo de
+   hace media hora sin enterarse. */
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { sincronizarDesdeOtraPestana(); sincronizar(true); } });
+window.addEventListener('focus', () => { sincronizarDesdeOtraPestana(); sincronizar(true); });
 
 /* Red de seguridad: abriendo el archivo con doble clic (file://) el navegador NO
    dispara 'storage' entre pestañas, así que el aviso nunca llega. Revisar el disco
