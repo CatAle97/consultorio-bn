@@ -484,6 +484,7 @@
     <button id="tab-atenciones" onclick="irA('atenciones')">🩺 Atenciones<span id="badge-atenciones" class="badge oculto"></span></button>
     <button id="tab-pacientes" onclick="irA('pacientes')" class="activo">Pacientes</button>
     <button id="tab-agenda" onclick="irA('agenda')">Agenda<span id="badge-agenda" class="badge oculto"></span><span id="badge-controles" class="badge oculto" style="background:var(--morado);right:auto;left:-6px"></span></button>
+    <button id="tab-distribuidores" onclick="irA('distribuidores')">Distribuidores<span id="badge-deuda" class="badge oculto" style="background:var(--warning)"></span></button>
     <button id="tab-stock" onclick="irA('stock')">Stock<span id="badge-stock" class="badge oculto"></span></button>
     <button id="tab-movimientos" onclick="irA('movimientos')">Movimientos</button>
     <button id="tab-reportes" onclick="irA('reportes')">Reportes</button>
@@ -618,6 +619,25 @@
     </div>
     <div class="leyenda" id="leyenda-agenda"></div>
     <div id="vista-agenda"></div>
+  </section>
+
+  <!-- ============ DISTRIBUIDORES · cuenta corriente ============
+       Quien se lleva mercadería a crédito, la vende por su cuenta y va abonando.
+       Lo que importa no es cada venta suelta, sino cuánto debe hoy. -->
+  <section id="sec-distribuidores" class="oculto">
+    <div id="resumen-deuda"></div>
+    <div class="barra">
+      <input type="search" id="buscador-distri" placeholder="Buscar distribuidor…" oninput="pintarDistribuidores()">
+      <button class="btn" onclick="abrirModalDistribuidor()">+ Nuevo distribuidor</button>
+    </div>
+    <div id="lista-distribuidores"></div>
+  </section>
+
+  <!-- Estado de cuenta de un distribuidor: la libreta de toda la vida -->
+  <section id="sec-cuenta" class="oculto">
+    <button class="btn btn-sec btn-mini" onclick="irA('distribuidores')">← Volver a distribuidores</button>
+    <div id="cuenta-cabecera"></div>
+    <div id="cuenta-movimientos"></div>
   </section>
 
   <!-- ============ MÓDULO 4 · STOCK ============ -->
@@ -992,6 +1012,12 @@
         <button type="button" class="canal sel" id="lista-paciente" onclick="cambiarListaPrecio('paciente')">Paciente</button>
         <button type="button" class="canal" id="lista-colega" onclick="cambiarListaPrecio('colega')">Distribuidor</button>
       </div>
+      <!-- Vendiendo a distribuidor hay que saber a CUÁL: es lo que permite llevar
+           su cuenta si se lo lleva a crédito -->
+      <div id="v-distri-bloque" class="oculto" style="margin-top:10px">
+        <label style="margin-top:0">¿Cuál distribuidor?</label>
+        <select id="v-distribuidor" onchange="pintarCarrito()"></select>
+      </div>
     </div>
 
     <label>¿Qué se lleva?</label>
@@ -1008,7 +1034,7 @@
 
     <div class="fila-2" style="margin-top:12px">
       <div><label>Método de pago</label>
-        <select id="v-pago"><option>Efectivo</option><option>Yape / Plin</option><option>Tarjeta</option><option>Transferencia</option></select>
+        <select id="v-pago" onchange="pintarCarrito()"><option>Efectivo</option><option>Yape / Plin</option><option>Tarjeta</option><option>Transferencia</option><option value="Crédito">📋 A crédito (no paga ahora)</option></select>
       </div>
       <!-- El descuento no se escribe a mano: se elige entre las promociones que
            el doctor dejó cargadas y vigentes. Así nadie regala plata en el mostrador. -->
@@ -1140,6 +1166,51 @@
   </div>
 </div>
 
+<!-- ============ MODAL DISTRIBUIDOR ============ -->
+<div id="modal-distribuidor" class="fondo-modal oculto">
+  <div class="modal">
+    <h3 id="titulo-modal-distri">Nuevo distribuidor</h3>
+    <div class="sub" style="margin-bottom:12px">Quien se lleva mercadería para revender. No aparece en la lista de pacientes del doctor.</div>
+    <label>Nombre o razón social *</label>
+    <input id="d-nombre" placeholder="Ej: Roberto Gómez / Nutrisalud EIRL">
+    <div class="fila-2">
+      <div><label>Documento</label><input id="d-doc" placeholder="DNI o RUC"></div>
+      <div><label>Teléfono</label><input id="d-telefono" placeholder="Ej: 987654321"></div>
+    </div>
+    <label>Nota <span class="sub" style="font-weight:400">— opcional</span></label>
+    <input id="d-nota" placeholder="Ej: zona norte, entrega los lunes">
+    <div class="acciones">
+      <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
+      <button class="btn" onclick="guardarDistribuidor()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL ABONO ============ -->
+<div id="modal-abono" class="fondo-modal oculto">
+  <div class="modal" style="max-width:420px">
+    <h3>Registrar abono</h3>
+    <div id="abono-quien" class="sub" style="margin-bottom:12px"></div>
+    <div class="fila-2">
+      <div><label>Monto (S/) *</label>
+        <input id="ab-monto" type="number" min="0" step="0.5" placeholder="Ej: 500" oninput="pintarSaldoTrasAbono()">
+      </div>
+      <div><label>Cómo pagó</label>
+        <select id="ab-pago"><option>Efectivo</option><option>Yape / Plin</option><option>Transferencia</option><option>Tarjeta</option></select>
+      </div>
+    </div>
+    <div id="ab-resultado"></div>
+    <label>Fecha</label>
+    <input id="ab-fecha" type="date">
+    <label>Nota <span class="sub" style="font-weight:400">— opcional</span></label>
+    <input id="ab-nota" placeholder="Ej: adelanto de la semana">
+    <div class="acciones">
+      <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
+      <button class="btn" onclick="guardarAbono()">Registrar abono</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============ MODAL NUBE · conectar este equipo al consultorio ============ -->
 <div id="modal-nube" class="fondo-modal oculto">
   <div class="modal" style="max-width:460px">
@@ -1188,7 +1259,7 @@ const USUARIOS_INICIALES = [
   { id: 'u-recepcion', nombre: 'Recepción', rol: 'recepcion', pin: '1234' },
   { id: 'u-doctor', nombre: 'Dr. Arredondo', rol: 'doctor', pin: '4321' }
 ];
-let db = { pacientes: [], citas: [], catalogo: [], ventas: [], movimientos: [], atenciones: [], ordenes: [], controles: [], usuarios: [], promos: [], borrados: [], config: { correlativo: 1, negocio: NEGOCIO } };
+let db = { pacientes: [], citas: [], catalogo: [], ventas: [], movimientos: [], atenciones: [], ordenes: [], controles: [], usuarios: [], promos: [], distribuidores: [], abonos: [], borrados: [], config: { correlativo: 1, negocio: NEGOCIO } };
 
 function cargar() {
   try {
@@ -1204,6 +1275,8 @@ function cargar() {
   db.ordenes = db.ordenes || [];
   db.controles = db.controles || [];
   db.promos = db.promos || [];
+  db.distribuidores = db.distribuidores || [];
+  db.abonos = db.abonos || [];
   db.borrados = db.borrados || [];
   // Si nunca se crearon usuarios, se siembran los dos de fábrica (PIN 1234 / 4321 — cambiarlos)
   db.usuarios = (db.usuarios && db.usuarios.length) ? db.usuarios : USUARIOS_INICIALES.map(u => ({ ...u }));
@@ -1227,7 +1300,7 @@ function guardar() {
   // dejaría al consultorio sin poder cobrar.
   marcarPendienteDeSubir();
 }
-const COLECCIONES = ['pacientes','citas','catalogo','ventas','movimientos','atenciones','ordenes','controles','usuarios','promos'];
+const COLECCIONES = ['pacientes','citas','catalogo','ventas','movimientos','atenciones','ordenes','controles','usuarios','promos','distribuidores','abonos'];
 
 /* Al fusionar dos copias, "lo que está en cualquiera de las dos" es la regla —
    por eso hay que anotar aparte lo que se borró. Si no, borrar un paciente en
@@ -1594,16 +1667,16 @@ function esDoctor() { return sesion && sesion.rol === 'doctor'; }
    El doctor tiene dos sombreros y el sistema los separa:
    MÉDICO (atenciones, pacientes) y DUEÑO (reportes, precios, usuarios).
    Todo lo operativo del mostrador —agenda, stock, ventas— es de recepción. */
-const SECCIONES = ['atenciones','consulta','pacientes','ficha','agenda','stock','movimientos','ventas','reportes','config'];
-const PESTANAS = ['ventas','atenciones','pacientes','agenda','stock','movimientos','reportes','config'];
+const SECCIONES = ['atenciones','consulta','pacientes','ficha','agenda','distribuidores','cuenta','stock','movimientos','ventas','reportes','config'];
+const PESTANAS = ['ventas','atenciones','pacientes','agenda','distribuidores','stock','movimientos','reportes','config'];
 /* El orden importa: el primero de la lista es la pantalla en la que arranca cada
    rol al entrar. Recepción abre en Caja, que es donde pasa el día. */
 const VISTA_ROL = {
-  doctor:    ['atenciones','pacientes','reportes','config'],
-  recepcion: ['ventas','pacientes','agenda','stock','movimientos']
+  doctor:    ['atenciones','pacientes','distribuidores','reportes','config'],
+  recepcion: ['ventas','pacientes','agenda','distribuidores','stock','movimientos']
 };
 // Secciones que no son pestaña pero cuelgan de una que sí lo es
-const PADRE = { ficha: 'pacientes', consulta: 'atenciones' };
+const PADRE = { ficha: 'pacientes', consulta: 'atenciones', cuenta: 'distribuidores' };
 let fichaId = null;
 
 function puedeVer(seccion) {
@@ -1621,6 +1694,7 @@ function irA(seccion) {
   if (seccion === 'stock') pintarStock();
   if (seccion === 'movimientos') pintarMovimientos();
   if (seccion === 'ventas') pintarVentas();
+  if (seccion === 'distribuidores') pintarDistribuidores();
   if (seccion === 'reportes') { if (!document.getElementById('r-desde').value) rangoRapido('mes'); else pintarReportes(); }
   if (seccion === 'config') cambiarConfig(cfgVista);
 }
@@ -1969,7 +2043,7 @@ function eliminarDefinitivo() {
   alert(nombre + ' fue eliminado definitivamente.\n\nSus compras quedaron en los reportes de caja, sin su nombre.');
 }
 function refrescarBadges() {
-  actualizarBadge(); actualizarBadgeAtenciones(); actualizarBadgeVentas(); actualizarBadgeControles(); actualizarBadgeStock();
+  actualizarBadge(); actualizarBadgeAtenciones(); actualizarBadgeVentas(); actualizarBadgeControles(); actualizarBadgeStock(); actualizarBadgeDeuda();
 }
 
 function verFicha(id) {
@@ -3248,6 +3322,198 @@ function guardarAtencion() {
   alert(lineas.join('\n'));
 }
 
+/* ================== DISTRIBUIDORES · pantallas ================== */
+function distribuidoresOrdenados(filtro) {
+  const t = normalizar(filtro || '');
+  return db.distribuidores
+    .filter(d => !t || normalizar(d.nombre).includes(t) || String(d.documento || '').includes(t))
+    // Primero los que deben, y de esos, el que más debe: es lo que hay que mirar
+    .sort((a, b) => saldoDistribuidor(b.id) - saldoDistribuidor(a.id) || a.nombre.localeCompare(b.nombre));
+}
+function pintarDistribuidores() {
+  const lista = distribuidoresOrdenados(document.getElementById('buscador-distri').value);
+  const total = deudaTotal();
+  const conDeuda = db.distribuidores.filter(d => saldoDistribuidor(d.id) > 0);
+
+  document.getElementById('resumen-deuda').innerHTML =
+    '<h2>Cuentas por cobrar</h2>' +
+    '<div class="grid-datos">' +
+      '<div class="dato"><small>Total por cobrar</small><b style="font-size:19px;color:' +
+        (total > 0 ? 'var(--warning)' : 'var(--success)') + '">' + money(total) + '</b></div>' +
+      '<div class="dato"><small>Distribuidores debiendo</small><b style="font-size:19px">' + conDeuda.length + '</b></div>' +
+      '<div class="dato"><small>Registrados</small><b style="font-size:19px">' + db.distribuidores.length + '</b></div>' +
+    '</div>' +
+    // Esta plata está en la calle, no en la caja: conviene que se lea así
+    (total > 0 ? '<div class="sub" style="margin-bottom:12px">Es mercadería ya entregada que todavía no se cobró. No cuenta como ingreso hasta que abonen.</div>' : '');
+
+  document.getElementById('lista-distribuidores').innerHTML = !lista.length
+    ? '<div class="vacio">' + (db.distribuidores.length
+        ? 'Ningún distribuidor coincide con la búsqueda.'
+        : 'Aún no hay distribuidores. Registra al primero con <b>+ Nuevo distribuidor</b>.<br><br>' +
+          'Un distribuidor se lleva suplementos para revender y te va abonando de a poco. El sistema lleva la cuenta sola.') + '</div>'
+    : '<table class="tabla tarjetas"><thead><tr><th>Distribuidor</th><th>Contacto</th><th>Se llevó</th><th>Abonó</th><th>Debe</th><th></th></tr></thead><tbody>' +
+      lista.map(d => {
+        const debe = saldoDistribuidor(d.id);
+        const cargos = cargosDe(d.id).reduce((s,v) => s + totalVenta(v), 0);
+        const pagos  = abonosDe(d.id).reduce((s,a) => s + Number(a.monto || 0), 0);
+        return '<tr>' +
+          '<td data-th="Distribuidor"><b>' + esc(d.nombre) + '</b>' +
+            (d.nota ? '<br><span class="sub">' + esc(d.nota) + '</span>' : '') + '</td>' +
+          '<td data-th="Contacto" class="sub">' + (esc(d.documento || '—')) +
+            (d.telefono ? '<br>' + esc(d.telefono) : '') + '</td>' +
+          '<td data-th="Se llevó">' + money(cargos) + '</td>' +
+          '<td data-th="Abonó" style="color:var(--success)">' + money(pagos) + '</td>' +
+          '<td data-th="Debe"><b style="color:' + (debe > 0 ? 'var(--warning)' : 'var(--success)') + '">' +
+            money(debe) + '</b>' + (debe <= 0 ? ' <span class="chip chip-verde">Al día</span>' : '') + '</td>' +
+          '<td data-th=""><div class="acc-tabla">' +
+            '<button class="btn btn-sec btn-mini" onclick="verCuenta(\'' + d.id + '\')">Estado de cuenta</button>' +
+            (debe > 0 ? '<button class="btn btn-mini" onclick="abrirModalAbono(\'' + d.id + '\')">💵 Abonar</button>' : '') +
+          '</div></td></tr>';
+      }).join('') + '</tbody></table>';
+  actualizarBadgeDeuda();
+}
+function abrirModalDistribuidor(id) {
+  const d = id ? db.distribuidores.find(x => x.id === id) : null;
+  document.getElementById('titulo-modal-distri').textContent = d ? 'Editar distribuidor' : 'Nuevo distribuidor';
+  document.getElementById('modal-distribuidor').dataset.editando = id || '';
+  document.getElementById('d-nombre').value   = d ? d.nombre : '';
+  document.getElementById('d-doc').value      = d ? (d.documento || '') : '';
+  document.getElementById('d-telefono').value = d ? (d.telefono || '') : '';
+  document.getElementById('d-nota').value     = d ? (d.nota || '') : '';
+  document.getElementById('modal-distribuidor').classList.remove('oculto');
+}
+function guardarDistribuidor() {
+  const nombre = document.getElementById('d-nombre').value.trim();
+  if (!nombre) { alert('El nombre es obligatorio.'); return; }
+  const id = document.getElementById('modal-distribuidor').dataset.editando;
+  const datos = {
+    nombre,
+    documento: document.getElementById('d-doc').value.trim(),
+    telefono:  document.getElementById('d-telefono').value.trim(),
+    nota:      document.getElementById('d-nota').value.trim()
+  };
+  if (id) Object.assign(db.distribuidores.find(x => x.id === id), datos);
+  else db.distribuidores.push({ id: nuevoId(), creado: hoyStr(), ...datos });
+  guardar(); cerrarModales(); pintarDistribuidores();
+}
+function borrarDistribuidor(id) {
+  const d = db.distribuidores.find(x => x.id === id);
+  if (!d) return;
+  // Un distribuidor con deuda no se borra: se perdería el rastro de esa plata
+  const debe = saldoDistribuidor(d.id);
+  if (debe > 0) { alert(d.nombre + ' todavía debe ' + money(debe) + '.\n\nRegistra el pago antes de eliminarlo.'); return; }
+  if (cargosDe(id).length && !confirm('Se eliminará a ' + d.nombre + '.\n\nSus tickets quedan en la caja, pero el estado de cuenta se pierde. ¿Continuar?')) return;
+  else if (!cargosDe(id).length && !confirm('¿Eliminar a ' + d.nombre + '?')) return;
+  olvidar('distribuidores', id);
+  abonosDe(id).forEach(a => olvidar('abonos', a.id));
+  guardar(); irA('distribuidores');
+}
+
+/* ---------- Estado de cuenta ---------- */
+let cuentaId = null;
+function verCuenta(id) {
+  const d = db.distribuidores.find(x => x.id === id);
+  if (!d) { irA('distribuidores'); return; }
+  cuentaId = id;
+  const debe = saldoDistribuidor(id);
+  const cargos = cargosDe(id).reduce((s,v) => s + totalVenta(v), 0);
+  const pagos  = abonosDe(id).reduce((s,a) => s + Number(a.monto || 0), 0);
+
+  document.getElementById('cuenta-cabecera').innerHTML =
+    '<h2 style="margin-top:12px">' + esc(d.nombre) + '</h2>' +
+    '<div class="sub" style="margin-bottom:10px">' + esc(d.documento || 'Sin documento') +
+      (d.telefono ? ' · ' + esc(d.telefono) : '') + (d.nota ? ' · ' + esc(d.nota) : '') + '</div>' +
+    '<div class="grid-datos">' +
+      '<div class="dato"><small>Se llevó</small><b>' + money(cargos) + '</b></div>' +
+      '<div class="dato"><small>Abonó</small><b style="color:var(--success)">' + money(pagos) + '</b></div>' +
+      '<div class="dato"><small>Debe hoy</small><b style="font-size:19px;color:' +
+        (debe > 0 ? 'var(--warning)' : 'var(--success)') + '">' + money(debe) + '</b></div>' +
+    '</div>' +
+    '<div class="barra">' +
+      (debe > 0 ? '<button class="btn" onclick="abrirModalAbono(\'' + id + '\')">💵 Registrar abono</button>' : '') +
+      '<button class="btn btn-sec" onclick="abrirModalDistribuidor(\'' + id + '\')">Editar datos</button>' +
+      '<span style="flex:1"></span>' +
+      '<button class="btn btn-peligro btn-mini" onclick="borrarDistribuidor(\'' + id + '\')">Eliminar</button>' +
+    '</div>';
+
+  const movs = movimientosCuenta(id);
+  document.getElementById('cuenta-movimientos').innerHTML =
+    '<h2>Movimientos</h2>' +
+    (!movs.length
+      ? '<div class="vacio">Todavía no se llevó nada a crédito.</div>'
+      : '<table class="tabla tarjetas"><thead><tr><th>Fecha</th><th>Detalle</th><th>Se llevó</th><th>Abonó</th></tr></thead><tbody>' +
+        movs.map(m => '<tr>' +
+          '<td data-th="Fecha">' + fechaBonita(m.fecha) + (m.hora ? ' <span class="sub">' + m.hora + '</span>' : '') + '</td>' +
+          '<td data-th="Detalle" class="sub">' + esc(m.detalle) + '</td>' +
+          '<td data-th="Se llevó">' + (m.tipo === 'cargo' ? '<b>' + money(m.monto) + '</b>' : '<span class="sub">—</span>') + '</td>' +
+          '<td data-th="Abonó">' + (m.tipo === 'abono'
+            ? '<b style="color:var(--success)">' + money(m.monto) + '</b>' +
+              '<button class="btn btn-peligro btn-mini" style="margin-left:8px" onclick="borrarAbono(\'' + m.id + '\')">✕</button>'
+            : '<span class="sub">—</span>') + '</td>' +
+          '</tr>').join('') + '</tbody></table>');
+
+  SECCIONES.forEach(s => document.getElementById('sec-' + s).classList.toggle('oculto', s !== 'cuenta'));
+  PESTANAS.forEach(s => document.getElementById('tab-' + s).classList.toggle('activo', s === 'distribuidores'));
+}
+
+/* ---------- Abonos ---------- */
+function abrirModalAbono(id) {
+  const d = db.distribuidores.find(x => x.id === id);
+  if (!d) return;
+  document.getElementById('modal-abono').dataset.distri = id;
+  document.getElementById('abono-quien').innerHTML =
+    '<b>' + esc(d.nombre) + '</b> debe <b style="color:var(--warning)">' + money(saldoDistribuidor(id)) + '</b>';
+  document.getElementById('ab-monto').value = '';
+  document.getElementById('ab-nota').value = '';
+  document.getElementById('ab-fecha').value = hoyStr();
+  document.getElementById('ab-pago').value = 'Efectivo';
+  document.getElementById('ab-resultado').innerHTML = '';
+  document.getElementById('modal-abono').classList.remove('oculto');
+}
+/* Se ve cómo queda la deuda antes de confirmar: evita el abono de S/5.000 donde
+   iban S/500, que después hay que deshacer */
+function pintarSaldoTrasAbono() {
+  const id = document.getElementById('modal-abono').dataset.distri;
+  const monto = Number(document.getElementById('ab-monto').value || 0);
+  const cont = document.getElementById('ab-resultado');
+  if (!monto) { cont.innerHTML = ''; return; }
+  const queda = redondeo(saldoDistribuidor(id) - monto);
+  cont.innerHTML = '<div class="aviso" style="margin-top:10px">Después de este abono ' +
+    (queda > 0 ? 'quedaría debiendo <b>' + money(queda) + '</b>.'
+     : queda === 0 ? '<b style="color:var(--success)">queda al día.</b>'
+     : '<b>quedaría a favor ' + money(-queda) + '</b> — revisa el monto.') + '</div>';
+}
+function guardarAbono() {
+  const id = document.getElementById('modal-abono').dataset.distri;
+  const monto = Number(document.getElementById('ab-monto').value || 0);
+  const fecha = document.getElementById('ab-fecha').value || hoyStr();
+  if (monto <= 0) { alert('El monto debe ser mayor que cero.'); return; }
+  const debe = saldoDistribuidor(id);
+  if (monto > debe && !confirm('El abono (' + money(monto) + ') es mayor que la deuda (' + money(debe) + ').\n\n¿Registrarlo igual?')) return;
+  db.abonos.push({
+    id: nuevoId(), distribuidorId: id, monto, fecha, hora: horaAhora(),
+    metodoPago: document.getElementById('ab-pago').value,
+    nota: document.getElementById('ab-nota').value.trim(),
+    usuarioId: sesion ? sesion.id : '', usuarioNombre: sesion ? sesion.nombre : '—'
+  });
+  guardar(); cerrarModales(); verCuenta(id); refrescarBadges();
+}
+function borrarAbono(idAbono) {
+  const a = db.abonos.find(x => x.id === idAbono);
+  if (!a) return;
+  if (!confirm('¿Borrar el abono de ' + money(a.monto) + ' del ' + fechaBonita(a.fecha) + '?\n\nLa deuda volverá a subir ese monto.')) return;
+  const distri = a.distribuidorId;
+  olvidar('abonos', idAbono);
+  guardar(); verCuenta(distri); refrescarBadges();
+}
+function actualizarBadgeDeuda() {
+  const b = document.getElementById('badge-deuda');
+  if (!b) return;
+  const n = db.distribuidores.filter(d => saldoDistribuidor(d.id) > 0).length;
+  b.textContent = n;
+  b.classList.toggle('oculto', !n);
+}
+
 /* ================== MÓDULO 4 · STOCK ==================
    El stock vive en el producto del catálogo (k.stock). Cada cambio deja
    un movimiento en db.movimientos para poder auditar qué pasó y quién lo hizo. */
@@ -3379,6 +3645,57 @@ let controlTrasCobrar = null;  // control que hay que agendar apenas termine el 
 function horaAhora() { const d = new Date(); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
 function totalVenta(v) { return v.items.reduce((s,i) => s + Number(i.precio) * Number(i.cant), 0) - Number(v.descuento || 0); }
 
+/* ================== DISTRIBUIDORES Y CUENTA CORRIENTE ==================
+   El distribuidor no compra y paga: se lleva mercadería, la vende por su cuenta
+   durante días o semanas, y va abonando de a poco. Por eso no se lleva "venta
+   por venta pagada", sino una cuenta corriente:
+
+       lo que se llevó  −  lo que abonó  =  lo que debe
+
+   Consecuencia importante para los reportes: una entrega a crédito NO es plata
+   que entró. El ingreso se cuenta cuando el distribuidor abona. Si no, la caja
+   diría que hay S/3.000 que en realidad están en la calle. */
+function nombreDistribuidor(id) {
+  const d = db.distribuidores.find(x => x.id === id);
+  return d ? d.nombre : '(distribuidor eliminado)';
+}
+function esCredito(v) { return !!v.credito && !v.anulada; }
+/* Lo que se llevó al crédito y todavía figura (una venta anulada no debe nada) */
+function cargosDe(id) {
+  return db.ventas.filter(v => esCredito(v) && v.distribuidorId === id);
+}
+function abonosDe(id) {
+  return db.abonos.filter(a => a.distribuidorId === id);
+}
+function saldoDistribuidor(id) {
+  const debe  = cargosDe(id).reduce((s,v) => s + totalVenta(v), 0);
+  const pago  = abonosDe(id).reduce((s,a) => s + Number(a.monto || 0), 0);
+  return redondeo(debe - pago);
+}
+function deudaTotal() {
+  return redondeo(db.distribuidores.reduce((s,d) => s + Math.max(0, saldoDistribuidor(d.id)), 0));
+}
+/* Estado de cuenta: cargos y abonos mezclados en orden, como una libreta */
+function movimientosCuenta(id) {
+  const filas = [
+    ...cargosDe(id).map(v => ({
+      fecha: v.fecha, hora: v.hora || '', tipo: 'cargo', id: v.id,
+      detalle: 'Ticket #' + v.numero + ' · ' + v.items.reduce((s,i) => s + Number(i.cant), 0) + ' und',
+      monto: totalVenta(v)
+    })),
+    ...abonosDe(id).map(a => ({
+      fecha: a.fecha, hora: a.hora || '', tipo: 'abono', id: a.id,
+      detalle: 'Abono · ' + (a.metodoPago || '—') + (a.nota ? ' · ' + a.nota : ''),
+      monto: Number(a.monto || 0)
+    }))
+  ];
+  return filas.sort((a,b) => (b.fecha + b.hora).localeCompare(a.fecha + a.hora));
+}
+/* Lo que un distribuidor abonó dentro de un rango: esto SÍ es plata que entró */
+function abonosEnRango(desde, hasta, usuario) {
+  return db.abonos.filter(a => a.fecha >= desde && a.fecha <= hasta && (!usuario || a.usuarioId === usuario));
+}
+
 /* ================== PROMOCIONES ==================
    El descuento dejó de escribirse a mano. El doctor carga aquí las ofertas del
    mes y recepción solo puede elegir entre esas. Dos consecuencias buscadas:
@@ -3431,7 +3748,7 @@ function textoPromo(pr) {
 
 /* Toda venta pasa por aquí: se cobre desde la caja, al agendar o al salir del
    consultorio. Así el correlativo, el stock y los pendientes siempre cuadran. */
-function registrarVenta({ pacienteId, items, metodoPago, nota, descuento, ordenId, citaId, lista, promoId, promoNombre }) {
+function registrarVenta({ pacienteId, items, metodoPago, nota, descuento, ordenId, citaId, lista, promoId, promoNombre, credito, distribuidorId }) {
   const venta = {
     id: nuevoId(),
     numero: db.config.correlativo++,
@@ -3445,6 +3762,9 @@ function registrarVenta({ pacienteId, items, metodoPago, nota, descuento, ordenI
     descuento: Number(descuento) || 0,
     promoId: promoId || '',
     promoNombre: promoNombre || '',
+    // Entregado a crédito: cuenta como deuda del distribuidor, no como ingreso
+    credito: !!credito,
+    distribuidorId: distribuidorId || '',
     metodoPago: metodoPago || 'Efectivo',
     nota: nota || '',
     usuarioId: sesion ? sesion.id : '',
@@ -3495,11 +3815,18 @@ function abrirModalVenta(pacienteId) {
   // Siempre visible: aunque el precio se termine ajustando a mano, tiene que
   // quedar registrado si la venta fue a distribuidor o a precio final
   document.getElementById('v-listas').classList.remove('oculto');
-  listaPrecio = 'paciente';
-  cambiarListaPrecio('paciente');
   document.getElementById('v-promo').value = '';
   document.getElementById('v-nota').value = '';
   document.getElementById('v-pago').value = 'Efectivo';
+  // La lista de distribuidores se rearma cada vez: pueden haber dado de alta uno nuevo
+  document.getElementById('v-distribuidor').innerHTML = !db.distribuidores.length
+    ? '<option value="">— Aún no hay distribuidores registrados —</option>'
+    : '<option value="">— Elige el distribuidor —</option>' +
+      [...db.distribuidores].sort((a,b) => a.nombre.localeCompare(b.nombre))
+        .map(d => '<option value="' + d.id + '">' + esc(d.nombre) +
+          (saldoDistribuidor(d.id) > 0 ? ' · debe ' + money(saldoDistribuidor(d.id)) : '') + '</option>').join('');
+  listaPrecio = 'paciente';
+  cambiarListaPrecio('paciente');   // deja el bloque de distribuidor y el crédito ocultos
   pintarCarrito();
   document.getElementById('modal-venta').classList.remove('oculto');
 }
@@ -3574,6 +3901,11 @@ function cambiarListaPrecio(cual) {
   listaPrecio = cual;
   document.getElementById('lista-paciente').classList.toggle('sel', cual === 'paciente');
   document.getElementById('lista-colega').classList.toggle('sel', cual === 'colega');
+  // El crédito es solo para distribuidores: a un paciente de mostrador no se le fía
+  document.getElementById('v-distri-bloque').classList.toggle('oculto', cual !== 'colega');
+  const pago = document.getElementById('v-pago');
+  pago.querySelector('option[value="Crédito"]').classList.toggle('oculto', cual !== 'colega');
+  if (cual !== 'colega' && pago.value === 'Crédito') pago.value = 'Efectivo';
   // Lo que ya está en el carrito se reprecia, si no quedaría mezclado
   carrito.forEach(i => {
     const k = db.catalogo.find(x => x.id === i.catalogoId);
@@ -3707,6 +4039,22 @@ function refrescarPromosVenta() {
   const promo = disponibles.find(pr => pr.id === sel.value) || null;
   return { promo, desc: promo ? descuentoDePromo(promo, carrito) : 0 };
 }
+function esVentaCredito() {
+  return listaPrecio === 'colega' && document.getElementById('v-pago').value === 'Crédito';
+}
+function distribuidorDeVenta() {
+  return listaPrecio === 'colega' ? document.getElementById('v-distribuidor').value : '';
+}
+function avisoCredito(monto) {
+  const id = distribuidorDeVenta();
+  const d = db.distribuidores.find(x => x.id === id);
+  if (!d) return '<div class="aviso aviso-rojo" style="margin:10px 0 0">⚠️ <b>Elige el distribuidor</b> arriba: sin eso no se puede saber quién queda debiendo.</div>';
+  const antes = saldoDistribuidor(id);
+  return '<div class="aviso aviso-amarillo" style="margin:10px 0 0">' +
+    '📋 <b>No entra plata ahora.</b> ' + esc(d.nombre) + ' se lleva la mercadería y queda debiendo.' +
+    '<div class="sub" style="margin-top:6px">Debía ' + money(antes) + ' → pasará a deber <b>' + money(antes + monto) + '</b>.' +
+    ' El stock sí sale. Los abonos se registran en <b>Distribuidores</b>.</div></div>';
+}
 function pintarCarrito() {
   const cont = document.getElementById('v-carrito');
   const btn = document.getElementById('btn-cobrar');
@@ -3742,7 +4090,12 @@ function pintarCarrito() {
   (desc > 0 ? '<div class="carrito-item"><span class="nom sub">🏷 ' + esc(promo.nombre) +
       '<br><span class="sub">' + esc(textoPromo(promo)) + '</span></span>' +
       '<b style="color:var(--danger)">− ' + money(desc) + '</b></div>' : '') +
-  '<div class="total-venta"><span>TOTAL' + (listaPrecio === 'colega' ? ' <span class="chip chip-morado">Distribuidor</span>' : '') + '</span><span>' + money(bruto - desc) + '</span></div>' +
+  '<div class="total-venta"><span>' + (esVentaCredito() ? 'SE LLEVA' : 'TOTAL') +
+    (listaPrecio === 'colega' ? ' <span class="chip chip-morado">Distribuidor</span>' : '') +
+    (esVentaCredito() ? ' <span class="chip chip-amarillo">A crédito</span>' : '') +
+    '</span><span>' + money(bruto - desc) + '</span></div>' +
+  // A crédito no entra plata: se dice aquí, con el número, para que no haya dudas
+  (esVentaCredito() ? avisoCredito(bruto - desc) : '') +
   (sinMayor.length
     ? '<div class="aviso aviso-amarillo" style="margin:10px 0 0">💡 <b>' +
         plural(sinMayor.length,'producto no tiene','productos no tienen') + ' precio distribuidor</b> cargado, ' +
@@ -3762,14 +4115,22 @@ function pintarCarrito() {
       '</div>'
     : '');
 
-  btn.disabled = faltan.length > 0;
-  btn.textContent = faltan.length ? '🚫 Sin stock' : 'Cobrar y guardar';
+  const faltaDistri = esVentaCredito() && !db.distribuidores.find(x => x.id === distribuidorDeVenta());
+  btn.disabled = faltan.length > 0 || faltaDistri;
+  btn.textContent = faltan.length ? '🚫 Sin stock'
+    : faltaDistri ? 'Elige el distribuidor'
+    : esVentaCredito() ? '📋 Entregar a crédito' : 'Cobrar y guardar';
 }
 function guardarVenta() {
   if (!carrito.length) { alert('Agrega al menos un servicio o producto.'); return; }
   // El descuento se recalcula aquí, no se lee de la pantalla: lo que se cobra
   // tiene que salir de la promoción, no de un número que alguien pudo tocar.
   const { promo, desc } = refrescarPromosVenta();
+  const aCredito = esVentaCredito();
+  const distriId = distribuidorDeVenta();
+  if (aCredito && !db.distribuidores.find(x => x.id === distriId)) {
+    alert('Elige a qué distribuidor se le entrega, o cambia el método de pago.'); return;
+  }
   // No se cobra lo que no hay: entregarían menos de lo que el paciente pagó
   const sinStock = faltaStock();
   if (sinStock.length) {
@@ -3790,6 +4151,9 @@ function guardarVenta() {
     // viene, el ticket de hoy tiene que seguir diciendo con cuál se cobró
     promoId: promo ? promo.id : '',
     promoNombre: promo ? promo.nombre : '',
+    // A crédito la mercadería sale pero la plata no entra: queda como deuda
+    credito: aCredito,
+    distribuidorId: distriId,
     ordenId: ordenCobrando,
     citaId: citaCobrando
   });
@@ -3812,7 +4176,11 @@ function guardarVenta() {
 function anularVenta(id) {
   const v = db.ventas.find(x => x.id === id);
   if (v.anulada) return;
-  if (!confirm('¿Anular el ticket #' + v.numero + ' por ' + money(totalVenta(v)) + '?\n\nEl ticket queda registrado como anulado y los productos vuelven al stock.')) return;
+  // Anular una entrega a crédito le baja la deuda al distribuidor: hay que decirlo
+  const aviso = v.credito
+    ? '\n\nLa deuda de ' + nombreDistribuidor(v.distribuidorId) + ' bajará ' + money(totalVenta(v)) + '.'
+    : '';
+  if (!confirm('¿Anular el ticket #' + v.numero + ' por ' + money(totalVenta(v)) + '?\n\nEl ticket queda registrado como anulado y los productos vuelven al stock.' + aviso)) return;
   v.anulada = true;
   v.anuladaPor = sesion ? sesion.nombre : '—';
   v.anuladaFecha = hoyStr();
@@ -3832,7 +4200,7 @@ function anularVenta(id) {
     k.stock = Number(k.stock || 0) + i.cant;
     registrarMov(k.id, 'anulacion', i.cant, 'Anulación ticket #' + v.numero, v.id);
   });
-  guardar(); pintarVentas();
+  guardar(); pintarVentas(); refrescarBadges();
 }
 /* ================== EL MOSTRADOR ==================
    El momento que faltaba: el paciente sale del consultorio y hay que cobrarle
@@ -3947,15 +4315,25 @@ function pintarVentas() {
   pintarOrdenes();
   const filtro = (document.getElementById('buscador-ventas').value || '').toLowerCase().trim();
   const hoy = db.ventas.filter(v => v.fecha === hoyStr() && !v.anulada);
-  const totalHoy = hoy.reduce((s,v) => s + totalVenta(v), 0);
-  const mias = hoy.filter(v => sesion && v.usuarioId === sesion.id);
+  // "Ingresos de hoy" tiene que cuadrar con la plata que hay en la caja: lo
+  // entregado a crédito no entró, y lo que abonaron los distribuidores sí.
+  const cobradoHoy = hoy.filter(v => !v.credito).reduce((s,v) => s + totalVenta(v), 0);
+  const fiadoHoy   = hoy.filter(v =>  v.credito).reduce((s,v) => s + totalVenta(v), 0);
+  const abonadoHoy = db.abonos.filter(a => a.fecha === hoyStr()).reduce((s,a) => s + Number(a.monto || 0), 0);
+  const mias = hoy.filter(v => sesion && v.usuarioId === sesion.id && !v.credito);
   document.getElementById('resumen-hoy').innerHTML =
     '<h2>Hoy</h2>' +
     '<div class="grid-datos">' +
       '<div class="dato"><small>Ventas de hoy</small><b>' + hoy.length + '</b></div>' +
-      '<div class="dato"><small>Ingresos de hoy</small><b>' + money(totalHoy) + '</b></div>' +
-      '<div class="dato"><small>Registradas por ' + esc(sesion ? sesion.nombre : '—') + '</small><b>' + mias.length + ' · ' + money(mias.reduce((s,v) => s + totalVenta(v), 0)) + '</b></div>' +
-    '</div>';
+      '<div class="dato"><small>Entró a caja hoy</small><b>' + money(cobradoHoy + abonadoHoy) + '</b>' +
+        (abonadoHoy ? '<span class="sub">incluye ' + money(abonadoHoy) + ' de abonos</span>' : '') + '</div>' +
+      (fiadoHoy ? '<div class="dato"><small>Entregado a crédito</small><b style="color:var(--warning)">' + money(fiadoHoy) + '</b><span class="sub">no entró plata</span></div>' : '') +
+      '<div class="dato"><small>Cobrado por ' + esc(sesion ? sesion.nombre : '—') + '</small><b>' + mias.length + ' · ' + money(mias.reduce((s,v) => s + totalVenta(v), 0)) + '</b></div>' +
+    '</div>' +
+    (deudaTotal() > 0
+      ? '<div class="aviso aviso-amarillo" style="margin-bottom:12px">📋 Los distribuidores deben <b>' + money(deudaTotal()) +
+        '</b> en total. <button class="btn btn-mini" style="margin-left:8px" onclick="irA(\'distribuidores\')">Ver cuentas</button></div>'
+      : '');
 
   const lista = db.ventas.filter(v => {
     if (!filtro) return true;
@@ -3971,8 +4349,9 @@ function pintarVentas() {
       lista.map(v => '<tr' + (v.anulada ? ' style="opacity:.55"' : '') + '>' +
         '<td data-th="Ticket"><b>#' + v.numero + '</b>' + (v.anulada ? ' <span class="chip chip-rojo">Anulada</span>' : '') + '</td>' +
         '<td data-th="Fecha">' + fechaBonita(v.fecha) + ' <span class="sub">' + v.hora + '</span></td>' +
-        '<td data-th="Cliente">' + esc(nombreEnVenta(v)) +
-          (v.lista === 'colega' ? ' <span class="chip chip-morado">Distribuidor</span>' : '') + '</td>' +
+        '<td data-th="Cliente">' + (v.credito ? esc(nombreDistribuidor(v.distribuidorId)) : esc(nombreEnVenta(v))) +
+          (v.lista === 'colega' ? ' <span class="chip chip-morado">Distribuidor</span>' : '') +
+          (v.credito ? ' <span class="chip chip-amarillo">A crédito</span>' : '') + '</td>' +
         '<td data-th="Detalle" class="sub">' + v.items.map(i => i.cant + '× ' + esc(i.nombre)).join('<br>') +
           (v.promoNombre ? '<br><span class="chip chip-naranja">🏷 ' + esc(v.promoNombre) + '</span>' : '') + '</td>' +
         '<td data-th="Total"><b>' + money(totalVenta(v)) + '</b> <span class="sub">' + esc(v.metodoPago||'') + '</span></td>' +
@@ -3999,6 +4378,7 @@ function verTicket(id) {
     '<div>Paciente: ' + esc(nombreEnVenta(v)) + '</div>' +
     // Queda impreso en el papel: al revisar tickets viejos se sabe con qué lista se cobró
     (v.lista === 'colega' ? '<div><b>** VENTA A DISTRIBUIDOR **</b></div>' : '') +
+    (v.credito ? '<div>Entregado a: ' + esc(nombreDistribuidor(v.distribuidorId)) + '</div>' : '') +
     '<hr>' +
     '<table>' + v.items.map(i =>
       '<tr><td colspan="2">' + esc(i.nombre) + '</td></tr>' +
@@ -4008,9 +4388,15 @@ function verTicket(id) {
     '<table>' +
       (v.descuento > 0 ? '<tr><td>Subtotal</td><td class="der">' + bruto.toFixed(2) + '</td></tr>' +
         '<tr><td>' + esc(v.promoNombre || 'Descuento') + '</td><td class="der">-' + Number(v.descuento).toFixed(2) + '</td></tr>' : '') +
-      '<tr><td><b>TOTAL S/</b></td><td class="der"><b>' + totalVenta(v).toFixed(2) + '</b></td></tr>' +
-      '<tr><td>Pago</td><td class="der">' + esc(v.metodoPago || '') + '</td></tr>' +
+      '<tr><td><b>' + (v.credito ? 'SE LLEVA S/' : 'TOTAL S/') + '</b></td><td class="der"><b>' + totalVenta(v).toFixed(2) + '</b></td></tr>' +
+      '<tr><td>Pago</td><td class="der">' + (v.credito ? 'A CRÉDITO' : esc(v.metodoPago || '')) + '</td></tr>' +
     '</table>' +
+    // En el papel del distribuidor tiene que quedar cuánto debe en total tras esta entrega
+    (v.credito
+      ? '<hr><div class="t-centro"><b>** NO PAGADO **</b></div>' +
+        '<div>Deuda total al ' + fechaBonita(hoyStr()) + ':</div>' +
+        '<div class="t-centro"><b>S/ ' + saldoDistribuidor(v.distribuidorId).toFixed(2) + '</b></div>'
+      : '') +
     (v.nota ? '<hr><div>Nota: ' + esc(v.nota) + '</div>' : '') +
     '<hr>' +
     '<div class="t-centro">¡Gracias por su preferencia!<br><br>Documento interno.<br>No válido como comprobante de pago.</div>';
@@ -4083,6 +4469,13 @@ function pintarReportes() {
   const ventas = ventasFiltradas();
   const total = ventas.reduce((s,v) => s + totalVenta(v), 0);
   const anuladas = db.ventas.filter(v => v.anulada && v.fecha >= f.desde && v.fecha <= f.hasta && (!f.usuario || v.usuarioId === f.usuario));
+  /* Vendido no es cobrado. Lo entregado a crédito salió del stock pero la plata
+     está en la calle; lo que entró de verdad son las ventas al contado más los
+     abonos que hicieron los distribuidores en el rango. */
+  const fiado    = ventas.filter(v => v.credito).reduce((s,v) => s + totalVenta(v), 0);
+  const contado  = total - fiado;
+  const abonado  = abonosEnRango(f.desde, f.hasta, f.usuario).reduce((s,a) => s + Number(a.monto || 0), 0);
+  const enCaja   = redondeo(contado + abonado);
 
   // Ingresos separando lo que deja el consultorio (servicios) de lo que deja la marca B&N (productos)
   let porServicios = 0, porProductos = 0;
@@ -4153,11 +4546,34 @@ function pintarReportes() {
   document.getElementById('contenido-reportes').innerHTML =
     '<h2>Resumen · ' + fechaBonita(f.desde) + ' al ' + fechaBonita(f.hasta) + (f.usuario ? ' · ' + esc(db.usuarios.find(u=>u.id===f.usuario)?.nombre || '') : '') + '</h2>' +
     '<div class="grid-datos">' +
-      '<div class="dato"><small>Ingresos totales</small><b style="font-size:19px">' + money(total) + '</b></div>' +
+      '<div class="dato"><small>Entró a caja</small><b style="font-size:19px;color:var(--success)">' + money(enCaja) + '</b>' +
+        (abonado ? '<span class="sub">incluye ' + money(abonado) + ' de abonos</span>' : '') + '</div>' +
+      '<div class="dato"><small>Vendido (con crédito)</small><b style="font-size:19px">' + money(total) + '</b></div>' +
       '<div class="dato"><small>N° de ventas</small><b style="font-size:19px">' + ventas.length + '</b></div>' +
       '<div class="dato"><small>Ticket promedio</small><b style="font-size:19px">' + money(ventas.length ? total/ventas.length : 0) + '</b></div>' +
       '<div class="dato"><small>Anuladas</small><b style="font-size:19px">' + anuladas.length + '</b></div>' +
     '</div>' +
+
+    // La diferencia entre lo que se vendió y lo que se cobró es la pregunta que
+    // más importa cuando hay distribuidores de por medio
+    (fiado || deudaTotal()
+      ? '<h2>Crédito a distribuidores</h2>' +
+        '<div class="tarjeta">' +
+          '<div class="grid-datos" style="margin-bottom:10px">' +
+            '<div class="dato"><small>Entregado a crédito</small><b style="color:var(--warning)">' + money(fiado) + '</b></div>' +
+            '<div class="dato"><small>Abonaron en el rango</small><b style="color:var(--success)">' + money(abonado) + '</b></div>' +
+            '<div class="dato"><small>Deben hoy en total</small><b style="font-size:19px;color:' +
+              (deudaTotal() > 0 ? 'var(--warning)' : 'var(--success)') + '">' + money(deudaTotal()) + '</b></div>' +
+          '</div>' +
+          '<div class="sub">La deuda es de hoy, no del rango: es toda la mercadería entregada que sigue sin cobrarse.' +
+            (db.distribuidores.filter(d => saldoDistribuidor(d.id) > 0).length
+              ? '<br><br>' + db.distribuidores.filter(d => saldoDistribuidor(d.id) > 0)
+                  .sort((a,b) => saldoDistribuidor(b.id) - saldoDistribuidor(a.id))
+                  .map(d => '• <b>' + esc(d.nombre) + '</b>: ' + money(saldoDistribuidor(d.id))).join('<br>')
+              : '') +
+          '</div>' +
+        '</div>'
+      : '') +
 
     '<h2>Ingresos por tipo</h2>' +
     '<div class="tarjeta">' +
