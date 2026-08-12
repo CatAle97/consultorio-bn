@@ -335,10 +335,18 @@
     .btn-mini { padding:8px 12px; min-height:38px; font-size:14px; }
     .sugerencia { padding:14px; }          /* filas más altas: se tocan, no se apuntan */
     .teclado button { padding:18px 0; }
-    nav { flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:2px; }
-    nav::-webkit-scrollbar { display:none; }
-    nav button { flex:0 0 auto; }
+    /* La barra de secciones pasa a ocupar su propia fila, de lado a lado, y se
+       desliza con el dedo. Apretada en la misma línea que el nombre y el botón
+       de salir, cada botón quedaba de dos centímetros y se fallaba el toque. */
     header { position:static; }             /* con el teclado abierto, un header fijo estorba */
+    nav { order:3; width:100%; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;
+          gap:6px; padding:2px 0 4px; scroll-snap-type:x proximity; }
+    nav::-webkit-scrollbar { display:none; }
+    nav button { flex:0 0 auto; min-height:44px; padding:11px 16px; font-size:14px;
+                 scroll-snap-align:start; }
+    nav button.activo { box-shadow:none; }
+    header .marca { flex:1 1 auto; min-width:0; }
+    header .usuario-actual { flex:0 0 auto; }
   }
 
   /* ---- Tablet: hay ancho, aprovéchalo ---- */
@@ -377,8 +385,12 @@
   /* ---- Solo celular ---- */
   @media (max-width:640px) {
     main { padding:12px 12px 32px; }
-    header { padding:10px 12px; }
-    header h1 { font-size:16px; }
+    header { padding:8px 12px 0; gap:8px; }
+    header h1 { font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* En un celular el subtítulo solo roba el ancho que necesitan los botones */
+    header small { display:none; }
+    .usuario-actual { gap:6px; font-size:13px; }
+    #quien-soy { max-width:96px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .semana { grid-template-columns:1fr; }
     .dia-col { min-height:auto; }
     .fila-2 { grid-template-columns:1fr; }
@@ -390,6 +402,19 @@
     .carrito-item input { width:72px; }
     .acciones { flex-direction:column-reverse; }
     .acciones .btn { width:100%; }
+
+    /* Barras de botones dentro de las secciones (Servicios/Suplementos, filtros,
+       + Nuevo…): en pantalla chica se apilan a lo ancho en vez de partirse en
+       trocitos de media palabra. */
+    .barra { gap:8px; margin-bottom:12px; }
+    .barra .btn { flex:1 1 auto; min-width:132px; }
+    .barra input[type=search] { flex:1 1 100%; min-width:0; }
+    /* Los botones de acción de cada tarjeta ocupan el ancho y se tocan sin apuntar */
+    .acc-tabla { gap:8px; width:100%; }
+    .acc-tabla .btn { flex:1 1 auto; }
+    /* Dos filtros de fecha uno al lado del otro no entran legibles */
+    .grid-datos { gap:8px; }
+    h2 { font-size:16px; }
 
     /* La lista deja de flotar y empuja el contenido: con el teclado abierto,
        un desplegable superpuesto tapa el total y no se sabe dónde termina. */
@@ -453,12 +478,14 @@
     <small>Dr. Mariano Arredondo · Cirugía bariátrica</small>
   </div>
   <nav>
+    <!-- Caja va primera: es lo que recepción abre veinte veces al día. Lo demás
+         se consulta de vez en cuando. -->
+    <button id="tab-ventas" onclick="irA('ventas')">💰 Caja<span id="badge-ventas" class="badge oculto"></span></button>
     <button id="tab-atenciones" onclick="irA('atenciones')">🩺 Atenciones<span id="badge-atenciones" class="badge oculto"></span></button>
     <button id="tab-pacientes" onclick="irA('pacientes')" class="activo">Pacientes</button>
     <button id="tab-agenda" onclick="irA('agenda')">Agenda<span id="badge-agenda" class="badge oculto"></span><span id="badge-controles" class="badge oculto" style="background:var(--morado);right:auto;left:-6px"></span></button>
     <button id="tab-stock" onclick="irA('stock')">Stock<span id="badge-stock" class="badge oculto"></span></button>
     <button id="tab-movimientos" onclick="irA('movimientos')">Movimientos</button>
-    <button id="tab-ventas" onclick="irA('ventas')">💰 Caja<span id="badge-ventas" class="badge oculto"></span></button>
     <button id="tab-reportes" onclick="irA('reportes')">Reportes</button>
     <button id="tab-config" onclick="irA('config')">⚙️</button>
   </nav>
@@ -1581,10 +1608,12 @@ function esDoctor() { return sesion && sesion.rol === 'doctor'; }
    MÉDICO (atenciones, pacientes) y DUEÑO (reportes, precios, usuarios).
    Todo lo operativo del mostrador —agenda, stock, ventas— es de recepción. */
 const SECCIONES = ['atenciones','consulta','pacientes','ficha','agenda','stock','movimientos','ventas','reportes','config'];
-const PESTANAS = ['atenciones','pacientes','agenda','stock','movimientos','ventas','reportes','config'];
+const PESTANAS = ['ventas','atenciones','pacientes','agenda','stock','movimientos','reportes','config'];
+/* El orden importa: el primero de la lista es la pantalla en la que arranca cada
+   rol al entrar. Recepción abre en Caja, que es donde pasa el día. */
 const VISTA_ROL = {
   doctor:    ['atenciones','pacientes','reportes','config'],
-  recepcion: ['pacientes','agenda','stock','movimientos','ventas']
+  recepcion: ['ventas','pacientes','agenda','stock','movimientos']
 };
 // Secciones que no son pestaña pero cuelgan de una que sí lo es
 const PADRE = { ficha: 'pacientes', consulta: 'atenciones' };
