@@ -1080,13 +1080,14 @@
     <label>Tipo de movimiento *</label>
     <select id="m-tipo" onchange="pintarStockActual()">
       <option value="entrada">Entrada — llegó mercadería</option>
-      <option value="salida">Salida — merma, vencido, uso interno</option>
+      <option value="salida">Salida — entrega ya pagada, canje, merma, vencido</option>
       <option value="ajuste">Ajuste — corregir al conteo real</option>
     </select>
     <label id="m-lbl-cant">Cantidad que entra *</label>
     <input id="m-cantidad" type="number" min="0" step="1" oninput="pintarStockActual()">
+    <div id="m-nota-tipo" class="sub" style="margin-top:6px"></div>
     <label>Motivo / nota</label>
-    <input id="m-motivo" placeholder="Ej: compra a laboratorio, frasco roto, conteo mensual…">
+    <input id="m-motivo" placeholder="Ej: canje de ticket #12, compra a laboratorio, frasco roto…">
     <div class="acciones">
       <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
       <button class="btn" onclick="guardarMov()">Guardar</button>
@@ -3620,6 +3621,13 @@ function pintarStockActual() {
   document.getElementById('m-actual').innerHTML =
     'Stock actual: <b>' + actual + '</b> ' + esc(k.unidad||'') +
     (cant ? ' → queda <b style="color:' + (queda < 0 ? 'var(--danger)' : 'var(--rol)') + '">' + queda + '</b>' : '');
+  // Una salida mueve unidades, no plata. Decirlo evita la duda de siempre:
+  // "¿esto también lo tengo que cobrar en Caja?"
+  document.getElementById('m-nota-tipo').innerHTML = tipo === 'salida'
+    ? '📦 Solo descuenta el stock: <b>no entra ni sale plata</b> y no cuenta como venta del día. ' +
+      'Úsalo cuando el producto ya se cobró antes, en canjes, o cuando se perdió mercadería. ' +
+      'Escribe en el motivo qué pasó y el N° de ticket si lo hubo.'
+    : '';
 }
 function guardarMov() {
   const k = db.catalogo.find(x => x.id === document.getElementById('m-producto').value);
