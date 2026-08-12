@@ -449,6 +449,9 @@
     <button id="tab-config" onclick="irA('config')">⚙️</button>
   </nav>
   <div class="usuario-actual">
+    <!-- Estado de la nube siempre a la vista: si algo no se está sincronizando,
+         hay que enterarse en el momento, no al cuadrar la caja -->
+    <span id="estado-nube" class="chip oculto" style="cursor:pointer" onclick="abrirModalNube()"></span>
     <span id="quien-soy"></span>
     <button class="btn btn-sec btn-mini" onclick="cerrarSesion()">Salir</button>
   </div>
@@ -675,6 +678,11 @@
 
     <div id="cfg-datos" class="oculto">
       <div id="cfg-datos-resumen"></div>
+
+      <h2>Sincronización entre equipos</h2>
+      <div class="tarjeta">
+        <div id="cfg-nube"></div>
+      </div>
 
       <h2>Respaldo</h2>
       <div class="tarjeta">
@@ -1091,6 +1099,18 @@
   </div>
 </div>
 
+<!-- ============ MODAL NUBE · conectar este equipo al consultorio ============ -->
+<div id="modal-nube" class="fondo-modal oculto">
+  <div class="modal" style="max-width:460px">
+    <h3>☁️ Sincronización</h3>
+    <div id="nube-cuerpo"></div>
+    <div class="acciones">
+      <button class="btn btn-sec" onclick="cerrarModales()">Cerrar</button>
+      <button class="btn" id="btn-nube-accion" onclick="accionNube()">Conectar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============ MODAL TICKET (MÓDULO 6) ============ -->
 <div id="modal-ticket" class="fondo-modal oculto">
   <div class="modal" style="max-width:340px">
@@ -1127,7 +1147,7 @@ const USUARIOS_INICIALES = [
   { id: 'u-recepcion', nombre: 'Recepción', rol: 'recepcion', pin: '1234' },
   { id: 'u-doctor', nombre: 'Dr. Arredondo', rol: 'doctor', pin: '4321' }
 ];
-let db = { pacientes: [], citas: [], catalogo: [], ventas: [], movimientos: [], atenciones: [], ordenes: [], controles: [], usuarios: [], promos: [], config: { correlativo: 1, negocio: NEGOCIO } };
+let db = { pacientes: [], citas: [], catalogo: [], ventas: [], movimientos: [], atenciones: [], ordenes: [], controles: [], usuarios: [], promos: [], borrados: [], config: { correlativo: 1, negocio: NEGOCIO } };
 
 function cargar() {
   try {
@@ -1143,6 +1163,7 @@ function cargar() {
   db.ordenes = db.ordenes || [];
   db.controles = db.controles || [];
   db.promos = db.promos || [];
+  db.borrados = db.borrados || [];
   // Si nunca se crearon usuarios, se siembran los dos de fábrica (PIN 1234 / 4321 — cambiarlos)
   db.usuarios = (db.usuarios && db.usuarios.length) ? db.usuarios : USUARIOS_INICIALES.map(u => ({ ...u }));
   db.config = db.config || { correlativo: 1, negocio: NEGOCIO };
@@ -1160,18 +1181,250 @@ function guardar() {
   const txt = JSON.stringify(db);
   localStorage.setItem(CLAVE, txt);
   selloDisco = txt;
+  // Guardar SIEMPRE termina en el disco de este equipo. La nube es un extra que
+  // ocurre después y puede fallar: si dependiera de ella, un corte de internet
+  // dejaría al consultorio sin poder cobrar.
+  marcarPendienteDeSubir();
 }
 const COLECCIONES = ['pacientes','citas','catalogo','ventas','movimientos','atenciones','ordenes','controles','usuarios','promos'];
-function fusionarConDisco(disco) {
+
+/* Al fusionar dos copias, "lo que está en cualquiera de las dos" es la regla —
+   por eso hay que anotar aparte lo que se borró. Si no, borrar un paciente en
+   la compu y luego sincronizar con el celular lo resucitaría, porque el celular
+   todavía lo tiene y para el merge eso parece un registro nuevo. */
+function olvidar(coleccion, id) {
+  db[coleccion] = db[coleccion].filter(x => x.id !== id);
+  db.borrados.push({ id, coleccion, cuando: Date.now() });
+}
+/* Un borrado deja de importar cuando ya no queda ninguna copia que lo tenga.
+   90 días es de sobra: si un equipo estuvo apagado más que eso, el problema es otro. */
+function limpiarBorrados() {
+  const corte = Date.now() - 90 * 86400000;
+  db.borrados = db.borrados.filter(b => b.cuando > corte);
+}
+function fusionar(otro) {
+  const muertos = new Set([...(db.borrados || []), ...(otro.borrados || [])].map(b => b.id));
   COLECCIONES.forEach(c => {
-    const map = new Map((disco[c] || []).map(x => [x.id, x]));
-    (db[c] || []).forEach(x => map.set(x.id, x)); // lo que tengo en pantalla manda sobre lo del disco
+    const map = new Map((otro[c] || []).map(x => [x.id, x]));
+    (db[c] || []).forEach(x => map.set(x.id, x)); // lo que tengo en pantalla manda sobre lo de afuera
+    muertos.forEach(id => map.delete(id));        // lo borrado no vuelve
     db[c] = [...map.values()];
   });
-  // Dos pestañas cobrando a la vez no pueden repetir el número de ticket
-  const dc = disco.config || {};
+  // La lista de borrados también se junta, si no cada lado olvidaría los del otro
+  const bmap = new Map([...(otro.borrados || []), ...(db.borrados || [])].map(b => [b.id, b]));
+  db.borrados = [...bmap.values()];
+  limpiarBorrados();
+  // Dos equipos cobrando a la vez no pueden repetir el número de ticket
+  const dc = otro.config || {};
   db.config.correlativo = Math.max(Number(db.config.correlativo) || 1, Number(dc.correlativo) || 1);
 }
+function fusionarConDisco(disco) { fusionar(disco); }
+
+/* ================== SINCRONIZACIÓN EN LA NUBE ==================
+   Para que el celular de recepción y la compu del consultorio vean lo mismo.
+
+   Cómo está pensado, y por qué:
+   · El equipo NUNCA depende de internet para trabajar. Se guarda en el navegador
+     como siempre y la subida ocurre después. Si no hay señal, la caja sigue.
+   · Sube el archivo completo, no cambio por cambio. Para un consultorio son unos
+     pocos cientos de KB y evita toda una categoría de errores de sincronización.
+   · Antes de subir se baja lo que hay y se fusiona: si recepción cobró en el cel
+     mientras el doctor atendía, no se pisan.
+   · La clave del consultorio se escribe una vez por equipo. Es la contraseña de
+     una cuenta de Supabase; la sesión queda guardada y no se vuelve a pedir. */
+const NUBE = {
+  url: '',   // se completa al conectar el consultorio
+  anon: '',
+  correo: 'consultorio@bn.local'
+};
+const CLAVE_SESION = 'consultoriobn_nube';
+let nube = { sesion: null, estado: 'sin-configurar', pendiente: false, subiendo: false, ultima: null };
+
+function nubeConfigurada() { return !!(NUBE.url && NUBE.anon); }
+function cargarSesionNube() {
+  try {
+    const s = JSON.parse(localStorage.getItem(CLAVE_SESION) || 'null');
+    if (s && s.access_token) { nube.sesion = s; nube.estado = 'conectado'; }
+    else nube.estado = nubeConfigurada() ? 'sin-conectar' : 'sin-configurar';
+  } catch (e) { nube.estado = 'sin-conectar'; }
+}
+function api(ruta, opciones) {
+  const o = opciones || {};
+  return fetch(NUBE.url + ruta, {
+    method: o.method || 'GET',
+    headers: Object.assign({
+      'apikey': NUBE.anon,
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + ((nube.sesion && nube.sesion.access_token) || NUBE.anon)
+    }, o.headers || {}),
+    body: o.body ? JSON.stringify(o.body) : undefined
+  });
+}
+/* Conectar el equipo: se hace una sola vez, al instalar el sistema en un celular
+   o en una compu nueva. */
+async function conectarNube(clave) {
+  const r = await fetch(NUBE.url + '/auth/v1/token?grant_type=password', {
+    method: 'POST',
+    headers: { 'apikey': NUBE.anon, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: NUBE.correo, password: clave })
+  });
+  if (!r.ok) throw new Error('clave-incorrecta');
+  const s = await r.json();
+  nube.sesion = s; nube.estado = 'conectado';
+  localStorage.setItem(CLAVE_SESION, JSON.stringify(s));
+  return s;
+}
+function desconectarNube() {
+  nube.sesion = null; nube.estado = 'sin-conectar';
+  localStorage.removeItem(CLAVE_SESION);
+  pintarEstadoNube();
+}
+/* El token de Supabase caduca en una hora. Se renueva solo con el refresh_token
+   para que nadie tenga que volver a escribir la clave cada mañana. */
+async function renovarSesion() {
+  if (!nube.sesion || !nube.sesion.refresh_token) return false;
+  const r = await fetch(NUBE.url + '/auth/v1/token?grant_type=refresh_token', {
+    method: 'POST',
+    headers: { 'apikey': NUBE.anon, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: nube.sesion.refresh_token })
+  });
+  if (!r.ok) { desconectarNube(); return false; }
+  nube.sesion = await r.json();
+  localStorage.setItem(CLAVE_SESION, JSON.stringify(nube.sesion));
+  return true;
+}
+function marcarPendienteDeSubir() {
+  if (!nubeConfigurada()) return;
+  nube.pendiente = true;
+  pintarEstadoNube();
+  clearTimeout(marcarPendienteDeSubir.t);
+  // Se espera un momento: cobrar una venta dispara varios guardados seguidos y
+  // no tiene sentido subir el archivo entero cuatro veces
+  marcarPendienteDeSubir.t = setTimeout(sincronizar, 1500);
+}
+async function sincronizar(forzar) {
+  if (!nubeConfigurada() || !nube.sesion || nube.subiendo) return;
+  if (!navigator.onLine) { pintarEstadoNube(); return; }
+  if (!nube.pendiente && !forzar) return;
+  nube.subiendo = true; pintarEstadoNube();
+  try {
+    let r = await api('/rest/v1/consultorio?id=eq.principal&select=datos');
+    if (r.status === 401) { if (await renovarSesion()) r = await api('/rest/v1/consultorio?id=eq.principal&select=datos'); }
+    if (!r.ok) throw new Error('lectura');
+    const filas = await r.json();
+    // Lo de la nube se fusiona con lo de aquí: gana lo que este equipo tiene en
+    // pantalla, pero no se pierde nada de lo que hizo el otro
+    if (filas.length && filas[0].datos) fusionar(filas[0].datos);
+
+    const cuerpo = { id: 'principal', datos: db, actualizado: new Date().toISOString() };
+    const w = await api('/rest/v1/consultorio', {
+      method: 'POST', body: cuerpo,
+      headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' }
+    });
+    if (!w.ok) throw new Error('escritura');
+    // Lo fusionado se guarda en disco sin volver a marcar pendiente
+    const txt = JSON.stringify(db);
+    localStorage.setItem(CLAVE, txt); selloDisco = txt;
+    nube.pendiente = false; nube.ultima = new Date(); nube.estado = 'conectado';
+    refrescarPantallaActual();
+  } catch (e) {
+    console.error('No se pudo sincronizar', e);
+    nube.estado = 'error';
+  } finally {
+    nube.subiendo = false;
+    pintarEstadoNube();
+  }
+}
+/* Después de bajar cambios del otro equipo hay que repintar, si no la
+   recepcionista ve la pantalla vieja hasta que toque algo. Se apoya en lo mismo
+   que ya se usaba para sincronizar entre pestañas: si está cobrando o atendiendo,
+   no se le mueve la pantalla debajo de las manos. */
+function refrescarPantallaActual() {
+  if (!sesion || hayTrabajoEnCurso()) return;
+  repintarVistaActual();
+  refrescarBadges();
+}
+function pintarEstadoNube() {
+  const el = document.getElementById('estado-nube');
+  if (!el) return;
+  if (!nubeConfigurada()) { el.classList.add('oculto'); return; }
+  el.classList.remove('oculto');
+  const sinRed = !navigator.onLine;
+  const mapa = {
+    'sin-conectar': ['chip-amarillo', '⚠️ Sin conectar', 'Este equipo aún no está conectado al consultorio. Toca para conectarlo.'],
+    'error':        ['chip-rojo',     '⚠️ Sin sincronizar', 'No se pudo sincronizar. Se reintenta solo.'],
+    'conectado':    ['chip-verde',    '☁️ Al día', 'Todo sincronizado' + (nube.ultima ? ' · ' + nube.ultima.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}) : '')]
+  };
+  let [clase, texto, titulo] = mapa[nube.estado] || mapa['sin-conectar'];
+  if (nube.subiendo) { clase = 'chip-azul'; texto = '↻ Sincronizando…'; titulo = texto; }
+  else if (sinRed && nube.estado === 'conectado') { clase = 'chip-gris'; texto = '📴 Sin internet'; titulo = 'Se guarda aquí y sube cuando vuelva la señal.'; }
+  else if (nube.pendiente && nube.estado === 'conectado') { clase = 'chip-amarillo'; texto = '☁️ Por subir'; titulo = 'Hay cambios sin subir.'; }
+  el.className = 'chip ' + clase;
+  el.title = titulo;
+  el.textContent = texto;
+}
+window.addEventListener('online', () => { pintarEstadoNube(); sincronizar(true); });
+window.addEventListener('offline', pintarEstadoNube);
+
+/* ---------- Conectar este equipo ---------- */
+function abrirModalNube() {
+  const cuerpo = document.getElementById('nube-cuerpo');
+  const btn = document.getElementById('btn-nube-accion');
+  if (!nubeConfigurada()) {
+    cuerpo.innerHTML = '<div class="aviso aviso-amarillo">La sincronización todavía no está activada en esta versión del sistema. ' +
+      'Los datos se guardan <b>solo en este equipo</b>.</div>';
+    btn.classList.add('oculto');
+  } else if (nube.estado === 'conectado') {
+    cuerpo.innerHTML =
+      '<div class="aviso" style="border-color:var(--success);background:#f2f9f4"><b>✅ Este equipo está conectado.</b><br>' +
+      '<span class="sub">Lo que registres aquí lo ven los demás equipos del consultorio, y al revés.</span></div>' +
+      '<div class="grid-datos" style="margin-top:12px">' +
+        '<div class="dato"><small>Última sincronización</small><b>' +
+          (nube.ultima ? nube.ultima.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}) : '—') + '</b></div>' +
+        '<div class="dato"><small>Cambios sin subir</small><b>' + (nube.pendiente ? 'Sí' : 'No') + '</b></div>' +
+      '</div>' +
+      '<div class="barra" style="margin-top:12px">' +
+        '<button class="btn btn-sec btn-mini" onclick="sincronizar(true);abrirModalNube()">↻ Sincronizar ahora</button>' +
+        '<button class="btn btn-peligro btn-mini" onclick="salirDeLaNube()">Desconectar este equipo</button>' +
+      '</div>';
+    btn.classList.add('oculto');
+  } else {
+    cuerpo.innerHTML =
+      '<div class="sub" style="margin-bottom:10px">Escribe la <b>clave del consultorio</b> para que este equipo vea los mismos datos que los demás. Se pide una sola vez.</div>' +
+      '<label>Clave del consultorio</label>' +
+      '<input id="nube-clave" type="password" autocomplete="off" placeholder="La que te dio el Dr." onkeydown="if(event.key===\'Enter\')accionNube()">' +
+      '<div id="nube-error" class="sub" style="color:var(--danger);min-height:18px"></div>' +
+      (nube.estado === 'error' ? '<div class="aviso aviso-amarillo">Se perdió la conexión con el consultorio. Vuelve a escribir la clave.</div>' : '');
+    btn.classList.remove('oculto');
+    btn.textContent = 'Conectar este equipo';
+  }
+  document.getElementById('modal-nube').classList.remove('oculto');
+}
+async function accionNube() {
+  const inp = document.getElementById('nube-clave');
+  if (!inp) return;
+  const btn = document.getElementById('btn-nube-accion');
+  const err = document.getElementById('nube-error');
+  if (!inp.value.trim()) { err.textContent = 'Escribe la clave.'; return; }
+  btn.disabled = true; btn.textContent = 'Conectando…'; err.textContent = '';
+  try {
+    await conectarNube(inp.value.trim());
+    await sincronizar(true);
+    abrirModalNube();
+    alert('Listo. Este equipo ya está conectado al consultorio.');
+  } catch (e) {
+    err.textContent = 'La clave no es correcta.';
+    btn.disabled = false; btn.textContent = 'Conectar este equipo';
+  }
+  pintarEstadoNube();
+}
+function salirDeLaNube() {
+  if (nube.pendiente && !confirm('Hay cambios que todavía no se subieron.\n\nSi desconectas ahora, se quedan solo en este equipo. ¿Desconectar igual?')) return;
+  if (!confirm('Este equipo dejará de ver lo que pasa en los demás.\n\nPara volver a conectarlo hará falta la clave del consultorio. ¿Continuar?')) return;
+  desconectarNube();
+  abrirModalNube();
+}
+
 function nuevoId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 function esc(t) { return String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 /* "1 atención" pero "3 atenciones": el plural de las palabras agudas pierde la tilde */
@@ -1625,11 +1878,12 @@ function eliminarDefinitivo() {
   if (!p) return;
   if (normalizar(document.getElementById('baja-nombre').value) !== normalizar(p.nombre)) return;
   const id = bajaId, nombre = p.nombre;
-  db.pacientes = db.pacientes.filter(x => x.id !== id);
-  db.citas = db.citas.filter(c => c.pacienteId !== id);
-  db.atenciones = db.atenciones.filter(a => a.pacienteId !== id);
-  db.ordenes = db.ordenes.filter(o => o.pacienteId !== id);
-  db.controles = db.controles.filter(c => c.pacienteId !== id);
+  olvidar('pacientes', id);
+  // Todo lo que colgaba del paciente se va con él, y también queda anotado
+  db.citas.filter(c => c.pacienteId === id).forEach(c => olvidar('citas', c.id));
+  db.atenciones.filter(a => a.pacienteId === id).forEach(a => olvidar('atenciones', a.id));
+  db.ordenes.filter(o => o.pacienteId === id).forEach(o => olvidar('ordenes', o.id));
+  db.controles.filter(c => c.pacienteId === id).forEach(c => olvidar('controles', c.id));
   // Las ventas NO se borran: son registros de caja. Quedan sin nombre para no descuadrar los reportes.
   db.ventas.filter(v => v.pacienteId === id).forEach(v => { v.pacienteId = ''; v.pacienteBorrado = nombre; });
   bajaId = null;
@@ -2330,7 +2584,7 @@ function borrarCita(id) {
     return;
   }
   if (!confirm('¿Borrar el evento de ' + nombreEvento(c) + ' el ' + fechaBonita(c.fecha) + ' a las ' + c.hora + '?')) return;
-  db.citas = db.citas.filter(x => x.id !== id);
+  olvidar('citas', id);
   // Si esta cita resolvía un control pedido por el doctor, vuelve a quedar pendiente
   const ctrl = db.controles.find(x => x.citaId === id && x.estado === 'agendado');
   if (ctrl) { ctrl.estado = 'pendiente'; ctrl.citaId = ''; }
@@ -2467,7 +2721,7 @@ function guardarCatalogo() {
 }
 function borrarCatalogo(id) {
   if (!confirm('¿Borrar este ítem del catálogo?')) return;
-  db.catalogo = db.catalogo.filter(x => x.id !== id);
+  olvidar('catalogo', id);
   guardar(); pintarCatalogo();
 }
 
@@ -4070,7 +4324,7 @@ function borrarPromo(id) {
   if (!confirm('¿Eliminar la promoción «' + pr.nombre + '»?\n\n' +
     (usada ? 'Se aplicó en ' + plural(usada,'venta','ventas') + '. Esos tickets no cambian.\n\n' : '') +
     'Si solo quieres que deje de aparecer en caja, usa Desactivar.')) return;
-  db.promos = db.promos.filter(x => x.id !== id);
+  olvidar('promos', id);
   guardar(); pintarPromos();
 }
 function pintarDatos() {
@@ -4083,6 +4337,14 @@ function pintarDatos() {
   };
   const vacio = !n.pacientes && !n.citas && !n.ventas;
   const kb = ((localStorage.getItem(CLAVE) || '').length / 1024).toFixed(1);
+
+  document.getElementById('cfg-nube').innerHTML = !nubeConfigurada()
+    ? '<div class="sub">Los datos viven <b>solo en este equipo</b>. Para que recepción vea lo mismo desde su celular hace falta activar la sincronización.</div>'
+    : nube.estado === 'conectado'
+      ? '<div class="sub" style="margin-bottom:10px">✅ Este equipo está <b>conectado</b>. Lo que se registra aquí lo ven los demás equipos del consultorio.</div>' +
+        '<button class="btn btn-sec" onclick="abrirModalNube()">Ver estado de sincronización</button>'
+      : '<div class="sub" style="margin-bottom:10px">⚠️ Este equipo <b>no está conectado</b>: lo que registres aquí no lo verá nadie más.</div>' +
+        '<button class="btn" onclick="abrirModalNube()">Conectar este equipo</button>';
   document.getElementById('cfg-datos-resumen').innerHTML =
     (vacio ? '<div class="aviso" style="border-color:var(--success);background:#f2f9f4"><b>✅ El sistema está en cero.</b> Listo para empezar con pacientes reales.</div>' : '') +
     '<div class="grid-datos">' +
@@ -4114,13 +4376,9 @@ function abrirBorrarTodo() {
   borrarTodo();
 }
 function borrarTodo() {
-  db.pacientes = [];
-  db.citas = [];
-  db.atenciones = [];
-  db.ordenes = [];
-  db.controles = [];
-  db.ventas = [];
-  db.movimientos = [];
+  // Se anota cada id: si no, al sincronizar, el celular devolvería todo lo borrado
+  ['pacientes','citas','atenciones','ordenes','controles','ventas','movimientos']
+    .forEach(c => { [...db[c]].forEach(x => olvidar(c, x.id)); });
   db.config.correlativo = 1; // el próximo ticket vuelve a ser el #1
   // Los productos quedan, pero su stock arranca en cero: lo que había era inventado
   db.catalogo.filter(k => k.tipo === 'producto').forEach(k => k.stock = 0);
@@ -4169,7 +4427,7 @@ function borrarUsuario(id) {
   if (db.usuarios.length <= 1) { alert('Debe quedar al menos un usuario.'); return; }
   const u = db.usuarios.find(x => x.id === id);
   if (!confirm('¿Borrar a ' + u.nombre + '? Las ventas que ya registró seguirán mostrando su nombre.')) return;
-  db.usuarios = db.usuarios.filter(x => x.id !== id);
+  olvidar('usuarios', id);
   guardar(); pintarUsuarios();
 }
 
@@ -4389,6 +4647,15 @@ setInterval(() => {
   if (enDisco && enDisco !== selloDisco) sincronizarDesdeOtraPestana();
 }, REVISION_MS);
 
+/* Y con la nube, cada 20 segundos: es lo que tarda en aparecer en el celular de
+   recepción algo que el doctor acaba de registrar. Más seguido gastaría datos
+   del plan del celular sin que nadie note la diferencia. */
+const REVISION_NUBE_MS = 20000;
+setInterval(() => {
+  if (!sesion || document.hidden) return;
+  sincronizar(true);
+}, REVISION_NUBE_MS);
+
 /* ================== MODALES / INICIO ================== */
 function cerrarModales() {
   document.querySelectorAll('.fondo-modal').forEach(m => m.classList.add('oculto'));
@@ -4399,7 +4666,11 @@ document.querySelectorAll('.fondo-modal').forEach(m => m.addEventListener('click
 document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModales(); });
 
 cargar();
+cargarSesionNube();
+pintarEstadoNube();
 pintarAcceso();
+// Al abrir, se baja lo que haya en la nube antes de que nadie toque nada
+if (nube.sesion) sincronizar(true);
 </script>
 </body>
 </html>
