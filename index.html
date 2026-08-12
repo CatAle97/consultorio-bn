@@ -413,6 +413,20 @@
 <!-- ============ PANTALLA DE ACCESO (PIN) ============ -->
 <div id="pantalla-acceso">
   <div class="caja-acceso">
+    <!-- Primer arranque de un equipo. Va aquí dentro y no en un modal: la
+         pantalla de acceso cubre todo, y un modal quedaría por debajo. -->
+    <div id="paso-nube" class="oculto">
+      <h2>🏥 Consultorio B&amp;N</h2>
+      <div class="sub">Conectar este equipo</div>
+      <div class="sub" style="margin:14px 0 10px;text-align:left">
+        Escribe la <b>clave del consultorio</b> para que este equipo vea los mismos
+        pacientes, citas y ventas que los demás. Se pide una sola vez.
+      </div>
+      <input id="acc-clave" type="password" autocomplete="off" placeholder="Clave del consultorio"
+             onkeydown="if(event.key==='Enter')conectarDesdeAcceso()">
+      <div id="acc-error" class="sub" style="color:var(--danger);min-height:18px"></div>
+      <button class="btn" id="btn-acc-conectar" style="width:100%" onclick="conectarDesdeAcceso()">Conectar</button>
+    </div>
     <div id="paso-quien">
       <h2>🏥 Consultorio B&amp;N</h2>
       <div class="sub">¿Quién eres?</div>
@@ -1379,8 +1393,6 @@ window.addEventListener('offline', pintarEstadoNube);
 function abrirModalNube() {
   const cuerpo = document.getElementById('nube-cuerpo');
   const btn = document.getElementById('btn-nube-accion');
-  // Sin conectar y sin sesión no hay nada detrás del modal: no se ofrece cerrar
-  document.getElementById('btn-nube-cerrar').classList.toggle('oculto', nubeConfigurada() && !nube.sesion && !sesion);
   if (!nubeConfigurada()) {
     cuerpo.innerHTML = '<div class="aviso aviso-amarillo">La sincronización todavía no está activada en esta versión del sistema. ' +
       'Los datos se guardan <b>solo en este equipo</b>.</div>';
@@ -1420,12 +1432,11 @@ async function accionNube() {
   btn.disabled = true; btn.textContent = 'Conectando…'; err.textContent = '';
   try {
     await conectarNube(inp.value.trim());
-    // Este equipo se pone al día con el consultorio, no al revés: si tenía datos
-    // de prueba o los PIN de fábrica, no se los impone a los demás
-    await sincronizar(true, true);
+    // Aquí ya se estaba trabajando en el equipo (se cayó la sesión y se vuelve a
+    // entrar), así que lo local vale: no se pisa con lo de la nube
+    await sincronizar(true);
     cerrarModales();
-    pintarAcceso();
-    alert('Listo. Este equipo ya está conectado al consultorio.\n\nEntra con tu PIN de siempre.');
+    alert('Listo. Este equipo volvió a quedar conectado.');
   } catch (e) {
     err.textContent = e.message === 'clave-incorrecta'
       ? 'La clave no es correcta.'
@@ -1471,13 +1482,13 @@ function pintarAcceso() {
   // Un equipo sin conectar mostraría el sistema vacío y con los PIN de fábrica.
   // Antes que eso, se pide la clave del consultorio: es lo primero que ve un
   // celular recién instalado.
-  if (nubeConfigurada() && !nube.sesion) {
-    document.getElementById('pantalla-acceso').classList.remove('oculto');
-    document.getElementById('paso-quien').classList.add('oculto');
-    document.getElementById('paso-pin').classList.add('oculto');
-    abrirModalNube();
-    return;
-  }
+  const faltaConectar = nubeConfigurada() && !nube.sesion;
+  document.getElementById('paso-nube').classList.toggle('oculto', !faltaConectar);
+  document.getElementById('paso-pin').classList.add('oculto');
+  document.getElementById('paso-quien').classList.toggle('oculto', faltaConectar);
+  document.getElementById('pantalla-acceso').classList.remove('oculto');
+  if (faltaConectar) return;
+
   document.getElementById('usuarios-acceso').innerHTML = db.usuarios.map(u =>
     '<button class="btn-usuario" onclick="elegirUsuario(\'' + u.id + '\')">' +
     '<span><b>' + esc(u.nombre) + '</b><br><span class="sub">' + (u.rol === 'doctor' ? 'Doctor / dueño' : 'Recepción') + '</span></span>' +
@@ -1485,6 +1496,28 @@ function pintarAcceso() {
   document.getElementById('paso-quien').classList.remove('oculto');
   document.getElementById('paso-pin').classList.add('oculto');
   document.getElementById('pantalla-acceso').classList.remove('oculto');
+}
+/* Conectar el equipo desde la pantalla de acceso (primer arranque) */
+async function conectarDesdeAcceso() {
+  const inp = document.getElementById('acc-clave');
+  const err = document.getElementById('acc-error');
+  const btn = document.getElementById('btn-acc-conectar');
+  if (!inp.value.trim()) { err.textContent = 'Escribe la clave del consultorio.'; return; }
+  btn.disabled = true; btn.textContent = 'Conectando…'; err.textContent = '';
+  try {
+    await conectarNube(inp.value.trim());
+    // El equipo se pone al día con el consultorio, no al revés: así un celular
+    // recién instalado no le impone a nadie sus PIN de fábrica
+    await sincronizar(true, true);
+    inp.value = '';
+    pintarAcceso();
+  } catch (e) {
+    err.textContent = e.message === 'clave-incorrecta'
+      ? 'La clave no es correcta.'
+      : 'No se pudo conectar. Revisa que el celular tenga internet.';
+  }
+  btn.disabled = false; btn.textContent = 'Conectar';
+  pintarEstadoNube();
 }
 function elegirUsuario(id) {
   pinCandidato = db.usuarios.find(u => u.id === id);
@@ -4684,9 +4717,6 @@ setInterval(() => {
 
 /* ================== MODALES / INICIO ================== */
 function cerrarModales() {
-  // En un equipo sin conectar, cerrar el modal dejaría una pantalla en blanco:
-  // no hay nada detrás hasta que se escriba la clave del consultorio
-  if (nubeConfigurada() && !nube.sesion && !sesion) return;
   document.querySelectorAll('.fondo-modal').forEach(m => m.classList.add('oculto'));
   // Si otra pestaña guardó algo mientras había un modal abierto, ahora sí se aplica
   if (recargaPendiente) sincronizarDesdeOtraPestana();
