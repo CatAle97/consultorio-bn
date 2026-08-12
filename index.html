@@ -4,189 +4,270 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Consultorio B&N — Dr. Mariano Arredondo</title>
+<!-- Misma tipografía que zonabariatrica.com. Si no hay internet, cae a la del
+     sistema (Roboto en Android) sin romper nada. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  /* El color de la interfaz dice quién está usando el sistema:
-     azul = doctor, verde = recepción. Se cambia al entrar (body.rol-recepcion).
-     OJO: esto es la IDENTIDAD del usuario. Los azules con significado propio
-     —el chip "control post-op", el tipo de cita— NO usan esta variable. */
+  /* ================== SISTEMA VISUAL ==================
+     Mismo lenguaje que zonabariatrica.com: Inter, azul #2563EB sobre fondo
+     casi blanco, bordes suaves y sombras muy tenues. Que las dos cosas del
+     negocio se sientan de la misma casa. */
   :root {
-    --rol: #15557f;        /* azul: el doctor */
-    --rol-oscuro: #124a6e;
-    --rol-suave: #f0f6fb;
-    --rol-sombra: rgba(21,85,127,.12);
+    --azul: #2563EB;  --azul-hover: #1D4ED8;  --azul-dark: #1E40AF;  --azul-light: #EFF6FF;
+    --verde: #059669; --verde-hover: #047857; --verde-light: #ECFDF5;
+    --text: #111827;  --text-muted: #6B7280;  --text-light: #9CA3AF;
+    --surface: #FFFFFF; --bg: #F8FAFC; --bg-soft: #F1F5F9;
+    --border: #E5E7EB; --border-light: #F1F5F9;
+    --success: #15803D; --success-bg: #F0FDF4; --success-br: #BBF7D0;
+    --danger:  #DC2626; --danger-bg:  #FEF2F2; --danger-br:  #FECACA;
+    --warning: #B45309; --warning-bg: #FFFBEB; --warning-br: #FDE68A;
+    --morado:  #7C3AED; --morado-bg:  #F5F3FF;
+    --shadow-xs: 0 1px 2px rgba(16,24,40,.04);
+    --shadow-sm: 0 1px 3px rgba(16,24,40,.05), 0 1px 2px rgba(16,24,40,.03);
+    --shadow-md: 0 4px 12px rgba(16,24,40,.06), 0 2px 4px rgba(16,24,40,.03);
+    --shadow-lg: 0 12px 28px rgba(16,24,40,.08), 0 4px 10px rgba(16,24,40,.04);
+    --shadow-xl: 0 24px 56px rgba(16,24,40,.12), 0 8px 20px rgba(16,24,40,.05);
+    --radio: 10px;
+    --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+    /* El color dice quién está usando el sistema: azul = doctor, verde =
+       recepción (se cambia al entrar con body.rol-recepcion). Es la IDENTIDAD
+       del usuario; los azules con significado propio no usan esta variable. */
+    --rol: var(--azul);
+    --rol-oscuro: var(--azul-hover);
+    --rol-suave: var(--azul-light);
+    --rol-sombra: rgba(37,99,235,.20);
   }
   body.rol-recepcion {
-    --rol: #1f7a4d;        /* verde: recepción */
-    --rol-oscuro: #17603c;
-    --rol-suave: #f0f9f4;
-    --rol-sombra: rgba(31,122,77,.12);
+    --rol: var(--verde);
+    --rol-oscuro: var(--verde-hover);
+    --rol-suave: var(--verde-light);
+    --rol-sombra: rgba(5,150,105,.20);
   }
 
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:#eef2f6; color:#1f2933; font-size:15px; }
+  body { font-family:var(--font); background:var(--bg); color:var(--text); font-size:15px;
+         -webkit-font-smoothing:antialiased; }
 
-  header { background:var(--rol); color:#fff; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+  header { background:var(--surface); color:var(--text); padding:12px 20px; display:flex;
+           align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;
+           border-bottom:1px solid var(--border); box-shadow:var(--shadow-xs);
+           position:sticky; top:0; z-index:8; }
   header .marca { display:flex; flex-direction:column; }
-  header h1 { font-size:18px; font-weight:600; line-height:1.2; }
-  header small { font-size:12px; opacity:.8; }
-  nav { display:flex; gap:6px; flex-wrap:wrap; }
-  nav button { background:rgba(255,255,255,.15); border:none; color:#fff; padding:8px 14px; border-radius:6px; cursor:pointer; font-size:14px; position:relative; }
-  nav button.activo { background:#fff; color:var(--rol); font-weight:600; }
-  .badge { position:absolute; top:-6px; right:-6px; background:#d9534f; color:#fff; border-radius:10px; font-size:11px; padding:1px 6px; font-weight:700; }
+  header h1 { font-size:17px; font-weight:700; line-height:1.2; letter-spacing:-.01em; }
+  header small { font-size:12px; color:var(--text-muted); }
+  nav { display:flex; gap:4px; flex-wrap:wrap; }
+  nav button { background:transparent; border:none; color:var(--text-muted); padding:9px 14px;
+               border-radius:8px; cursor:pointer; font-size:14px; font-weight:500;
+               font-family:inherit; position:relative; transition:background .15s, color .15s; }
+  nav button:hover { background:var(--bg-soft); color:var(--text); }
+  nav button.activo { background:var(--rol); color:#fff; font-weight:600; box-shadow:var(--shadow-xs); }
+  .badge { position:absolute; top:-4px; right:-4px; background:var(--danger); color:#fff;
+           border-radius:10px; font-size:11px; padding:1px 6px; font-weight:700;
+           border:2px solid var(--surface); }
 
-  main { max-width:1000px; margin:0 auto; padding:16px; }
+  main { max-width:1040px; margin:0 auto; padding:20px 16px 40px; }
   .oculto { display:none !important; }
 
-  .barra { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; align-items:center; }
+  .barra { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
   .barra input[type=search] { flex:1; min-width:180px; }
 
-  input, select, textarea { padding:9px 10px; border:1px solid #c4ccd4; border-radius:6px; font-size:14px; font-family:inherit; background:#fff; width:100%; }
+  input, select, textarea { padding:10px 12px; border:1px solid var(--border); border-radius:8px;
+                            font-size:14px; font-family:inherit; background:var(--surface);
+                            width:100%; color:var(--text); transition:border-color .15s, box-shadow .15s; }
+  input:focus, select:focus, textarea:focus { outline:none; border-color:var(--rol);
+                            box-shadow:0 0 0 3px var(--rol-suave); }
+  input::placeholder { color:var(--text-light); }
   textarea { resize:vertical; min-height:70px; }
-  label { display:block; font-size:13px; color:#556; margin:10px 0 4px; font-weight:600; }
+  label { display:block; font-size:13px; color:var(--text); margin:14px 0 5px; font-weight:600; }
 
-  .btn { background:var(--rol); color:#fff; border:none; padding:9px 16px; border-radius:6px; cursor:pointer; font-size:14px; white-space:nowrap; }
-  .btn:hover { background:var(--rol-oscuro); }
-  .btn:disabled { background:#c4ccd4; cursor:not-allowed; }
-  .btn:disabled:hover { background:#c4ccd4; }
-  .btn-sec { background:#fff; color:#333; border:1px solid #c4ccd4; }
-  .btn-sec:hover { background:#f0f3f6; }
-  .btn-peligro { background:#fff; color:#c0392b; border:1px solid #e0b4ae; }
-  .btn-peligro:hover { background:#fdf1ef; }
-  .btn-mini { padding:4px 10px; font-size:13px; }
+  .btn { background:var(--rol); color:#fff; border:none; padding:10px 18px; border-radius:8px;
+         cursor:pointer; font-size:14px; font-weight:600; font-family:inherit; white-space:nowrap;
+         box-shadow:var(--shadow-xs); transition:background .15s, box-shadow .15s, transform .05s; }
+  .btn:hover { background:var(--rol-oscuro); box-shadow:var(--shadow-sm); }
+  .btn:active { transform:translateY(1px); }
+  .btn:disabled { background:var(--bg-soft); color:var(--text-light); cursor:not-allowed; box-shadow:none; }
+  .btn:disabled:hover { background:var(--bg-soft); }
+  .btn-sec { background:var(--surface); color:var(--text); border:1px solid var(--border); }
+  .btn-sec:hover { background:var(--bg-soft); }
+  .btn-peligro { background:var(--surface); color:var(--danger); border:1px solid var(--danger-br); }
+  .btn-peligro:hover { background:var(--danger-bg); }
+  .btn-mini { padding:6px 12px; font-size:13px; }
 
-  .tarjeta { background:#fff; border:1px solid #dde3e9; border-radius:8px; padding:14px 16px; margin-bottom:10px; }
-  .fila-item { cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:10px; }
-  .fila-item:hover { border-color:var(--rol); }
+  .tarjeta { background:var(--surface); border:1px solid var(--border); border-radius:var(--radio);
+             padding:16px 18px; margin-bottom:12px; box-shadow:var(--shadow-xs); }
+  .fila-item { cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:10px;
+               transition:border-color .15s, box-shadow .15s; }
+  .fila-item:hover { border-color:var(--rol); box-shadow:var(--shadow-sm); }
   .fila-item .datos b { font-size:15px; }
-  .fila-item .datos span { display:block; color:#6b7580; font-size:13px; margin-top:2px; }
+  .fila-item .datos span { display:block; color:var(--text-muted); font-size:13px; margin-top:2px; }
 
-  .chip { display:inline-block; padding:2px 10px; border-radius:12px; font-size:12px; font-weight:600; white-space:nowrap; }
-  .chip-verde { background:#e3f2e8; color:#2e7d4f; }
-  .chip-azul { background:#e2edf6; color:#15557f; }
-  .chip-amarillo { background:#fdf3d7; color:#9a7b00; }
-  .chip-rojo { background:#fdeaea; color:#c0392b; }
-  .chip-gris { background:#eceff2; color:#66707a; }
-  .chip-morado { background:#efe6f7; color:#7b3fa0; }
-  .chip-naranja { background:#fbe8d3; color:#b5651d; }
+  .chip { display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px;
+          font-weight:600; white-space:nowrap; }
+  .chip-verde { background:var(--success-bg); color:var(--success); }
+  .chip-azul { background:var(--azul-light); color:var(--azul-dark); }
+  .chip-amarillo { background:var(--warning-bg); color:var(--warning); }
+  .chip-rojo { background:var(--danger-bg); color:var(--danger); }
+  .chip-gris { background:var(--bg-soft); color:var(--text-muted); }
+  .chip-morado { background:var(--morado-bg); color:var(--morado); }
+  .chip-naranja { background:#FFF7ED; color:#C2410C; }
 
-  .aviso { border-left:4px solid; padding:10px 14px; border-radius:6px; margin-bottom:8px; font-size:14px; background:#fff; }
-  .aviso-rojo { border-color:#c0392b; background:#fdf1ef; }
-  .aviso-amarillo { border-color:#e0a800; background:#fdf8e7; }
+  .aviso { border:1px solid var(--border); border-left:4px solid var(--text-light); padding:12px 16px;
+           border-radius:8px; margin-bottom:10px; font-size:14px; background:var(--surface); }
+  .aviso-rojo { border-color:var(--danger-br); border-left-color:var(--danger); background:var(--danger-bg); }
+  .aviso-amarillo { border-color:var(--warning-br); border-left-color:#F59E0B; background:var(--warning-bg); }
 
-  h2 { font-size:17px; margin:18px 0 10px; color:#123c5a; }
+  h2 { font-size:16px; margin:22px 0 10px; color:var(--text); font-weight:700; letter-spacing:-.01em; }
   h2:first-child { margin-top:0; }
-  .sub { color:#6b7580; font-size:13px; }
+  .sub { color:var(--text-muted); font-size:13px; }
 
-  .grid-datos { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:6px; }
-  .dato { background:#f5f7f9; border-radius:6px; padding:8px 10px; }
-  .dato small { display:block; color:#6b7580; font-size:12px; }
-  .dato b { font-size:15px; }
-  .nota-sesion { border-left:3px solid #15557f; padding:8px 12px; margin-bottom:8px; background:#fff; border-radius:0 6px 6px 0; border-top:1px solid #eee; border-right:1px solid #eee; border-bottom:1px solid #eee; }
-  .nota-sesion small { color:#6b7580; display:block; margin-bottom:3px; }
+  .grid-datos { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-bottom:8px; }
+  .dato { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px;
+          box-shadow:var(--shadow-xs); }
+  .dato small { display:block; color:var(--text-muted); font-size:12px; font-weight:500; margin-bottom:2px; }
+  .dato b { font-size:17px; font-weight:700; letter-spacing:-.01em; }
+  .nota-sesion { border:1px solid var(--border); border-left:3px solid var(--azul); padding:10px 14px;
+                 margin-bottom:8px; background:var(--surface); border-radius:0 8px 8px 0; }
+  .nota-sesion small { color:var(--text-muted); display:block; margin-bottom:3px; }
 
   .cal-nav { display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
   .cal-titulo { font-weight:600; font-size:15px; flex:1; text-align:center; min-width:150px; }
-  .semana { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
-  .dia-col { background:#fff; border:1px solid #dde3e9; border-radius:8px; padding:8px; min-height:120px; }
-  .dia-col.hoy { border-color:var(--rol); border-width:2px; }
-  .dia-col h4 { font-size:12px; color:#66707a; margin-bottom:6px; text-align:center; font-weight:600; }
-  .cita { border-radius:5px; padding:5px 7px; font-size:12px; margin-bottom:5px; cursor:pointer; border-left:3px solid #999; background:#f5f7f9; }
-  .cita:hover { filter:brightness(.97); }
+  .semana { display:grid; grid-template-columns:repeat(7,1fr); gap:8px; }
+  .dia-col { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px;
+             min-height:120px; box-shadow:var(--shadow-xs); }
+  .dia-col.hoy { border-color:var(--rol); box-shadow:0 0 0 1px var(--rol), var(--shadow-sm); }
+  .dia-col h4 { font-size:12px; color:var(--text-muted); margin-bottom:6px; text-align:center; font-weight:600; }
+  .cita { border-radius:7px; padding:6px 9px; font-size:12px; margin-bottom:5px; cursor:pointer;
+          border-left:3px solid var(--text-light); background:var(--bg-soft); transition:filter .15s; }
+  .cita:hover { filter:brightness(.96); }
   .cita b { display:block; }
   .cita-dia { display:flex; justify-content:space-between; align-items:center; gap:8px; }
-  .t-consulta { border-left-color:#2e7d4f; }
-  .t-control { border-left-color:#15557f; }
-  .t-cirugia { border-left-color:#c0392b; }
-  .t-reunion { border-left-color:#e0a800; }
-  .leyenda { display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:#66707a; margin-bottom:10px; }
+  .t-consulta { border-left-color:var(--verde); }
+  .t-control { border-left-color:var(--azul); }
+  .t-cirugia { border-left-color:var(--danger); }
+  .t-reunion { border-left-color:#F59E0B; }
+  .leyenda { display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--text-muted); margin-bottom:12px; }
   .leyenda span::before { content:'●'; margin-right:4px; }
 
-  .fondo-modal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:flex-start; justify-content:center; padding:30px 12px; overflow-y:auto; z-index:10; }
-  .modal { background:#fff; border-radius:10px; padding:20px; width:100%; max-width:480px; }
-  .modal h3 { margin-bottom:6px; font-size:17px; }
-  .modal .acciones { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
-  .fila-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .fondo-modal { position:fixed; inset:0; background:rgba(17,24,39,.5); display:flex; align-items:flex-start;
+                 justify-content:center; padding:30px 12px; overflow-y:auto; z-index:20;
+                 backdrop-filter:blur(2px); }
+  .modal { background:var(--surface); border-radius:14px; padding:24px; width:100%; max-width:480px;
+           box-shadow:var(--shadow-xl); }
+  .modal h3 { margin-bottom:6px; font-size:18px; font-weight:700; letter-spacing:-.01em; }
+  .modal .acciones { display:flex; gap:8px; justify-content:flex-end; margin-top:22px; }
+  .fila-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 
-  .vacio { text-align:center; color:#8a929b; padding:30px 10px; }
-  footer { text-align:center; padding:20px; color:#99a0a8; font-size:12px; }
-  footer button { background:none; border:none; color:var(--rol); cursor:pointer; text-decoration:underline; font-size:12px; }
+  .vacio { text-align:center; color:var(--text-light); padding:36px 12px; }
+  footer { text-align:center; padding:24px; color:var(--text-light); font-size:12px; }
+  footer button { background:none; border:none; color:var(--rol); cursor:pointer; text-decoration:underline;
+                  font-size:12px; font-family:inherit; }
 
-  table.tabla { width:100%; border-collapse:collapse; background:#fff; border-radius:8px; overflow:hidden; }
-  table.tabla th, table.tabla td { text-align:left; padding:9px 12px; border-bottom:1px solid #eef2f5; font-size:14px; }
-  table.tabla th { background:#f5f7f9; color:#556; font-size:12px; text-transform:uppercase; letter-spacing:.03em; }
+  table.tabla { width:100%; border-collapse:separate; border-spacing:0; background:var(--surface);
+                border:1px solid var(--border); border-radius:10px; overflow:hidden;
+                box-shadow:var(--shadow-xs); }
+  table.tabla th, table.tabla td { text-align:left; padding:11px 14px; border-bottom:1px solid var(--border-light);
+                font-size:14px; }
+  table.tabla th { background:var(--bg-soft); color:var(--text-muted); font-size:11px; font-weight:700;
+                text-transform:uppercase; letter-spacing:.04em; }
   table.tabla tr:last-child td { border-bottom:none; }
+  table.tabla tbody tr:hover { background:var(--bg); }
   .acc-tabla { display:flex; gap:6px; }
 
   .slots { display:grid; grid-template-columns:repeat(auto-fill,minmax(74px,1fr)); gap:6px; margin:2px 0 4px; }
-  .slot { padding:8px 4px; border:1px solid #c4ccd4; border-radius:6px; background:#fff; cursor:pointer; font-size:14px; font-family:inherit; color:#1f2933; }
+  .slot { padding:9px 4px; border:1px solid var(--border); border-radius:8px; background:var(--surface);
+          cursor:pointer; font-size:14px; font-family:inherit; color:var(--text); transition:all .15s; }
   .slot:hover { border-color:var(--rol); background:var(--rol-suave); }
-  .slot.sel { background:var(--rol); color:#fff; border-color:var(--rol); font-weight:600; }
-  .slot.ocupado { background:#f2f3f5; color:#aab0b7; text-decoration:line-through; cursor:not-allowed; border-style:dashed; }
+  .slot.sel { background:var(--rol); color:#fff; border-color:var(--rol); font-weight:600;
+              box-shadow:0 4px 14px var(--rol-sombra); }
+  .slot.ocupado { background:var(--bg-soft); color:var(--text-light); text-decoration:line-through;
+                  cursor:not-allowed; border-style:dashed; }
 
-  .cal { border:1px solid #dde3e9; border-radius:8px; padding:10px; margin-top:2px; }
-  .cal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
-  .cal-head b { font-size:14px; text-transform:capitalize; color:#123c5a; }
-  .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
-  .cal-dow { text-align:center; font-size:11px; color:#8a929b; padding:2px 0; font-weight:700; }
-  .cal-day { padding:9px 0; border:none; background:#f5f7f9; border-radius:6px; cursor:pointer; font-size:13px; color:#1f2933; font-family:inherit; }
+  .cal { border:1px solid var(--border); border-radius:10px; padding:12px; margin-top:2px; background:var(--surface); }
+  .cal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .cal-head b { font-size:14px; text-transform:capitalize; color:var(--text); }
+  .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+  .cal-dow { text-align:center; font-size:11px; color:var(--text-light); padding:2px 0; font-weight:700; }
+  .cal-day { padding:10px 0; border:none; background:var(--bg-soft); border-radius:8px; cursor:pointer;
+             font-size:13px; color:var(--text); font-family:inherit; transition:all .15s; }
   .cal-day:hover { background:var(--rol-suave); }
-  .cal-day.sel { background:var(--rol); color:#fff; font-weight:700; }
+  .cal-day.sel { background:var(--rol); color:#fff; font-weight:700; box-shadow:0 4px 14px var(--rol-sombra); }
   .cal-day.hoy { outline:2px solid var(--rol); outline-offset:-2px; }
-  .cal-day.pasado { color:#cbd2d9; cursor:not-allowed; background:transparent; }
+  .cal-day.pasado { color:var(--text-light); cursor:not-allowed; background:transparent; opacity:.5; }
   .cal-day.vacio { background:transparent; cursor:default; }
 
   /* --- Pantalla de acceso --- */
-  #pantalla-acceso { position:fixed; inset:0; background:#15557f; display:flex; align-items:center; justify-content:center; padding:20px; z-index:50; }
-  .caja-acceso { background:#fff; border-radius:12px; padding:26px; width:100%; max-width:380px; text-align:center; }
-  .caja-acceso h2 { margin:0 0 4px; }
-  .usuarios-lista { display:grid; gap:8px; margin:16px 0 4px; }
-  .btn-usuario { padding:14px; border:1px solid #c4ccd4; border-radius:8px; background:#fff; cursor:pointer; font-size:15px; font-family:inherit; text-align:left; display:flex; justify-content:space-between; align-items:center; }
-  .btn-usuario:hover { border-color:var(--rol); background:var(--rol-suave); }
-  .pin-puntos { font-size:26px; letter-spacing:10px; height:34px; color:#15557f; }
-  .teclado { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px; }
-  .teclado button { padding:16px 0; font-size:19px; border:1px solid #c4ccd4; border-radius:8px; background:#fff; cursor:pointer; font-family:inherit; }
-  .teclado button:hover { background:#f0f6fb; }
-  .usuario-actual { display:flex; align-items:center; gap:8px; font-size:13px; }
+  #pantalla-acceso { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+                     padding:20px; z-index:50;
+                     background:linear-gradient(160deg, #1E40AF 0%, #2563EB 55%, #3B82F6 100%); }
+  .caja-acceso { background:var(--surface); border-radius:16px; padding:30px; width:100%; max-width:380px;
+                 text-align:center; box-shadow:var(--shadow-xl); }
+  .caja-acceso h2 { margin:0 0 4px; font-size:19px; }
+  .usuarios-lista { display:grid; gap:8px; margin:18px 0 4px; }
+  .btn-usuario { padding:15px; border:1px solid var(--border); border-radius:10px; background:var(--surface);
+                 cursor:pointer; font-size:15px; font-family:inherit; text-align:left; display:flex;
+                 justify-content:space-between; align-items:center; color:var(--text); transition:all .15s; }
+  .btn-usuario:hover { border-color:var(--rol); background:var(--rol-suave); box-shadow:var(--shadow-sm); }
+  .pin-puntos { font-size:26px; letter-spacing:10px; height:34px; color:var(--azul); }
+  .teclado { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
+  .teclado button { padding:16px 0; font-size:19px; border:1px solid var(--border); border-radius:10px;
+                    background:var(--surface); cursor:pointer; font-family:inherit; color:var(--text);
+                    font-weight:600; transition:background .15s; }
+  .teclado button:hover { background:var(--azul-light); }
+  .usuario-actual { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-muted); }
 
   /* --- Carrito de venta --- */
-  .carrito-item { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid #eef2f5; }
+  .carrito-item { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border-light); }
   .carrito-item .nom { flex:1; font-size:14px; }
-  .carrito-item input { width:58px; text-align:center; padding:5px; }
-  .total-venta { display:flex; justify-content:space-between; align-items:center; padding:12px 0 0; font-size:19px; font-weight:700; color:#123c5a; }
+  .carrito-item input { width:62px; text-align:center; padding:6px; }
+  .total-venta { display:flex; justify-content:space-between; align-items:center; padding:14px 0 0;
+                 font-size:20px; font-weight:700; color:var(--text); letter-spacing:-.02em;
+                 border-top:2px solid var(--border); margin-top:4px; }
 
   /* --- Mi día (vista del doctor) --- */
-  .turno { background:#fff; border:1px solid #dde3e9; border-left:5px solid #c4ccd4; border-radius:8px; padding:14px 16px; margin-bottom:8px; display:flex; align-items:center; gap:14px; }
-  .turno .hora { font-size:19px; font-weight:700; color:#123c5a; min-width:64px; }
+  .turno { background:var(--surface); border:1px solid var(--border); border-left:4px solid var(--border);
+           border-radius:10px; padding:15px 18px; margin-bottom:10px; display:flex; align-items:center;
+           gap:14px; box-shadow:var(--shadow-xs); }
+  .turno .hora { font-size:19px; font-weight:700; color:var(--text); min-width:64px; letter-spacing:-.01em; }
   .turno .quien { flex:1; }
   .turno .quien b { font-size:16px; display:block; }
-  .turno.ahora { border-left-color:var(--rol); border-color:var(--rol); background:var(--rol-suave); box-shadow:0 1px 6px var(--rol-sombra); }
-  .turno.listo { opacity:.6; }
-  .turno.listo .hora { color:#8a929b; }
-  .etiqueta-ahora { background:var(--rol); color:#fff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; letter-spacing:.04em; }
+  .turno.ahora { border-left-color:var(--rol); border-color:var(--rol); background:var(--rol-suave);
+                 box-shadow:0 4px 14px var(--rol-sombra); }
+  .turno.listo { opacity:.55; }
+  .turno.listo .hora { color:var(--text-light); }
+  .etiqueta-ahora { background:var(--rol); color:#fff; font-size:11px; font-weight:700; padding:3px 9px;
+                    border-radius:999px; letter-spacing:.04em; }
 
   /* --- Atención --- */
-  .cab-atencion { background:var(--rol); color:#fff; border-radius:10px; padding:16px 18px; margin-bottom:14px; }
+  .cab-atencion { background:var(--rol); color:#fff; border-radius:12px; padding:18px 20px; margin-bottom:16px;
+                  box-shadow:0 4px 14px var(--rol-sombra); }
   .cab-atencion h2 { color:#fff; margin:0; font-size:20px; }
-  .cab-atencion .sub { color:#c8dcec; }
+  .cab-atencion .sub { color:rgba(255,255,255,.82); }
   .medida { text-align:center; }
   .medida input { font-size:22px; text-align:center; font-weight:700; padding:12px 6px; }
-  .medida small { display:block; color:#6b7580; font-size:12px; margin-bottom:4px; font-weight:600; }
-  .resultado-imc { background:#f5f7f9; border-radius:8px; padding:14px; text-align:center; }
-  .resultado-imc .num { font-size:30px; font-weight:700; color:#123c5a; line-height:1.1; }
+  .medida small { display:block; color:var(--text-muted); font-size:12px; margin-bottom:4px; font-weight:600; }
+  .resultado-imc { background:var(--bg-soft); border:1px solid var(--border); border-radius:10px;
+                   padding:16px; text-align:center; }
+  .resultado-imc .num { font-size:30px; font-weight:700; color:var(--text); line-height:1.1; letter-spacing:-.02em; }
   .evolucion { font-size:15px; font-weight:700; margin-top:4px; }
-  .presc-item { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid #eef2f5; }
+  .presc-item { display:flex; align-items:center; gap:8px; padding:10px 0; border-bottom:1px solid var(--border-light); }
   .presc-item .nom { flex:1; font-size:14px; }
-  .presc-item input[type=number] { width:56px; text-align:center; padding:5px; }
-  .presc-item input[type=text] { flex:1; padding:5px 8px; font-size:13px; }
-  .barra-fija { position:sticky; bottom:0; background:#fff; border-top:1px solid #dde3e9; padding:12px 0; display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
+  .presc-item input[type=number] { width:60px; text-align:center; padding:6px; }
+  .presc-item input[type=text] { flex:1; padding:6px 10px; font-size:13px; }
+  .barra-fija { position:sticky; bottom:0; background:var(--surface); border-top:1px solid var(--border);
+                padding:14px 0; display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
   .plazos { display:grid; grid-template-columns:repeat(auto-fit,minmax(88px,1fr)); gap:8px; }
-  .plazo { padding:12px 6px; border:1px solid #c4ccd4; border-radius:8px; background:#fff; cursor:pointer; font-family:inherit; font-size:14px; color:#1f2933; text-align:center; }
+  .plazo { padding:13px 6px; border:1px solid var(--border); border-radius:10px; background:var(--surface);
+           cursor:pointer; font-family:inherit; font-size:14px; color:var(--text); text-align:center; transition:all .15s; }
   .plazo:hover { border-color:var(--rol); background:var(--rol-suave); }
-  .plazo.sel { background:var(--rol); color:#fff; border-color:var(--rol); font-weight:700; }
+  .plazo.sel { background:var(--rol); color:#fff; border-color:var(--rol); font-weight:700;
+               box-shadow:0 4px 14px var(--rol-sombra); }
 
-  .opcion-baja { border:1px solid #c4ccd4; border-radius:8px; padding:14px; margin-top:10px; cursor:pointer; }
+  .opcion-baja { border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:10px; cursor:pointer; }
   .opcion-baja:hover { border-color:var(--rol); background:var(--rol-suave); }
-  .opcion-baja.peligro:hover { border-color:#c0392b; background:#fdf1ef; }
+  .opcion-baja.peligro:hover { border-color:var(--danger); background:var(--danger-bg); }
   .opcion-baja b { display:block; margin-bottom:4px; }
 
   /* --- Ticket 80mm --- */
@@ -198,38 +279,31 @@
   #ticket .der { text-align:right; }
 
   /* --- Botones rápidos de producto (vender de un toque) --- */
-  .rapidos { display:grid; grid-template-columns:repeat(auto-fill,minmax(112px,1fr)); gap:8px; margin-top:6px; }
-  .rapido { padding:10px 8px; border:1px solid #c4ccd4; border-radius:10px; background:#fff; cursor:pointer;
-            font-family:inherit; font-size:13px; color:#1f2933; text-align:left; line-height:1.25; }
-  .rapido:hover { border-color:var(--rol); background:var(--rol-suave); }
-  .rapido b { display:block; font-size:13px; }
-  .rapido small { color:#6b7580; font-size:12px; }
-  .rapido.agotado { opacity:.45; cursor:not-allowed; }
-  .rapido.agotado:hover { border-color:#c4ccd4; background:#fff; }
+  .rapidos { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:8px; margin-top:8px; }
+  .rapido { padding:12px 10px; border:1px solid var(--border); border-radius:10px; background:var(--surface);
+            cursor:pointer; font-family:inherit; font-size:13px; color:var(--text); text-align:left;
+            line-height:1.3; box-shadow:var(--shadow-xs); transition:all .15s; }
+  .rapido:hover { border-color:var(--rol); background:var(--rol-suave); box-shadow:var(--shadow-sm); }
+  .rapido:active { transform:translateY(1px); }
+  .rapido b { display:block; font-size:13px; font-weight:600; }
+  .rapido small { color:var(--text-muted); font-size:12px; }
+  .rapido.agotado { opacity:.4; cursor:not-allowed; box-shadow:none; }
+  .rapido.agotado:hover { border-color:var(--border); background:var(--surface); box-shadow:none; }
 
   /* --- Buscador de paciente (se escribe, no se despliega) --- */
   .buscar-pac { position:relative; }
-  .sugerencias { position:absolute; left:0; right:0; top:100%; z-index:5; background:#fff;
-                 border:1px solid #c4ccd4; border-radius:8px; margin-top:4px; max-height:260px;
-                 overflow-y:auto; box-shadow:0 6px 18px rgba(0,0,0,.12); }
-  .sugerencia { padding:11px 12px; cursor:pointer; border-bottom:1px solid #eef2f5; font-size:14px; }
+  .sugerencias { position:absolute; left:0; right:0; top:100%; z-index:5; background:var(--surface);
+                 border:1px solid var(--border); border-radius:10px; margin-top:6px; max-height:260px;
+                 overflow-y:auto; box-shadow:var(--shadow-lg); }
+  .sugerencia { padding:12px 14px; cursor:pointer; border-bottom:1px solid var(--border-light); font-size:14px; }
   .sugerencia:last-child { border-bottom:none; }
   .sugerencia:hover, .sugerencia.marcada { background:var(--rol-suave); }
-  .sugerencia b { display:block; }
-  .sugerencia small { color:#6b7580; font-size:12px; }
+  .sugerencia b { display:block; font-weight:600; }
+  .sugerencia small { color:var(--text-muted); font-size:12px; }
   .pac-elegido { display:flex; align-items:center; justify-content:space-between; gap:10px;
-                 background:var(--rol-suave); border:1px solid var(--rol); border-radius:8px; padding:10px 12px; }
+                 background:var(--rol-suave); border:1px solid var(--rol); border-radius:10px; padding:12px 14px; }
   .pac-elegido b { font-size:15px; }
-  .pac-elegido small { display:block; color:#6b7580; font-size:12px; }
-
-  /* --- Canal de venta: mostrador vs WhatsApp --- */
-  .canales { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  .canal { padding:12px 8px; border:1px solid #c4ccd4; border-radius:10px; background:#fff; cursor:pointer;
-           font-family:inherit; font-size:14px; color:#1f2933; text-align:center; }
-  .canal:hover { border-color:var(--rol); background:var(--rol-suave); }
-  .canal.sel { background:var(--rol); color:#fff; border-color:var(--rol); font-weight:700; }
-  .btn-wa { background:#25d366; color:#fff; }
-  .btn-wa:hover { background:#1da851; }
+  .pac-elegido small { display:block; color:var(--text-muted); font-size:12px; }
 
   /* ================== CELULAR ==================
      Las asistentes venden desde un Android, no desde una laptop. En pantalla
@@ -244,11 +318,11 @@
     table.tabla.tarjetas,
     table.tabla.tarjetas tbody { display:block; overflow:visible; white-space:normal; background:transparent; }
     table.tabla.tarjetas thead { display:none; }
-    table.tabla.tarjetas tr { display:block; background:#fff; border:1px solid #dde3e9; border-radius:10px;
+    table.tabla.tarjetas tr { display:block; background:#fff; border:1px solid var(--border); border-radius:10px;
                               margin-bottom:10px; padding:10px 14px; }
     table.tabla.tarjetas td { display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
                               border:none; padding:5px 0; text-align:right; }
-    table.tabla.tarjetas td::before { content:attr(data-th); color:#6b7580; font-size:12px; font-weight:700;
+    table.tabla.tarjetas td::before { content:attr(data-th); color:var(--text-muted); font-size:12px; font-weight:700;
                                       text-transform:uppercase; letter-spacing:.03em; text-align:left; flex:0 0 auto; }
     table.tabla.tarjetas td[data-th='']::before { display:none; }
     table.tabla.tarjetas td[data-th=''] { justify-content:flex-end; padding-top:8px; }
@@ -298,7 +372,7 @@
       <h2 id="pin-nombre"></h2>
       <div class="sub">Escribe tu PIN de 4 dígitos</div>
       <div class="pin-puntos" id="pin-puntos"></div>
-      <div id="pin-error" class="sub" style="color:#c0392b;min-height:18px"></div>
+      <div id="pin-error" class="sub" style="color:var(--danger);min-height:18px"></div>
       <div class="teclado">
         <button onclick="teclaPin('1')">1</button><button onclick="teclaPin('2')">2</button><button onclick="teclaPin('3')">3</button>
         <button onclick="teclaPin('4')">4</button><button onclick="teclaPin('5')">5</button><button onclick="teclaPin('6')">6</button>
@@ -317,7 +391,7 @@
   <nav>
     <button id="tab-atenciones" onclick="irA('atenciones')">🩺 Atenciones<span id="badge-atenciones" class="badge oculto"></span></button>
     <button id="tab-pacientes" onclick="irA('pacientes')" class="activo">Pacientes</button>
-    <button id="tab-agenda" onclick="irA('agenda')">Agenda<span id="badge-agenda" class="badge oculto"></span><span id="badge-controles" class="badge oculto" style="background:#7b3fa0;right:auto;left:-6px"></span></button>
+    <button id="tab-agenda" onclick="irA('agenda')">Agenda<span id="badge-agenda" class="badge oculto"></span><span id="badge-controles" class="badge oculto" style="background:var(--morado);right:auto;left:-6px"></span></button>
     <button id="tab-stock" onclick="irA('stock')">Stock<span id="badge-stock" class="badge oculto"></span></button>
     <button id="tab-movimientos" onclick="irA('movimientos')">Movimientos</button>
     <button id="tab-ventas" onclick="irA('ventas')">💰 Caja<span id="badge-ventas" class="badge oculto"></span></button>
@@ -368,7 +442,7 @@
         </div>
         <div class="resultado-imc" id="at-imc"></div>
       </div>
-      <div style="margin-top:14px;padding-top:12px;border-top:1px dashed #c4ccd4">
+      <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border)">
         <div class="fila-2" style="align-items:end">
           <div class="medida" style="text-align:left">
             <small>PESO META (kg)</small>
@@ -437,7 +511,7 @@
   <section id="sec-agenda" class="oculto">
     <div id="controles-pendientes"></div>
     <div class="barra">
-      <button class="btn" id="btn-vista-dia" onclick="cambiarVista('dia')" style="background:#fff;color:#333;border:1px solid #c4ccd4">Día</button>
+      <button class="btn" id="btn-vista-dia" onclick="cambiarVista('dia')" style="background:#fff;color:#333;border:1px solid var(--border)">Día</button>
       <button class="btn" id="btn-vista-semana" onclick="cambiarVista('semana')">Semana</button>
       <span style="flex:1"></span>
       <button class="btn" onclick="abrirModalCita()">+ Nuevo</button>
@@ -487,7 +561,6 @@
       <button class="btn" onclick="abrirModalVenta()">+ Nueva venta</button>
     </div>
     <div id="ordenes-pendientes"></div>
-    <div id="pedidos-envio"></div>
     <div id="resumen-hoy"></div>
     <div id="lista-ventas"></div>
   </section>
@@ -591,8 +664,8 @@
     <label>Teléfono</label>
     <input id="p-telefono" placeholder="Ej: 987654321">
 
-    <div id="bloque-primera-cita" style="margin-top:14px;padding-top:12px;border-top:1px dashed #c4ccd4">
-      <label style="color:#15557f;font-size:14px">📅 Programar primera cita <span class="sub" style="font-weight:400">(opcional — aparecerá en la Agenda)</span></label>
+    <div id="bloque-primera-cita" style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border)">
+      <label style="color:var(--azul);font-size:14px">📅 Programar primera cita <span class="sub" style="font-weight:400">(opcional — aparecerá en la Agenda)</span></label>
       <label>Tipo de cita</label>
       <select id="p-cita-tipo" onchange="pintarSlotsPaciente()">
         <option value="consulta">Consulta (paciente nuevo) · 45 min</option>
@@ -607,7 +680,7 @@
       <div id="p-cita-slots"></div>
     </div>
 
-    <div style="margin-top:14px;padding-top:12px;border-top:1px dashed #c4ccd4">
+    <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border)">
       <button type="button" class="btn btn-sec btn-mini" id="btn-clinico" onclick="toggleClinico()" style="width:100%;text-align:left">▸ Datos clínicos (los completa el doctor)</button>
       <div id="bloque-clinico" class="oculto" style="margin-top:10px">
         <div class="fila-2">
@@ -688,9 +761,9 @@
     <label>Motivo / notas</label>
     <input id="c-motivo" placeholder="Ej: primera consulta, control de 1 mes…">
 
-    <div id="c-pago-wrap" style="margin-top:14px;padding-top:12px;border-top:1px dashed #c4ccd4">
+    <div id="c-pago-wrap" style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border)">
       <div id="c-pago-editable">
-        <label style="color:#15557f;font-size:14px;margin-top:0">💰 ¿Paga ahora?</label>
+        <label style="color:var(--azul);font-size:14px;margin-top:0">💰 ¿Paga ahora?</label>
         <div class="plazos">
           <button type="button" class="plazo" id="c-pago-no" onclick="elegirPagoCita(false)">No, paga al salir</button>
           <button type="button" class="plazo" id="c-pago-si" onclick="elegirPagoCita(true)">Sí, cobrar ahora</button>
@@ -786,12 +859,6 @@
     <h3>Nueva venta</h3>
     <div class="sub" id="v-quien"></div>
 
-    <label>¿Dónde se está vendiendo?</label>
-    <div class="canales">
-      <button type="button" class="canal sel" id="canal-mostrador" onclick="elegirCanal('mostrador')">🏥 En el consultorio</button>
-      <button type="button" class="canal" id="canal-whatsapp" onclick="elegirCanal('whatsapp')">💬 Por WhatsApp</button>
-    </div>
-
     <label>Paciente</label>
     <!-- Se escribe el nombre en vez de buscarlo en una lista: con cientos de
          pacientes un desplegable es inservible, y más en un celular.
@@ -804,17 +871,7 @@
       <div id="v-pac-elegido" class="oculto"></div>
       <div class="sub" id="v-pac-ayuda">Déjalo vacío si es una venta de mostrador.</div>
     </div>
-    <select id="v-paciente" class="oculto" onchange="cambioPacienteVenta()"><option value="">— Venta sin paciente (mostrador) —</option></select>
-
-    <!-- Solo para venta a distancia: a quién se le envía y a dónde -->
-    <div id="v-bloque-envio" class="oculto">
-      <div class="fila-2">
-        <div><label>Nombre de quien compra *</label><input id="v-contacto" placeholder="Ej: Ana Ramírez"></div>
-        <div><label>Celular (WhatsApp) *</label><input id="v-telefono" type="tel" inputmode="numeric" placeholder="987654321"></div>
-      </div>
-      <label>Dirección o punto de entrega</label>
-      <input id="v-direccion" placeholder="Ej: Av. Larco 123, Miraflores — o &quot;recoge en consultorio&quot;">
-    </div>
+    <select id="v-paciente" class="oculto"><option value="">— Venta sin paciente (mostrador) —</option></select>
 
     <label>Agregar servicio o producto</label>
     <select id="v-item" onchange="agregarAlCarrito()"></select>
@@ -989,7 +1046,7 @@ function pintarAcceso() {
   document.getElementById('usuarios-acceso').innerHTML = db.usuarios.map(u =>
     '<button class="btn-usuario" onclick="elegirUsuario(\'' + u.id + '\')">' +
     '<span><b>' + esc(u.nombre) + '</b><br><span class="sub">' + (u.rol === 'doctor' ? 'Doctor / dueño' : 'Recepción') + '</span></span>' +
-    '<span style="color:#15557f">→</span></button>').join('');
+    '<span style="color:var(--azul)">→</span></button>').join('');
   document.getElementById('paso-quien').classList.remove('oculto');
   document.getElementById('paso-pin').classList.add('oculto');
   document.getElementById('pantalla-acceso').classList.remove('oculto');
@@ -1086,9 +1143,9 @@ function nombrePaciente(id) { const p = db.pacientes.find(x => x.id === id); ret
 function nombreEnVenta(v) {
   if (v.pacienteId) return nombrePaciente(v.pacienteId);
   if (v.pacienteBorrado) return v.pacienteBorrado + ' (eliminado)';
-  // Quien compra por WhatsApp puede no ser paciente del consultorio
+  // Ventas viejas que se registraron a nombre de alguien sin ficha
   if (v.contacto) return v.contacto;
-  return v.canal === 'whatsapp' ? 'Cliente por WhatsApp' : 'Mostrador';
+  return 'Mostrador';
 }
 
 /* ================== MÓDULO 1 · PACIENTES ================== */
@@ -1483,11 +1540,11 @@ function verFicha(id) {
       '<div class="tarjeta">' +
         htmlMeta +
         (pesos.length > 1 ? '<div style="display:flex;justify-content:space-between;margin-bottom:10px">' +
-          '<span class="sub">Desde ' + fechaBonita(pesos[0].fecha) + ': <b style="color:' + (dif<0?'#2e7d4f':'#c0392b') + '">' +
+          '<span class="sub">Desde ' + fechaBonita(pesos[0].fecha) + ': <b style="color:' + (dif<0?'var(--success)':'var(--danger)') + '">' +
           (dif<0?'▼ ':'▲ ') + Math.abs(dif).toFixed(1) + ' kg</b></span>' +
           '<span class="sub">Actual: <b>' + fin.toFixed(1) + ' kg</b></span></div>' : '') +
         // Mini gráfico de barras: alto proporcional al peso dentro del rango medido
-        '<div style="display:flex;align-items:flex-end;gap:6px;height:90px;border-bottom:1px solid #dde3e9;padding-bottom:2px">' +
+        '<div style="display:flex;align-items:flex-end;gap:6px;height:90px;border-bottom:1px solid var(--border);padding-bottom:2px">' +
         pesos.map(a => {
           const alt = 25 + ((Number(a.peso) - minP) / rango) * 60;
           return '<div style="flex:1;text-align:center" title="' + fechaBonita(a.fecha) + ': ' + Number(a.peso).toFixed(1) + ' kg">' +
@@ -1762,8 +1819,8 @@ function pintarPagoCita() {
     editable.classList.add('oculto');
     yaPagada.classList.remove('oculto');
     const v = db.ventas.find(x => x.id === cEdit.ventaId);
-    yaPagada.innerHTML = '<div class="aviso" style="border-color:#2e7d4f;background:#f2f9f4;margin:0">' +
-      '<b style="color:#2e7d4f">💰 Ya pagada</b>' +
+    yaPagada.innerHTML = '<div class="aviso" style="border-color:var(--success);background:#f2f9f4;margin:0">' +
+      '<b style="color:var(--success)">💰 Ya pagada</b>' +
       (v ? '<div class="sub">Ticket #' + v.numero + ' · ' + fechaBonita(v.fecha) + ' · ' + esc(v.metodoPago||'') + '</div>' : '') + '</div>';
     return;
   }
@@ -1931,8 +1988,8 @@ function chipPago(c) {
 
 function cambiarVista(v) {
   calVista = v;
-  document.getElementById('btn-vista-dia').style.cssText = v==='dia' ? '' : 'background:#fff;color:#333;border:1px solid #c4ccd4';
-  document.getElementById('btn-vista-semana').style.cssText = v==='semana' ? '' : 'background:#fff;color:#333;border:1px solid #c4ccd4';
+  document.getElementById('btn-vista-dia').style.cssText = v==='dia' ? '' : 'background:#fff;color:#333;border:1px solid var(--border)';
+  document.getElementById('btn-vista-semana').style.cssText = v==='semana' ? '' : 'background:#fff;color:#333;border:1px solid var(--border)';
   pintarAgenda();
 }
 function moverCalendario(dir) { calFecha = sumarDias(calFecha, dir * (calVista === 'semana' ? 7 : 1)); pintarAgenda(); }
@@ -1949,7 +2006,7 @@ function pintarControles() {
   const pend = controlesPendientes().sort((a,b) => a.fechaSugerida.localeCompare(b.fechaSugerida));
   document.getElementById('controles-pendientes').innerHTML = !pend.length ? '' :
     '<h2 style="margin-top:0">📅 El doctor pidió volver a ver a estos pacientes (' + pend.length + ')</h2>' +
-    pend.map(c => '<div class="tarjeta" style="border-left:4px solid #7b3fa0;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">' +
+    pend.map(c => '<div class="tarjeta" style="border-left:4px solid var(--morado);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">' +
       '<div><b>' + esc(nombrePaciente(c.pacienteId)) + '</b>' +
         '<div class="sub">Control en <b>' + esc(c.plazoTexto) + '</b> · sugerido ' +
         aFecha(c.fechaSugerida).toLocaleDateString('es', { weekday:'long', day:'numeric', month:'long' }) +
@@ -1984,10 +2041,10 @@ function pintarAgenda() {
   const titulo = document.getElementById('cal-titulo');
   const nombresDia = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
   document.getElementById('leyenda-agenda').innerHTML =
-    '<span style="color:#2e7d4f">Consulta (paciente nuevo)</span>' +
-    '<span style="color:#15557f">Control post-op</span>' +
-    '<span style="color:#c0392b">Cirugía</span>' +
-    '<span style="color:#e0a800">Reunión del Dr.</span>';
+    '<span style="color:var(--success)">Consulta (paciente nuevo)</span>' +
+    '<span style="color:var(--azul)">Control post-op</span>' +
+    '<span style="color:var(--danger)">Cirugía</span>' +
+    '<span style="color:#F59E0B">Reunión del Dr.</span>';
   const nada = 'eventos';
 
   if (calVista === 'dia') {
@@ -2137,8 +2194,8 @@ const CATEGORIAS = {
 };
 function cambiarCatalogo(t) {
   catTipo = t;
-  document.getElementById('btn-cat-servicios').style.cssText = t==='servicio' ? '' : 'background:#fff;color:#333;border:1px solid #c4ccd4';
-  document.getElementById('btn-cat-productos').style.cssText = t==='producto' ? '' : 'background:#fff;color:#333;border:1px solid #c4ccd4';
+  document.getElementById('btn-cat-servicios').style.cssText = t==='servicio' ? '' : 'background:#fff;color:#333;border:1px solid var(--border)';
+  document.getElementById('btn-cat-productos').style.cssText = t==='producto' ? '' : 'background:#fff;color:#333;border:1px solid var(--border)';
   pintarCatalogo();
 }
 function pintarCatalogo() {
@@ -2288,7 +2345,7 @@ function pintarAtenciones() {
   document.getElementById('atenciones-resumen').innerHTML = !atendibles.length ? '' :
     '<div class="grid-datos">' +
       '<div class="dato"><small>Pacientes del día</small><b>' + atendibles.length + '</b></div>' +
-      '<div class="dato"><small>Ya atendidos</small><b style="color:#2e7d4f">' + hechos.length + '</b></div>' +
+      '<div class="dato"><small>Ya atendidos</small><b style="color:var(--success)">' + hechos.length + '</b></div>' +
       '<div class="dato"><small>Faltan</small><b style="color:var(--rol)">' + (atendibles.length - hechos.length) + '</b></div>' +
     '</div>';
 
@@ -2298,7 +2355,7 @@ function pintarAtenciones() {
         // Una reunión no se "atiende": solo se marca como hecha. No hay nada que registrar.
         if (c.tipo === 'reunion') {
           const hecha = c.estado === 'atendida';
-          return '<div class="turno' + (hecha ? ' listo' : '') + '" style="border-left-color:#e0a800">' +
+          return '<div class="turno' + (hecha ? ' listo' : '') + '" style="border-left-color:#F59E0B">' +
             '<div class="hora">' + c.hora + '</div>' +
             '<div class="quien"><b>' + esc(c.motivo || 'Reunión') + '</b>' +
               '<span class="sub">Reunión · ' + rangoCita(c) + '</span></div>' +
@@ -2314,10 +2371,10 @@ function pintarAtenciones() {
         const sub = [nombreTipo(c.tipo), c.motivo].filter(Boolean).join(' · ');
         const extra = p && p.alergias ? ' <span class="chip chip-rojo">⚠️ ' + esc(p.alergias) + '</span>' : '';
         return '<div class="turno ' + claseTipo(c.tipo) + (at ? ' listo' : esAhora ? ' ahora' : '') + '" style="border-left-color:' +
-            (c.tipo==='cirugia'?'#c0392b':c.tipo==='control'?'#15557f':'#2e7d4f') + '">' +
+            (c.tipo==='cirugia'?'var(--danger)':c.tipo==='control'?'var(--azul)':'var(--success)') + '">' +
           '<div class="hora">' + c.hora + (c.modo === 'virtual' ? '<div style="font-size:13px">💻</div>' : '') + '</div>' +
           '<div class="quien"><b>' + esc(nombreEvento(c)) + (esAhora ? ' <span class="etiqueta-ahora">AHORA</span>' : '') + '</b>' +
-            '<span class="sub">' + esc(sub) + (c.modo === 'virtual' ? ' · <b style="color:#7b3fa0">Virtual</b>' : '') + extra + '</span></div>' +
+            '<span class="sub">' + esc(sub) + (c.modo === 'virtual' ? ' · <b style="color:var(--morado)">Virtual</b>' : '') + extra + '</span></div>' +
           (at
             ? '<span class="chip chip-verde">✓ Atendido</span>' +
               '<button class="btn btn-sec btn-mini" onclick="abrirAtencion(\'' + c.id + '\')">Ver</button>'
@@ -2422,7 +2479,7 @@ function abrirAtencion(citaId) {
     ? '<div class="aviso aviso-rojo"><b>⚠️ Alergias / observaciones:</b> ' + esc(p.alergias) + '</div>' : '';
   // En virtual el doctor no tiene al paciente delante: el peso es el que el paciente diga
   document.getElementById('at-aviso-virtual').innerHTML = c.modo === 'virtual'
-    ? '<div class="aviso" style="border-color:#7b3fa0;background:#f8f4fb">💻 <b>Consulta virtual.</b> El peso lo reporta el paciente: anótalo solo si te lo dice, y ten en cuenta que no lo pesaste tú.</div>'
+    ? '<div class="aviso" style="border-color:var(--morado);background:#f8f4fb">💻 <b>Consulta virtual.</b> El peso lo reporta el paciente: anótalo solo si te lo dice, y ten en cuenta que no lo pesaste tú.</div>'
     : '';
 
   // Se precarga con lo último medido (no con el registro inicial, que puede ser viejo)
@@ -2456,12 +2513,12 @@ function abrirAtencion(citaId) {
 function calcularIMC(peso, altura) {
   if (!(peso > 0 && altura > 0)) return null;
   const imc = peso / Math.pow(altura/100, 2);
-  let cat = 'Normal', color = '#2e7d4f', chip = 'chip-verde';
-  if (imc >= 40) { cat = 'Obesidad III'; color = '#c0392b'; chip = 'chip-rojo'; }
-  else if (imc >= 35) { cat = 'Obesidad II'; color = '#c0392b'; chip = 'chip-rojo'; }
-  else if (imc >= 30) { cat = 'Obesidad I'; color = '#b5651d'; chip = 'chip-naranja'; }
-  else if (imc >= 25) { cat = 'Sobrepeso'; color = '#9a7b00'; chip = 'chip-amarillo'; }
-  else if (imc < 18.5) { cat = 'Bajo peso'; color = '#9a7b00'; chip = 'chip-amarillo'; }
+  let cat = 'Normal', color = 'var(--success)', chip = 'chip-verde';
+  if (imc >= 40) { cat = 'Obesidad III'; color = 'var(--danger)'; chip = 'chip-rojo'; }
+  else if (imc >= 35) { cat = 'Obesidad II'; color = 'var(--danger)'; chip = 'chip-rojo'; }
+  else if (imc >= 30) { cat = 'Obesidad I'; color = '#C2410C'; chip = 'chip-naranja'; }
+  else if (imc >= 25) { cat = 'Sobrepeso'; color = 'var(--warning)'; chip = 'chip-amarillo'; }
+  else if (imc < 18.5) { cat = 'Bajo peso'; color = 'var(--warning)'; chip = 'chip-amarillo'; }
   return { valor: imc, cat, color, chip };
 }
 function calcularAtencion() {
@@ -2482,15 +2539,15 @@ function calcularAtencion() {
     const ant = previas[0];
     const dif = peso - Number(ant.peso);
     const signo = dif < 0 ? '▼' : dif > 0 ? '▲' : '=';
-    const colorEvo = dif < 0 ? '#2e7d4f' : dif > 0 ? '#c0392b' : '#66707a';
+    const colorEvo = dif < 0 ? 'var(--success)' : dif > 0 ? 'var(--danger)' : 'var(--text-muted)';
     evo = '<div class="evolucion" style="color:' + colorEvo + '">' + signo + ' ' + Math.abs(dif).toFixed(1) + ' kg' +
       '</div><div class="sub">desde ' + fechaBonita(ant.fecha) + ' (' + Number(ant.peso).toFixed(1) + ' kg)</div>';
   } else if (p.peso > 0 && Math.abs(peso - Number(p.peso)) > 0.05) {
     const dif = peso - Number(p.peso);
-    evo = '<div class="evolucion" style="color:' + (dif < 0 ? '#2e7d4f' : '#c0392b') + '">' +
+    evo = '<div class="evolucion" style="color:' + (dif < 0 ? 'var(--success)' : 'var(--danger)') + '">' +
       (dif < 0 ? '▼' : '▲') + ' ' + Math.abs(dif).toFixed(1) + ' kg</div><div class="sub">desde el registro inicial</div>';
   }
-  cont.innerHTML = '<small style="color:#6b7580;font-weight:600">IMC</small>' +
+  cont.innerHTML = '<small style="color:var(--text-muted);font-weight:600">IMC</small>' +
     '<div class="num">' + imc.toFixed(1) + '</div>' +
     '<span class="chip" style="background:' + color + '22;color:' + color + '">' + cat + '</span>' + evo;
 }
@@ -2508,16 +2565,16 @@ function htmlProgresoMeta(pesoActual, meta, inicial) {
   if (!(meta > 0) || !(pesoActual > 0)) return '';
   const falta = pesoActual - meta;
   if (falta <= 0) {
-    return '<div class="aviso" style="border-color:#2e7d4f;background:#f2f9f4;margin:0">' +
-      '<b style="color:#2e7d4f">🎉 ¡Llegó a su meta!</b>' +
+    return '<div class="aviso" style="border-color:var(--success);background:#f2f9f4;margin:0">' +
+      '<b style="color:var(--success)">🎉 ¡Llegó a su meta!</b>' +
       '<div class="sub">Meta ' + meta.toFixed(1) + ' kg · está en ' + pesoActual.toFixed(1) + ' kg</div></div>';
   }
   // El progreso se mide desde el peso con el que empezó, no desde cero
   let barra = '';
   if (inicial > 0 && inicial > meta) {
     const pct = Math.max(0, Math.min(100, Math.round((inicial - pesoActual) / (inicial - meta) * 100)));
-    barra = '<div style="background:#eef2f5;border-radius:4px;height:8px;margin-top:6px">' +
-      '<div style="background:#2e7d4f;height:8px;border-radius:4px;width:' + pct + '%"></div></div>' +
+    barra = '<div style="background:var(--border-light);border-radius:4px;height:8px;margin-top:6px">' +
+      '<div style="background:var(--success);height:8px;border-radius:4px;width:' + pct + '%"></div></div>' +
       '<div class="sub" style="margin-top:3px">' + pct + '% del camino · empezó en ' + inicial.toFixed(1) + ' kg</div>';
   }
   return '<div class="dato" style="background:var(--rol-suave)">' +
@@ -2682,7 +2739,7 @@ function pintarStock() {
   document.getElementById('alertas-stock').innerHTML = bajos.length
     ? '<div class="aviso aviso-rojo"><b>⚠️ ' + plural(bajos.length,'producto','productos') + ' en stock bajo:</b> ' +
       bajos.map(k => esc(k.nombre) + ' (' + (k.stock||0) + ')').join(' · ') + '</div>'
-    : '<div class="aviso aviso-amarillo" style="border-color:#2e7d4f;background:#f2f9f4">✅ Todos los productos están por encima del stock mínimo.</div>';
+    : '<div class="aviso aviso-amarillo" style="border-color:var(--success);background:#f2f9f4">✅ Todos los productos están por encima del stock mínimo.</div>';
 
   const lista = productos().filter(k => k.nombre.toLowerCase().includes(filtro)).sort((a,b) => a.nombre.localeCompare(b.nombre));
   document.getElementById('lista-stock').innerHTML = !lista.length
@@ -2721,8 +2778,8 @@ function pintarMovimientos() {
   document.getElementById('resumen-mov').innerHTML =
     '<div class="grid-datos">' +
       '<div class="dato"><small>Movimientos hoy</small><b>' + hoy.length + '</b></div>' +
-      '<div class="dato"><small>Entradas hoy</small><b style="color:#2e7d4f">' + hoy.filter(m => m.tipo==='entrada').length + '</b></div>' +
-      '<div class="dato"><small>Salidas y ventas hoy</small><b style="color:#c0392b">' + hoy.filter(m => m.tipo==='salida'||m.tipo==='venta').length + '</b></div>' +
+      '<div class="dato"><small>Entradas hoy</small><b style="color:var(--success)">' + hoy.filter(m => m.tipo==='entrada').length + '</b></div>' +
+      '<div class="dato"><small>Salidas y ventas hoy</small><b style="color:var(--danger)">' + hoy.filter(m => m.tipo==='salida'||m.tipo==='venta').length + '</b></div>' +
       '<div class="dato"><small>Total registrado</small><b>' + db.movimientos.length + '</b></div>' +
     '</div>';
 
@@ -2761,7 +2818,7 @@ function pintarStockActual() {
     tipo === 'entrada' ? 'Cantidad que entra *' : tipo === 'salida' ? 'Cantidad que sale *' : 'Cantidad real contada *';
   document.getElementById('m-actual').innerHTML =
     'Stock actual: <b>' + actual + '</b> ' + esc(k.unidad||'') +
-    (cant ? ' → queda <b style="color:' + (queda < 0 ? '#c0392b' : 'var(--rol)') + '">' + queda + '</b>' : '');
+    (cant ? ' → queda <b style="color:' + (queda < 0 ? 'var(--danger)' : 'var(--rol)') + '">' + queda + '</b>' : '');
 }
 function guardarMov() {
   const k = db.catalogo.find(x => x.id === document.getElementById('m-producto').value);
@@ -2789,9 +2846,7 @@ function totalVenta(v) { return v.items.reduce((s,i) => s + Number(i.precio) * N
 
 /* Toda venta pasa por aquí: se cobre desde la caja, al agendar o al salir del
    consultorio. Así el correlativo, el stock y los pendientes siempre cuadran. */
-function registrarVenta({ pacienteId, items, metodoPago, nota, descuento, ordenId, citaId,
-                          canal, contacto, telefono, direccion }) {
-  const porWhatsApp = canal === 'whatsapp';
+function registrarVenta({ pacienteId, items, metodoPago, nota, descuento, ordenId, citaId }) {
   const venta = {
     id: nuevoId(),
     numero: db.config.correlativo++,
@@ -2805,13 +2860,6 @@ function registrarVenta({ pacienteId, items, metodoPago, nota, descuento, ordenI
     usuarioNombre: sesion ? sesion.nombre : '—',
     ordenId: ordenId || '',
     citaId: citaId || '',
-    // Venta a distancia: el producto sale del stock igual, pero todavía no está
-    // en manos del cliente. Sin esto, "vendido" y "entregado" se confunden.
-    canal: porWhatsApp ? 'whatsapp' : 'mostrador',
-    entrega: porWhatsApp ? 'pendiente' : 'entregado',
-    contacto: contacto || '',
-    telefono: telefono || '',
-    direccion: direccion || '',
     anulada: false
   };
   db.ventas.push(venta);
@@ -2859,10 +2907,6 @@ function abrirModalVenta(pacienteId) {
   document.getElementById('v-descuento').value = 0;
   document.getElementById('v-nota').value = '';
   document.getElementById('v-pago').value = 'Efectivo';
-  document.getElementById('v-contacto').value = '';
-  document.getElementById('v-telefono').value = '';
-  document.getElementById('v-direccion').value = '';
-  elegirCanal('mostrador');
   pintarRapidos();
   pintarCarrito();
   document.getElementById('modal-venta').classList.remove('oculto');
@@ -2895,21 +2939,6 @@ function agregarPorId(catalogoId) {
   pintarCarrito();
 }
 
-/* Vender por WhatsApp no es lo mismo que vender en el mostrador: no hay nadie
-   enfrente, se cobra por Yape y hay que llevarle el pedido a alguna parte. */
-let canalVenta = 'mostrador';
-function elegirCanal(canal) {
-  canalVenta = canal;
-  document.getElementById('canal-mostrador').classList.toggle('sel', canal === 'mostrador');
-  document.getElementById('canal-whatsapp').classList.toggle('sel', canal === 'whatsapp');
-  document.getElementById('v-bloque-envio').classList.toggle('oculto', canal !== 'whatsapp');
-  if (canal === 'whatsapp') {
-    // Lo que más se usa a distancia; se puede cambiar
-    if (document.getElementById('v-pago').value === 'Efectivo') document.getElementById('v-pago').value = 'Yape / Plin';
-    cambioPacienteVenta();
-  }
-  pintarCarrito(); // el texto del botón depende del canal
-}
 /* ---------- Buscador de paciente en la venta ----------
    El valor real vive en el <select id="v-paciente"> oculto; esto es solo la
    forma de llegar a él escribiendo. Así el resto del sistema (cobrar desde el
@@ -2948,7 +2977,6 @@ function elegirPacienteVenta(id) {
   document.getElementById('v-pac-lista').classList.add('oculto');
   document.getElementById('v-pac-buscar').value = '';
   pintarPacienteElegido();
-  cambioPacienteVenta();
 }
 function quitarPacienteVenta() {
   document.getElementById('v-paciente').value = '';
@@ -2977,15 +3005,6 @@ document.addEventListener('click', e => {
   if (lista && !lista.classList.contains('oculto') && !e.target.closest('.buscar-pac')) lista.classList.add('oculto');
 });
 
-/* Si el que compra ya es paciente, sus datos no se vuelven a teclear */
-function cambioPacienteVenta() {
-  if (canalVenta !== 'whatsapp') return;
-  const p = db.pacientes.find(x => x.id === document.getElementById('v-paciente').value);
-  if (!p) return;
-  const c = document.getElementById('v-contacto'), t = document.getElementById('v-telefono');
-  if (!c.value.trim()) c.value = p.nombre || '';
-  if (!t.value.trim()) t.value = p.telefono || '';
-}
 function agregarAlCarrito() {
   const sel = document.getElementById('v-item');
   const k = db.catalogo.find(x => x.id === sel.value);
@@ -3016,10 +3035,9 @@ function faltaStock() {
 function pintarCarrito() {
   const cont = document.getElementById('v-carrito');
   const btn = document.getElementById('btn-cobrar');
-  const textoCobrar = () => canalVenta === 'whatsapp' ? 'Registrar pedido' : 'Cobrar y guardar';
   if (!carrito.length) {
     cont.innerHTML = '<div class="vacio" style="padding:16px">Aún no agregas nada a la venta.</div>';
-    btn.disabled = true; btn.textContent = textoCobrar();
+    btn.disabled = true; btn.textContent = 'Cobrar y guardar';
     return;
   }
   const desc = Number(document.getElementById('v-descuento').value || 0);
@@ -3037,7 +3055,7 @@ function pintarCarrito() {
       '<b style="min-width:80px;text-align:right">' + money(i.precio * i.cant) + '</b>' +
       '<button class="btn btn-peligro btn-mini" onclick="quitarDelCarrito(\'' + i.catalogoId + '\')">✕</button></div>';
   }).join('') +
-  (desc > 0 ? '<div class="carrito-item"><span class="nom sub">Descuento</span><b style="color:#c0392b">− ' + money(desc) + '</b></div>' : '') +
+  (desc > 0 ? '<div class="carrito-item"><span class="nom sub">Descuento</span><b style="color:var(--danger)">− ' + money(desc) + '</b></div>' : '') +
   '<div class="total-venta"><span>TOTAL</span><span>' + money(bruto - desc) + '</span></div>' +
   // No se puede cobrar lo que no se puede entregar: se avisa aquí, no al final
   (faltan.length
@@ -3050,7 +3068,7 @@ function pintarCarrito() {
     : '');
 
   btn.disabled = faltan.length > 0;
-  btn.textContent = faltan.length ? '🚫 Sin stock' : textoCobrar();
+  btn.textContent = faltan.length ? '🚫 Sin stock' : 'Cobrar y guardar';
 }
 function guardarVenta() {
   if (!carrito.length) { alert('Agrega al menos un servicio o producto.'); return; }
@@ -3066,15 +3084,6 @@ function guardarVenta() {
     return;
   }
 
-  // En una venta a distancia hay que saber a quién y a dónde: si no, el pedido
-  // queda cobrado pero nadie sabe entregarlo
-  const contacto = document.getElementById('v-contacto').value.trim();
-  const telefono = document.getElementById('v-telefono').value.trim();
-  if (canalVenta === 'whatsapp') {
-    if (!contacto) { alert('Escribe el nombre de quien compra.'); document.getElementById('v-contacto').focus(); return; }
-    if (!telefono) { alert('Escribe el celular de WhatsApp: sin eso no se le puede coordinar la entrega.'); document.getElementById('v-telefono').focus(); return; }
-  }
-
   const venta = registrarVenta({
     pacienteId: document.getElementById('v-paciente').value,
     items: carrito,
@@ -3082,10 +3091,7 @@ function guardarVenta() {
     metodoPago: document.getElementById('v-pago').value,
     nota: document.getElementById('v-nota').value.trim(),
     ordenId: ordenCobrando,
-    citaId: citaCobrando,
-    canal: canalVenta,
-    contacto, telefono,
-    direccion: document.getElementById('v-direccion').value.trim()
+    citaId: citaCobrando
   });
   ordenCobrando = null; citaCobrando = null;
   guardar(); cerrarModales();
@@ -3097,9 +3103,9 @@ function guardarVenta() {
     controlTrasCobrar = null;
     const c = db.controles.find(x => x.id === idCtrl && x.estado === 'pendiente');
     if (c) document.getElementById('ticket-luego').innerHTML =
-      '<div class="aviso" style="border-color:#7b3fa0;background:#f8f4fb;margin:10px 0 0" class="no-print">' +
+      '<div class="aviso" style="border-color:var(--morado);background:#f8f4fb;margin:10px 0 0" class="no-print">' +
         '📅 El doctor lo citó en <b>' + esc(c.plazoTexto) + '</b>. Agéndalo antes de que se vaya.' +
-        '<button class="btn btn-mini" style="margin-top:6px;background:#7b3fa0" onclick="agendarControl(\'' + c.id + '\')">Agendar control ahora</button>' +
+        '<button class="btn btn-mini" style="margin-top:6px;background:var(--morado)" onclick="agendarControl(\'' + c.id + '\')">Agendar control ahora</button>' +
       '</div>';
   }
 }
@@ -3188,9 +3194,9 @@ function pintarOrdenes() {
           '<b style="white-space:nowrap">' + money(i.precio * i.cant) + '</b>' +
         '</div>';
       }).join('') +
-      (faltantes.length ? '<div class="sub" style="color:#c0392b;margin-top:4px">⚠️ Falta stock: no se podrá cobrar hasta registrar la entrada</div>' : '');
+      (faltantes.length ? '<div class="sub" style="color:var(--danger);margin-top:4px">⚠️ Falta stock: no se podrá cobrar hasta registrar la entrada</div>' : '');
       const ctrl = p.control
-        ? '<div class="sub" style="margin-top:8px;padding-top:8px;border-top:1px dashed #c4ccd4">📅 El doctor lo citó en <b>' + esc(p.control.plazoTexto) +
+        ? '<div class="sub" style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">📅 El doctor lo citó en <b>' + esc(p.control.plazoTexto) +
           '</b> · sugerido ' + fechaBonita(p.control.fechaSugerida) + '</div>' : '';
       const botones =
         (p.items.length ? '<button class="btn" onclick="atenderEnCaja(\'' + p.pacienteId + '\')">💰 Cobrar' + (p.control ? ' y agendar' : '') + ' · ' + money(p.total) + '</button>'
@@ -3198,10 +3204,10 @@ function pintarOrdenes() {
         '<button class="btn btn-sec btn-mini" onclick="verFicha(\'' + p.pacienteId + '\')">Ver ficha</button>' +
         (p.orden ? '<button class="btn btn-peligro btn-mini" onclick="descartarOrden(\'' + p.orden.id + '\')">No lo lleva</button>' : '');
 
-      return '<div class="tarjeta" style="border-left:4px solid #7b3fa0">' +
+      return '<div class="tarjeta" style="border-left:4px solid var(--morado)">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">' +
           '<b style="font-size:16px">' + esc(nombrePaciente(p.pacienteId)) + '</b>' +
-          (p.total ? '<b style="font-size:19px;color:#123c5a">' + money(p.total) + '</b>' : '') +
+          (p.total ? '<b style="font-size:19px;color:var(--text)">' + money(p.total) + '</b>' : '') +
         '</div>' +
         lineas + ctrl +
         '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">' + botones + '</div>' +
@@ -3237,92 +3243,17 @@ function descartarOrden(id) {
   guardar(); pintarVentas();
 }
 
-/* ================== PEDIDOS A DISTANCIA ==================
-   Una venta por WhatsApp queda cobrada pero NO entregada. Si no se lleva ese
-   estado aparte, un pedido se pierde entre las ventas del día y el cliente
-   reclama algo que el sistema ya dio por despachado. */
-const ESTADO_ENTREGA = {
-  pendiente: ['chip-amarillo', '📦 Por enviar'],
-  enviado:   ['chip-azul',     '🚚 En camino'],
-  entregado: ['chip-verde',    '✅ Entregado']
-};
-function pedidosPorEntregar() {
-  return db.ventas
-    .filter(v => v.canal === 'whatsapp' && !v.anulada && v.entrega !== 'entregado')
-    .sort((a,b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
-}
-function pintarPedidosEnvio() {
-  const cont = document.getElementById('pedidos-envio');
-  if (!cont) return;
-  const pend = pedidosPorEntregar();
-  cont.innerHTML = !pend.length ? '' :
-    '<h2>📦 Pedidos por entregar (' + pend.length + ')</h2>' +
-    pend.map(v => {
-      const [cls, txt] = ESTADO_ENTREGA[v.entrega] || ESTADO_ENTREGA.pendiente;
-      const dias = diasDesde(v.fecha);
-      return '<div class="tarjeta" style="border-left:4px solid #25d366">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">' +
-          '<b style="font-size:16px">' + esc(nombreEnVenta(v)) + '</b>' +
-          '<b style="font-size:19px;color:#123c5a">' + money(totalVenta(v)) + '</b>' +
-        '</div>' +
-        '<div class="sub">Ticket #' + v.numero + ' · ' + fechaBonita(v.fecha) + ' · ' + esc(v.metodoPago || '') +
-          (dias >= 2 ? ' · <b style="color:#c0392b">hace ' + dias + ' días</b>' : '') + '</div>' +
-        '<div style="margin:6px 0">' + v.items.map(i => '<div class="sub">• ' + i.cant + '× ' + esc(i.nombre) + '</div>').join('') + '</div>' +
-        (v.direccion ? '<div class="sub">📍 ' + esc(v.direccion) + '</div>' : '') +
-        (v.telefono ? '<div class="sub">📱 ' + esc(v.telefono) + '</div>' : '') +
-        '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">' +
-          '<span class="chip ' + cls + '">' + txt + '</span>' +
-          (v.entrega === 'pendiente' ? '<button class="btn btn-sec btn-mini" onclick="marcarEntrega(\'' + v.id + '\',\'enviado\')">🚚 Marcar enviado</button>' : '') +
-          '<button class="btn btn-mini" onclick="marcarEntrega(\'' + v.id + '\',\'entregado\')">✅ Ya lo recibió</button>' +
-          (v.telefono ? '<button class="btn btn-mini btn-wa" onclick="avisarPorWhatsApp(\'' + v.id + '\')">💬 Escribirle</button>' : '') +
-          '<button class="btn btn-sec btn-mini" onclick="verTicket(\'' + v.id + '\')">🖨 Ticket</button>' +
-        '</div>' +
-      '</div>';
-    }).join('');
-}
-function diasDesde(fecha) {
-  const d = Math.round((new Date(hoyStr()) - new Date(fecha)) / 86400000);
-  return isNaN(d) ? 0 : d;
-}
-function marcarEntrega(id, estado) {
-  const v = db.ventas.find(x => x.id === id);
-  if (!v) return;
-  v.entrega = estado;
-  if (estado === 'entregado') { v.entregadoPor = sesion ? sesion.nombre : '—'; v.entregadoFecha = hoyStr(); }
-  guardar(); pintarVentas();
-}
-/* Abre WhatsApp con el detalle ya escrito: hoy lo tipean a mano en cada pedido */
-function avisarPorWhatsApp(id) {
-  const v = db.ventas.find(x => x.id === id);
-  if (!v || !v.telefono) return;
-  const lineas = v.items.map(i => '• ' + i.cant + 'x ' + i.nombre + ' — S/ ' + (i.precio * i.cant).toFixed(2));
-  const texto =
-    'Hola ' + (v.contacto || '') + '! Te escribo del Consultorio B&N (Dr. Mariano Arredondo).\n\n' +
-    'Tu pedido #' + String(v.numero).padStart(5,'0') + ':\n' + lineas.join('\n') +
-    (v.descuento > 0 ? '\nDescuento: -S/ ' + Number(v.descuento).toFixed(2) : '') +
-    '\n\nTotal: S/ ' + totalVenta(v).toFixed(2) + ' (' + (v.metodoPago || '') + ')' +
-    (v.direccion ? '\nEntrega: ' + v.direccion : '') +
-    '\n\nCualquier cosa me avisas. ¡Gracias!';
-  // Perú es +51; si ya lo escribieron con código de país se respeta
-  const num = v.telefono.replace(/\D/g, '');
-  const full = num.length === 9 ? '51' + num : num;
-  window.open('https://wa.me/' + full + '?text=' + encodeURIComponent(texto), '_blank');
-}
-
 function pintarVentas() {
   pintarOrdenes();
-  pintarPedidosEnvio();
   const filtro = (document.getElementById('buscador-ventas').value || '').toLowerCase().trim();
   const hoy = db.ventas.filter(v => v.fecha === hoyStr() && !v.anulada);
   const totalHoy = hoy.reduce((s,v) => s + totalVenta(v), 0);
   const mias = hoy.filter(v => sesion && v.usuarioId === sesion.id);
-  const porWA = hoy.filter(v => v.canal === 'whatsapp');
   document.getElementById('resumen-hoy').innerHTML =
     '<h2>Hoy</h2>' +
     '<div class="grid-datos">' +
       '<div class="dato"><small>Ventas de hoy</small><b>' + hoy.length + '</b></div>' +
       '<div class="dato"><small>Ingresos de hoy</small><b>' + money(totalHoy) + '</b></div>' +
-      '<div class="dato"><small>💬 Por WhatsApp</small><b>' + porWA.length + ' · ' + money(porWA.reduce((s,v) => s + totalVenta(v), 0)) + '</b></div>' +
       '<div class="dato"><small>Registradas por ' + esc(sesion ? sesion.nombre : '—') + '</small><b>' + mias.length + ' · ' + money(mias.reduce((s,v) => s + totalVenta(v), 0)) + '</b></div>' +
     '</div>';
 
@@ -3335,22 +3266,16 @@ function pintarVentas() {
   document.getElementById('lista-ventas').innerHTML = !lista.length
     ? '<div class="vacio">' + (db.ventas.length ? 'Ninguna venta coincide con la búsqueda.' : 'Aún no hay ventas registradas. Presiona <b>+ Nueva venta</b>.') + '</div>'
     : '<table class="tabla tarjetas"><thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Detalle</th><th>Total</th><th>Registró</th><th></th></tr></thead><tbody>' +
-      lista.map(v => {
-        const [cls, txt] = ESTADO_ENTREGA[v.entrega] || [];
-        return '<tr' + (v.anulada ? ' style="opacity:.55"' : '') + '>' +
+      lista.map(v => '<tr' + (v.anulada ? ' style="opacity:.55"' : '') + '>' +
         '<td data-th="Ticket"><b>#' + v.numero + '</b>' + (v.anulada ? ' <span class="chip chip-rojo">Anulada</span>' : '') + '</td>' +
         '<td data-th="Fecha">' + fechaBonita(v.fecha) + ' <span class="sub">' + v.hora + '</span></td>' +
-        '<td data-th="Cliente">' + esc(nombreEnVenta(v)) +
-          (v.canal === 'whatsapp' ? ' <span class="chip chip-verde">💬 WhatsApp</span>' : '') +
-          (v.canal === 'whatsapp' && txt && !v.anulada ? '<br><span class="chip ' + cls + '">' + txt + '</span>' : '') + '</td>' +
+        '<td data-th="Cliente">' + esc(nombreEnVenta(v)) + '</td>' +
         '<td data-th="Detalle" class="sub">' + v.items.map(i => i.cant + '× ' + esc(i.nombre)).join('<br>') + '</td>' +
         '<td data-th="Total"><b>' + money(totalVenta(v)) + '</b> <span class="sub">' + esc(v.metodoPago||'') + '</span></td>' +
         '<td data-th="Registró" class="sub">' + esc(v.usuarioNombre || '—') + '</td>' +
         '<td data-th=""><div class="acc-tabla"><button class="btn btn-sec btn-mini" onclick="verTicket(\'' + v.id + '\')">🖨 Ticket</button>' +
-        (v.canal === 'whatsapp' && v.telefono && !v.anulada ? '<button class="btn btn-mini btn-wa" onclick="avisarPorWhatsApp(\'' + v.id + '\')">💬</button>' : '') +
         (!v.anulada ? '<button class="btn btn-peligro btn-mini" onclick="anularVenta(\'' + v.id + '\')">Anular</button>' : '') +
-        '</div></td></tr>';
-      }).join('') + '</tbody></table>';
+        '</div></td></tr>').join('') + '</tbody></table>';
 }
 
 /* ================== MÓDULO 6 · TICKET IMPRIMIBLE ==================
@@ -3367,12 +3292,7 @@ function verTicket(id) {
     '<div>TICKET N° ' + String(v.numero).padStart(5,'0') + (v.anulada ? '  ** ANULADO **' : '') + '</div>' +
     '<div>' + fechaBonita(v.fecha) + '  ' + v.hora + '</div>' +
     '<div>Atendió: ' + esc(v.usuarioNombre || '—') + '</div>' +
-    '<div>' + (v.canal === 'whatsapp' ? 'Cliente' : 'Paciente') + ': ' + esc(nombreEnVenta(v)) + '</div>' +
-    (v.canal === 'whatsapp'
-      ? '<div>Pedido por WhatsApp</div>' +
-        (v.telefono ? '<div>Cel: ' + esc(v.telefono) + '</div>' : '') +
-        (v.direccion ? '<div>Entrega: ' + esc(v.direccion) + '</div>' : '')
-      : '') +
+    '<div>Paciente: ' + esc(nombreEnVenta(v)) + '</div>' +
     '<hr>' +
     '<table>' + v.items.map(i =>
       '<tr><td colspan="2">' + esc(i.nombre) + '</td></tr>' +
@@ -3439,8 +3359,8 @@ function htmlPatologias(f) {
       '<tr><td><b>' + esc(nombre) + '</b></td>' +
         '<td><b>' + n + '</b></td>' +
         '<td>' + pacientesPor[nombre].size + '</td>' +
-        '<td style="width:40%"><div style="background:#eef2f5;border-radius:4px;height:8px">' +
-          '<div style="background:#7b3fa0;height:8px;border-radius:4px;width:' + Math.round(n/maxN*100) + '%"></div></div></td></tr>').join('') +
+        '<td style="width:40%"><div style="background:var(--border-light);border-radius:4px;height:8px">' +
+          '<div style="background:var(--morado);height:8px;border-radius:4px;width:' + Math.round(n/maxN*100) + '%"></div></div></td></tr>').join('') +
     '</tbody></table>' +
     (sinClasificar ? '<div class="sub" style="margin-top:6px">' + plural(sinClasificar, 'atención', 'atenciones') + ' sin clasificar en este rango.</div>' : '');
 }
@@ -3489,18 +3409,11 @@ function pintarReportes() {
   const porPago = {};
   ventas.forEach(v => { porPago[v.metodoPago || '—'] = (porPago[v.metodoPago || '—'] || 0) + totalVenta(v); });
 
-  // Dónde se vende: la pregunta del lanzamiento de la marca B&N. Si WhatsApp
-  // pesa más que el mostrador, la marca camina sola y no depende de la consulta.
-  const ventasWA  = ventas.filter(v => v.canal === 'whatsapp');
-  const ventasMos = ventas.filter(v => v.canal !== 'whatsapp');
-  const montoWA  = ventasWA.reduce((s,v) => s + totalVenta(v), 0);
-  const montoMos = ventasMos.reduce((s,v) => s + totalVenta(v), 0);
-  const sinEntregar = db.ventas.filter(v => v.canal === 'whatsapp' && !v.anulada && v.entrega !== 'entregado').length;
 
   const topItems = Object.values(porItem).sort((a,b) => b.monto - a.monto);
   const barra = (parte, todo) => {
     const pct = todo ? Math.round(parte / todo * 100) : 0;
-    return '<div style="background:#eef2f5;border-radius:4px;height:6px;margin-top:4px"><div style="background:var(--rol);height:6px;border-radius:4px;width:' + pct + '%"></div></div>';
+    return '<div style="background:var(--border-light);border-radius:4px;height:6px;margin-top:4px"><div style="background:var(--rol);height:6px;border-radius:4px;width:' + pct + '%"></div></div>';
   };
 
   document.getElementById('contenido-reportes').innerHTML =
@@ -3516,15 +3429,6 @@ function pintarReportes() {
     '<div class="tarjeta">' +
       '<div style="display:flex;justify-content:space-between"><b>Servicios (consultas, cirugías)</b><b>' + money(porServicios) + '</b></div>' + barra(porServicios, total) +
       '<div style="display:flex;justify-content:space-between;margin-top:12px"><b>Productos (suplementos B&amp;N)</b><b>' + money(porProductos) + '</b></div>' + barra(porProductos, total) +
-    '</div>' +
-
-    '<h2>Dónde vende</h2>' +
-    '<div class="tarjeta">' +
-      '<div style="display:flex;justify-content:space-between"><b>🏥 En el consultorio</b><b>' + money(montoMos) + '</b></div>' +
-      '<div class="sub">' + plural(ventasMos.length,'venta','ventas') + '</div>' + barra(montoMos, total) +
-      '<div style="display:flex;justify-content:space-between;margin-top:12px"><b>💬 Por WhatsApp</b><b>' + money(montoWA) + '</b></div>' +
-      '<div class="sub">' + plural(ventasWA.length,'venta','ventas') + '</div>' + barra(montoWA, total) +
-      (sinEntregar ? '<div class="aviso aviso-amarillo" style="margin:12px 0 0">📦 Hay <b>' + plural(sinEntregar,'pedido','pedidos') + '</b> sin entregar (de todos los tiempos, no solo del rango).</div>' : '') +
     '</div>' +
 
     '<h2>Ingresos por categoría</h2>' +
@@ -3547,8 +3451,8 @@ function pintarReportes() {
 
     '<h2>Citas: atendidas vs. canceladas</h2>' +
     '<div class="grid-datos">' +
-      '<div class="dato"><small>Atendidas</small><b style="color:#2e7d4f">' + atendidas + '</b></div>' +
-      '<div class="dato"><small>Canceladas</small><b style="color:#c0392b">' + canceladas + '</b></div>' +
+      '<div class="dato"><small>Atendidas</small><b style="color:var(--success)">' + atendidas + '</b></div>' +
+      '<div class="dato"><small>Canceladas</small><b style="color:var(--danger)">' + canceladas + '</b></div>' +
       '<div class="dato"><small>Aún por atender</small><b>' + pendientes + '</b></div>' +
       '<div class="dato"><small>Tasa de asistencia</small><b>' + tasa + '%</b></div>' +
     '</div>' +
@@ -3572,12 +3476,10 @@ function pintarReportes() {
 }
 function exportarReporte() {
   const f = filtrosReporte();
-  const filas = [['Ticket','Fecha','Hora','Cliente','Canal','Entrega','Item','Tipo','Categoria','Cantidad','Precio unit','Subtotal','Descuento venta','Total venta','Metodo pago','Registro']];
+  const filas = [['Ticket','Fecha','Hora','Cliente','Item','Tipo','Categoria','Cantidad','Precio unit','Subtotal','Descuento venta','Total venta','Metodo pago','Registro']];
   ventasFiltradas().sort((a,b) => a.numero - b.numero).forEach(v => {
     v.items.forEach((i,n) => filas.push([
       v.numero, v.fecha, v.hora, nombreEnVenta(v),
-      v.canal === 'whatsapp' ? 'WhatsApp' : 'Consultorio',
-      v.canal === 'whatsapp' ? (v.entrega || 'pendiente') : '',
       i.nombre, i.tipo, i.categoria || '', i.cant, Number(i.precio).toFixed(2), (i.precio*i.cant).toFixed(2),
       n === 0 ? Number(v.descuento||0).toFixed(2) : '', n === 0 ? totalVenta(v).toFixed(2) : '',
       v.metodoPago || '', v.usuarioNombre || ''
@@ -3599,7 +3501,7 @@ let cfgVista = 'precios';
 function cambiarConfig(v) {
   cfgVista = v;
   ['precios','usuarios','datos'].forEach(x => {
-    document.getElementById('btn-cfg-' + x).style.cssText = v===x ? '' : 'background:#fff;color:#333;border:1px solid #c4ccd4';
+    document.getElementById('btn-cfg-' + x).style.cssText = v===x ? '' : 'background:#fff;color:#333;border:1px solid var(--border)';
     document.getElementById('cfg-' + x).classList.toggle('oculto', v !== x);
   });
   if (v === 'precios') pintarCatalogo();
@@ -3617,7 +3519,7 @@ function pintarDatos() {
   const vacio = !n.pacientes && !n.citas && !n.ventas;
   const kb = ((localStorage.getItem(CLAVE) || '').length / 1024).toFixed(1);
   document.getElementById('cfg-datos-resumen').innerHTML =
-    (vacio ? '<div class="aviso" style="border-color:#2e7d4f;background:#f2f9f4"><b>✅ El sistema está en cero.</b> Listo para empezar con pacientes reales.</div>' : '') +
+    (vacio ? '<div class="aviso" style="border-color:var(--success);background:#f2f9f4"><b>✅ El sistema está en cero.</b> Listo para empezar con pacientes reales.</div>' : '') +
     '<div class="grid-datos">' +
       '<div class="dato"><small>Pacientes</small><b>' + n.pacientes + '</b></div>' +
       '<div class="dato"><small>Atenciones</small><b>' + n.atenciones + '</b></div>' +
@@ -3840,16 +3742,7 @@ function cargarDemo() {
   const venta = (dias, hora, pacienteId, items, pago, usuario, descuento) => ({
     id:nuevoId(), numero:db.config.correlativo++, fecha:sumarDias(hoyStr(), dias), hora,
     pacienteId, items, descuento:descuento||0, metodoPago:pago, nota:'',
-    usuarioId:usuario.id, usuarioNombre:usuario.nombre,
-    canal:'mostrador', entrega:'entregado', contacto:'', telefono:'', direccion:'', anulada:false
-  });
-  /* Pedidos de la marca B&N que llegaron por WhatsApp: gente que no pasó por el
-     consultorio. Sin ellos la demo no muestra el canal que más va a crecer. */
-  const pedidoWA = (dias, hora, contacto, telefono, direccion, items, pago, entrega, pacienteId) => ({
-    id:nuevoId(), numero:db.config.correlativo++, fecha:sumarDias(hoyStr(), dias), hora,
-    pacienteId:pacienteId||'', items, descuento:0, metodoPago:pago, nota:'Pedido por WhatsApp',
-    usuarioId:uRec.id, usuarioNombre:uRec.nombre,
-    canal:'whatsapp', entrega, contacto, telefono, direccion, anulada:false
+    usuarioId:usuario.id, usuarioNombre:usuario.nombre, anulada:false
   });
   db.ventas = [
     venta(-22, '10:15', p1, [it(k1,1)], 'Efectivo', uRec),
@@ -3860,14 +3753,7 @@ function cargarDemo() {
     venta(-7,  '10:00', p2, [it(k1,1), it(k7,2)], 'Yape / Plin', uRec),
     venta(-4,  '15:20', p3, [it(k6,1), it(k7,1)], 'Efectivo', uRec),
     venta(-2,  '09:50', p1, [it(k2,1)], 'Efectivo', uDoc),
-    venta(0,   '10:30', p2, [it(k5,1), it(k6,1)], 'Tarjeta', uRec),
-    // Ya entregados
-    pedidoWA(-16, '18:40', 'Carmen Torres',  '987112233', 'Av. Brasil 1450, Jesús María', [it(k5,2)], 'Yape / Plin', 'entregado'),
-    pedidoWA(-11, '20:05', 'Rosa Aguilar',   '956778899', 'Los Olivos — coordinó recojo',  [it(k6,1), it(k7,1)], 'Yape / Plin', 'entregado'),
-    pedidoWA(-5,  '19:20', 'María González Ruiz', '987654321', 'Surco, Av. Primavera 890', [it(k5,1)], 'Transferencia', 'entregado', p1),
-    // Pendientes: aparecen en la bandeja "Pedidos por entregar"
-    pedidoWA(-1,  '21:10', 'Luis Paredes',   '944556677', 'San Miguel, Calle Lima 233',    [it(k7,2)], 'Yape / Plin', 'enviado'),
-    pedidoWA(0,   '09:05', 'Patricia Ríos',  '933221100', 'Pueblo Libre — envío por delivery', [it(k5,1), it(k6,1)], 'Yape / Plin', 'pendiente')
+    venta(0,   '10:30', p2, [it(k5,1), it(k6,1)], 'Tarjeta', uRec)
   ];
   // Las consultas ya atendidas de días pasados están cobradas: si no, aparecerían
   // todas como deuda en el mostrador. Solo la de hoy queda por cobrar.
@@ -3877,8 +3763,7 @@ function cargarDemo() {
     const v = { id:nuevoId(), numero:0, fecha:c.fecha, hora:c.hora,
       pacienteId:c.pacienteId, items:[it(serv,1)], descuento:0,
       metodoPago:pagos[n % pagos.length], nota:'', citaId:c.id,
-      usuarioId:uRec.id, usuarioNombre:uRec.nombre,
-      canal:'mostrador', entrega:'entregado', contacto:'', telefono:'', direccion:'', anulada:false };
+      usuarioId:uRec.id, usuarioNombre:uRec.nombre, anulada:false };
     db.ventas.push(v);
     c.pagada = true; c.ventaId = v.id;
   });
