@@ -217,6 +217,8 @@
                     background:var(--surface); cursor:pointer; font-family:inherit; color:var(--text);
                     font-weight:600; transition:background .15s; }
   .teclado button:hover { background:var(--azul-light); }
+  /* Hueco a la izquierda del 0: mantiene la rejilla de 3 sin parecer un botón */
+  .teclado button.vacia { visibility:hidden; }
   .usuario-actual { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-muted); }
 
   /* --- Carrito de venta --- */
@@ -452,13 +454,11 @@
       <div id="acc-error" class="sub" style="color:var(--danger);min-height:18px"></div>
       <button class="btn" id="btn-acc-conectar" style="width:100%" onclick="conectarDesdeAcceso()">Conectar</button>
     </div>
-    <div id="paso-quien">
-      <h2>🏥 Consultorio B&amp;N</h2>
-      <div class="sub">¿Quién eres?</div>
-      <div class="usuarios-lista" id="usuarios-acceso"></div>
-    </div>
+    <!-- Se entra solo con el PIN: el propio PIN dice quién es. Antes había que
+         elegirse de una lista, lo que además le mostraba a cualquiera que abriera
+         la página quiénes trabajan en el consultorio. -->
     <div id="paso-pin" class="oculto">
-      <h2 id="pin-nombre"></h2>
+      <h2>🏥 Consultorio B&amp;N</h2>
       <div class="sub">Escribe tu PIN de 4 dígitos</div>
       <div class="pin-puntos" id="pin-puntos"></div>
       <div id="pin-error" class="sub" style="color:var(--danger);min-height:18px"></div>
@@ -466,7 +466,7 @@
         <button onclick="teclaPin('1')">1</button><button onclick="teclaPin('2')">2</button><button onclick="teclaPin('3')">3</button>
         <button onclick="teclaPin('4')">4</button><button onclick="teclaPin('5')">5</button><button onclick="teclaPin('6')">6</button>
         <button onclick="teclaPin('7')">7</button><button onclick="teclaPin('8')">8</button><button onclick="teclaPin('9')">9</button>
-        <button onclick="volverAQuien()">←</button><button onclick="teclaPin('0')">0</button><button onclick="teclaPin('borrar')">⌫</button>
+        <button class="vacia" disabled></button><button onclick="teclaPin('0')">0</button><button onclick="teclaPin('borrar')">⌫</button>
       </div>
     </div>
   </div>
@@ -1502,7 +1502,6 @@ function sumarDias(str, n) {
    Cada persona entra con su PIN. Sirve para dos cosas: saber quién
    registró cada venta y mostrarle reportes solo al doctor. */
 let sesion = null;      // usuario que está usando el sistema ahora
-let pinCandidato = null;
 let pinEscrito = '';
 
 function pintarAcceso() {
@@ -1511,18 +1510,13 @@ function pintarAcceso() {
   // celular recién instalado.
   const faltaConectar = nubeConfigurada() && !nube.sesion;
   document.getElementById('paso-nube').classList.toggle('oculto', !faltaConectar);
-  document.getElementById('paso-pin').classList.add('oculto');
-  document.getElementById('paso-quien').classList.toggle('oculto', faltaConectar);
+  document.getElementById('paso-pin').classList.toggle('oculto', faltaConectar);
   document.getElementById('pantalla-acceso').classList.remove('oculto');
   if (faltaConectar) return;
 
-  document.getElementById('usuarios-acceso').innerHTML = db.usuarios.map(u =>
-    '<button class="btn-usuario" onclick="elegirUsuario(\'' + u.id + '\')">' +
-    '<span><b>' + esc(u.nombre) + '</b><br><span class="sub">' + (u.rol === 'doctor' ? 'Doctor / dueño' : 'Recepción') + '</span></span>' +
-    '<span style="color:var(--azul)">→</span></button>').join('');
-  document.getElementById('paso-quien').classList.remove('oculto');
-  document.getElementById('paso-pin').classList.add('oculto');
-  document.getElementById('pantalla-acceso').classList.remove('oculto');
+  pinEscrito = '';
+  document.getElementById('pin-error').textContent = '';
+  pintarPuntos();
 }
 /* Conectar el equipo desde la pantalla de acceso (primer arranque) */
 async function conectarDesdeAcceso() {
@@ -1546,16 +1540,6 @@ async function conectarDesdeAcceso() {
   btn.disabled = false; btn.textContent = 'Conectar';
   pintarEstadoNube();
 }
-function elegirUsuario(id) {
-  pinCandidato = db.usuarios.find(u => u.id === id);
-  pinEscrito = '';
-  document.getElementById('pin-nombre').textContent = pinCandidato.nombre;
-  document.getElementById('pin-error').textContent = '';
-  document.getElementById('paso-quien').classList.add('oculto');
-  document.getElementById('paso-pin').classList.remove('oculto');
-  pintarPuntos();
-}
-function volverAQuien() { pinEscrito = ''; pintarAcceso(); }
 function pintarPuntos() { document.getElementById('pin-puntos').textContent = '•'.repeat(pinEscrito.length) + '○'.repeat(4 - pinEscrito.length); }
 
 /* El PIN también se teclea: el teclado numérico es más rápido que apuntar con el mouse */
@@ -1567,7 +1551,7 @@ document.addEventListener('keydown', e => {
   if (!estaEnPantallaPin()) return;
   if (/^[0-9]$/.test(e.key)) { teclaPin(e.key); e.preventDefault(); }
   else if (e.key === 'Backspace' || e.key === 'Delete') { teclaPin('borrar'); e.preventDefault(); }
-  else if (e.key === 'Escape') { volverAQuien(); e.preventDefault(); }
+  else if (e.key === 'Escape') { pinEscrito = ''; pintarPuntos(); e.preventDefault(); }
 });
 function teclaPin(t) {
   if (t === 'borrar') { pinEscrito = pinEscrito.slice(0, -1); pintarPuntos(); return; }
@@ -1576,8 +1560,11 @@ function teclaPin(t) {
   pintarPuntos();
   if (pinEscrito.length === 4) setTimeout(validarPin, 120);
 }
+/* El PIN es la identidad: quien lo escribe es quien entra. Por eso dos personas
+   no pueden compartirlo — se valida al crear el usuario. */
 function validarPin() {
-  if (pinEscrito === pinCandidato.pin) { entrar(pinCandidato); return; }
+  const u = db.usuarios.find(x => String(x.pin) === pinEscrito);
+  if (u) { pinEscrito = ''; entrar(u); return; }
   document.getElementById('pin-error').textContent = 'PIN incorrecto. Intenta de nuevo.';
   pinEscrito = ''; pintarPuntos();
 }
