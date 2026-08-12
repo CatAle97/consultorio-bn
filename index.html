@@ -278,17 +278,11 @@
   #ticket td { padding:1px 0; vertical-align:top; }
   #ticket .der { text-align:right; }
 
-  /* --- Botones rápidos de producto (vender de un toque) --- */
-  .rapidos { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:8px; margin-top:8px; }
-  .rapido { padding:12px 10px; border:1px solid var(--border); border-radius:10px; background:var(--surface);
-            cursor:pointer; font-family:inherit; font-size:13px; color:var(--text); text-align:left;
-            line-height:1.3; box-shadow:var(--shadow-xs); transition:all .15s; }
-  .rapido:hover { border-color:var(--rol); background:var(--rol-suave); box-shadow:var(--shadow-sm); }
-  .rapido:active { transform:translateY(1px); }
-  .rapido b { display:block; font-size:13px; font-weight:600; }
-  .rapido small { color:var(--text-muted); font-size:12px; }
-  .rapido.agotado { opacity:.4; cursor:not-allowed; box-shadow:none; }
-  .rapido.agotado:hover { border-color:var(--border); background:var(--surface); box-shadow:none; }
+  /* --- Buscador de lo que se vende --- */
+  .buscar-item { position:relative; }
+  .buscar-item .sugerencias { max-height:300px; }
+  .sugerencia.agotada { opacity:.45; cursor:not-allowed; background:var(--bg-soft); }
+  .sugerencia.agotada:hover { background:var(--bg-soft); }
 
   /* Lo opcional se ve como opcional: separado de lo que sí hay que llenar */
   .bloque-opcional { margin-top:18px; padding-top:16px; border-top:1px dashed var(--border); }
@@ -345,7 +339,6 @@
     .carrito-item { flex-wrap:wrap; }
     .carrito-item .nom { flex:1 0 100%; }
     .carrito-item input { width:70px; }
-    .rapidos { grid-template-columns:1fr 1fr; }
     .acciones { flex-direction:column-reverse; }
     .acciones .btn { width:100%; }
   }
@@ -866,8 +859,15 @@
          al final y es opcional — si registrar cuesta más que anotar en un papel,
          se vuelve al papel. -->
     <label>¿Qué se lleva?</label>
-    <div id="v-rapidos" class="rapidos"></div>
-    <select id="v-item" onchange="agregarAlCarrito()" style="margin-top:8px"></select>
+    <!-- Un solo campo en vez de una parrilla de botones: al tocarlo muestra
+         todo el catálogo ordenado por lo que más se vende, así con 10 productos
+         no hay que escribir nada, y si algún día son 40 tampoco estorba. -->
+    <div class="buscar-item">
+      <input id="v-item-buscar" type="search" autocomplete="off"
+             placeholder="Toca aquí para ver los suplementos…"
+             oninput="buscarItemVenta()" onfocus="buscarItemVenta()">
+      <div id="v-item-lista" class="sugerencias oculto"></div>
+    </div>
     <div id="v-carrito" style="margin-top:10px"></div>
 
     <div class="fila-2" style="margin-top:12px">
@@ -2910,37 +2910,72 @@ function abrirModalVenta(pacienteId) {
   document.getElementById('v-pac-buscar').value = '';
   document.getElementById('v-pac-lista').classList.add('oculto');
   pintarPacienteElegido();
-  // El desplegable es la vía secundaria: lo normal es tocar un botón de arriba
-  document.getElementById('v-item').innerHTML = '<option value="">o busca en el catálogo (consultas, otros productos)…</option>' +
-    '<optgroup label="Servicios">' + vendibles.filter(k => k.tipo==='servicio').map(k =>
-      '<option value="' + k.id + '">' + esc(k.nombre) + ' — ' + money(k.precio) + '</option>').join('') + '</optgroup>' +
-    '<optgroup label="Productos">' + vendibles.filter(k => k.tipo==='producto').map(k =>
-      '<option value="' + k.id + '">' + esc(k.nombre) + ' — ' + money(k.precio) + ' (stock ' + (k.stock||0) + ')</option>').join('') + '</optgroup>';
+  document.getElementById('v-item-buscar').value = '';
+  document.getElementById('v-item-lista').classList.add('oculto');
   document.getElementById('v-descuento').value = 0;
   document.getElementById('v-nota').value = '';
   document.getElementById('v-pago').value = 'Efectivo';
-  pintarRapidos();
   pintarCarrito();
   document.getElementById('modal-venta').classList.remove('oculto');
 }
 
-/* Los suplementos se venden de a uno y siempre son los mismos: un botón por
-   producto ahorra abrir el desplegable en cada venta. En celular es la
-   diferencia entre despachar rápido y pelearse con el teléfono. */
-function pintarRapidos() {
-  const cont = document.getElementById('v-rapidos');
+/* ---------- Buscador de lo que se vende ----------
+   Lo que más se vende va arriba: el sistema lo calcula solo del historial, no
+   hay nada que configurar. Si la proteína es el 60% de las ventas, siempre
+   estará primera sin que nadie la marque como favorita. */
+function masVendidos() {
+  const cuenta = {};
+  db.ventas.filter(v => !v.anulada).forEach(v =>
+    v.items.forEach(i => { cuenta[i.catalogoId] = (cuenta[i.catalogoId] || 0) + Number(i.cant || 0); }));
+  return cuenta;
+}
+function itemsParaVender(texto) {
+  const t = normalizar(texto);
+  const ranking = masVendidos();
+  return db.catalogo
+    .filter(k => Number(k.precio) > 0 && k.activo !== false)
+    .filter(k => !t || normalizar(k.nombre).includes(t) || normalizar(k.categoria || '').includes(t))
+    .sort((a,b) => {
+      // primero los productos (es lo que se vende a diario), luego por ranking
+      if ((a.tipo === 'producto') !== (b.tipo === 'producto')) return a.tipo === 'producto' ? -1 : 1;
+      const d = (ranking[b.id] || 0) - (ranking[a.id] || 0);
+      return d !== 0 ? d : a.nombre.localeCompare(b.nombre);
+    });
+}
+function buscarItemVenta() {
+  const cont = document.getElementById('v-item-lista');
   if (!cont) return;
-  const top = db.catalogo
-    .filter(k => k.tipo === 'producto' && Number(k.precio) > 0)
-    .sort((a,b) => a.nombre.localeCompare(b.nombre))
-    .slice(0, 8);
-  cont.innerHTML = !top.length ? '' : top.map(k => {
+  const txt = document.getElementById('v-item-buscar').value;
+  const lista = itemsParaVender(txt);
+  if (!lista.length) {
+    cont.innerHTML = '<div class="sugerencia sub">' +
+      (txt.trim() ? 'Nada coincide con «' + esc(txt.trim()) + '».'
+                  : 'No hay productos con precio en el catálogo. Cárgalos en ⚙️ Precios.') + '</div>';
+    cont.classList.remove('oculto');
+    return;
+  }
+  cont.innerHTML = lista.map(k => {
+    const esProd = k.tipo === 'producto';
     const hay = Number(k.stock || 0);
-    return '<button type="button" class="rapido' + (hay <= 0 ? ' agotado' : '') + '"' +
-      (hay <= 0 ? ' disabled' : ' onclick="agregarPorId(\'' + k.id + '\')"') + '>' +
-      '<b>' + esc(k.nombre) + '</b>' +
-      '<small>' + money(k.precio) + ' · ' + (hay > 0 ? 'quedan ' + hay : 'sin stock') + '</small></button>';
+    // Un servicio no tiene stock: se puede cobrar siempre. Un producto agotado no.
+    const agotado = esProd && hay <= 0;
+    const detalle = esProd
+      ? (hay > 0 ? 'quedan ' + hay + ' ' + esc(k.unidad || '') : 'sin stock')
+      : esc(k.categoria || 'Servicio');
+    return '<div class="sugerencia' + (agotado ? ' agotada' : '') + '"' +
+      (agotado ? '' : ' onmousedown="elegirItemVenta(\'' + k.id + '\')"') + '>' +
+      '<div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline">' +
+        '<b>' + esc(k.nombre) + '</b>' +
+        '<b style="white-space:nowrap">' + money(k.precio) + '</b>' +
+      '</div>' +
+      '<small>' + detalle + (agotado ? ' — no se puede cobrar' : '') + '</small></div>';
   }).join('');
+  cont.classList.remove('oculto');
+}
+function elegirItemVenta(id) {
+  agregarPorId(id);
+  document.getElementById('v-item-buscar').value = '';
+  document.getElementById('v-item-lista').classList.add('oculto');
 }
 function agregarPorId(catalogoId) {
   const k = db.catalogo.find(x => x.id === catalogoId);
@@ -3011,22 +3046,14 @@ function pintarPacienteElegido() {
     '<small>' + esc(p.docTipo || 'DNI') + ' ' + esc(p.documento || '—') + '</small></span>' +
     '<button type="button" class="btn btn-sec btn-mini" onclick="quitarPacienteVenta()">Cambiar</button></div>';
 }
-/* Al tocar fuera se cierra la lista, si no queda tapando el resto del formulario */
+/* Al tocar fuera se cierran las listas, si no quedan tapando el formulario */
 document.addEventListener('click', e => {
-  const lista = document.getElementById('v-pac-lista');
-  if (lista && !lista.classList.contains('oculto') && !e.target.closest('.buscar-pac')) lista.classList.add('oculto');
+  [['v-pac-lista', '.buscar-pac'], ['v-item-lista', '.buscar-item']].forEach(([id, dentro]) => {
+    const lista = document.getElementById(id);
+    if (lista && !lista.classList.contains('oculto') && !e.target.closest(dentro)) lista.classList.add('oculto');
+  });
 });
 
-function agregarAlCarrito() {
-  const sel = document.getElementById('v-item');
-  const k = db.catalogo.find(x => x.id === sel.value);
-  sel.value = '';
-  if (!k) return;
-  const ya = carrito.find(i => i.catalogoId === k.id);
-  if (ya) ya.cant++;
-  else carrito.push({ catalogoId: k.id, nombre: k.nombre, tipo: k.tipo, categoria: k.categoria || '', precio: Number(k.precio), cant: 1 });
-  pintarCarrito();
-}
 function cambiarCant(catalogoId, cant) {
   const i = carrito.find(x => x.catalogoId === catalogoId);
   i.cant = Math.max(1, Number(cant) || 1);
