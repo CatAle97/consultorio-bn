@@ -197,11 +197,65 @@
   #ticket td { padding:1px 0; vertical-align:top; }
   #ticket .der { text-align:right; }
 
+  /* --- Botones rápidos de producto (vender de un toque) --- */
+  .rapidos { display:grid; grid-template-columns:repeat(auto-fill,minmax(112px,1fr)); gap:8px; margin-top:6px; }
+  .rapido { padding:10px 8px; border:1px solid #c4ccd4; border-radius:10px; background:#fff; cursor:pointer;
+            font-family:inherit; font-size:13px; color:#1f2933; text-align:left; line-height:1.25; }
+  .rapido:hover { border-color:var(--rol); background:var(--rol-suave); }
+  .rapido b { display:block; font-size:13px; }
+  .rapido small { color:#6b7580; font-size:12px; }
+  .rapido.agotado { opacity:.45; cursor:not-allowed; }
+  .rapido.agotado:hover { border-color:#c4ccd4; background:#fff; }
+
+  /* --- Canal de venta: mostrador vs WhatsApp --- */
+  .canales { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .canal { padding:12px 8px; border:1px solid #c4ccd4; border-radius:10px; background:#fff; cursor:pointer;
+           font-family:inherit; font-size:14px; color:#1f2933; text-align:center; }
+  .canal:hover { border-color:var(--rol); background:var(--rol-suave); }
+  .canal.sel { background:var(--rol); color:#fff; border-color:var(--rol); font-weight:700; }
+  .btn-wa { background:#25d366; color:#fff; }
+  .btn-wa:hover { background:#1da851; }
+
+  /* ================== CELULAR ==================
+     Las asistentes venden desde un Android, no desde una laptop. En pantalla
+     chica una tabla con scroll lateral es inservible: cada fila pasa a ser una
+     tarjeta, y cada celda muestra su encabezado con `data-th`. */
   @media (max-width:760px) {
     .semana { grid-template-columns:1fr; }
     .dia-col { min-height:auto; }
     .fila-2 { grid-template-columns:1fr; }
     table.tabla { display:block; overflow-x:auto; white-space:nowrap; }
+
+    table.tabla.tarjetas,
+    table.tabla.tarjetas tbody { display:block; overflow:visible; white-space:normal; background:transparent; }
+    table.tabla.tarjetas thead { display:none; }
+    table.tabla.tarjetas tr { display:block; background:#fff; border:1px solid #dde3e9; border-radius:10px;
+                              margin-bottom:10px; padding:10px 14px; }
+    table.tabla.tarjetas td { display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
+                              border:none; padding:5px 0; text-align:right; }
+    table.tabla.tarjetas td::before { content:attr(data-th); color:#6b7580; font-size:12px; font-weight:700;
+                                      text-transform:uppercase; letter-spacing:.03em; text-align:left; flex:0 0 auto; }
+    table.tabla.tarjetas td[data-th='']::before { display:none; }
+    table.tabla.tarjetas td[data-th=''] { justify-content:flex-end; padding-top:8px; }
+    table.tabla.tarjetas .acc-tabla { flex-wrap:wrap; justify-content:flex-end; }
+
+    /* Android hace zoom solo si el campo mide menos de 16px */
+    input, select, textarea { font-size:16px; }
+    .btn { padding:12px 16px; min-height:44px; }
+    .btn-mini { padding:8px 12px; min-height:38px; font-size:14px; }
+    nav { flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:2px; }
+    nav::-webkit-scrollbar { display:none; }
+    nav button { flex:0 0 auto; padding:10px 14px; }
+    main { padding:12px; }
+    .fondo-modal { padding:12px 8px 40px; }
+    .modal { padding:16px; }
+    .grid-datos { grid-template-columns:1fr 1fr; }
+    .carrito-item { flex-wrap:wrap; }
+    .carrito-item .nom { flex:1 0 100%; }
+    .carrito-item input { width:70px; }
+    .rapidos { grid-template-columns:1fr 1fr; }
+    .acciones { flex-direction:column-reverse; }
+    .acciones .btn { width:100%; }
   }
 
   /* --- Al imprimir: solo sale el ticket --- */
@@ -418,6 +472,7 @@
       <button class="btn" onclick="abrirModalVenta()">+ Nueva venta</button>
     </div>
     <div id="ordenes-pendientes"></div>
+    <div id="pedidos-envio"></div>
     <div id="resumen-hoy"></div>
     <div id="lista-ventas"></div>
   </section>
@@ -715,10 +770,29 @@
   <div class="modal" style="max-width:560px">
     <h3>Nueva venta</h3>
     <div class="sub" id="v-quien"></div>
+
+    <label>¿Dónde se está vendiendo?</label>
+    <div class="canales">
+      <button type="button" class="canal sel" id="canal-mostrador" onclick="elegirCanal('mostrador')">🏥 En el consultorio</button>
+      <button type="button" class="canal" id="canal-whatsapp" onclick="elegirCanal('whatsapp')">💬 Por WhatsApp</button>
+    </div>
+
     <label>Paciente</label>
-    <select id="v-paciente"><option value="">— Venta sin paciente (mostrador) —</option></select>
+    <select id="v-paciente" onchange="cambioPacienteVenta()"><option value="">— Venta sin paciente (mostrador) —</option></select>
+
+    <!-- Solo para venta a distancia: a quién se le envía y a dónde -->
+    <div id="v-bloque-envio" class="oculto">
+      <div class="fila-2">
+        <div><label>Nombre de quien compra *</label><input id="v-contacto" placeholder="Ej: Ana Ramírez"></div>
+        <div><label>Celular (WhatsApp) *</label><input id="v-telefono" type="tel" inputmode="numeric" placeholder="987654321"></div>
+      </div>
+      <label>Dirección o punto de entrega</label>
+      <input id="v-direccion" placeholder="Ej: Av. Larco 123, Miraflores — o &quot;recoge en consultorio&quot;">
+    </div>
+
     <label>Agregar servicio o producto</label>
     <select id="v-item" onchange="agregarAlCarrito()"></select>
+    <div id="v-rapidos" class="rapidos"></div>
     <div id="v-carrito" style="margin-top:10px"></div>
     <div class="fila-2" style="margin-top:12px">
       <div><label>Método de pago</label>
@@ -985,7 +1059,10 @@ function nombrePaciente(id) { const p = db.pacientes.find(x => x.id === id); ret
    que fue una venta de mostrador, o que el paciente se eliminó después. */
 function nombreEnVenta(v) {
   if (v.pacienteId) return nombrePaciente(v.pacienteId);
-  return v.pacienteBorrado ? v.pacienteBorrado + ' (eliminado)' : 'Mostrador';
+  if (v.pacienteBorrado) return v.pacienteBorrado + ' (eliminado)';
+  // Quien compra por WhatsApp puede no ser paciente del consultorio
+  if (v.contacto) return v.contacto;
+  return v.canal === 'whatsapp' ? 'Cliente por WhatsApp' : 'Mostrador';
 }
 
 /* ================== MÓDULO 1 · PACIENTES ================== */
@@ -2044,20 +2121,20 @@ function pintarCatalogo() {
   if (!lista.length) { cont.innerHTML = '<div class="vacio">No hay ' + (catTipo==='servicio'?'servicios':'productos') + ' registrados. Presiona <b>+ Nuevo</b>.</div>'; return; }
 
   if (catTipo === 'servicio') {
-    cont.innerHTML = '<table class="tabla"><thead><tr><th>Servicio</th><th>Categoría</th><th>Precio</th><th></th></tr></thead><tbody>' +
-      lista.map(k => '<tr><td><b>' + esc(k.nombre) + '</b></td><td>' + esc(k.categoria||'—') + '</td><td>' + money(k.precio) + '</td>' +
-        '<td><div class="acc-tabla"><button class="btn btn-sec btn-mini" onclick="abrirModalCatalogo(\'' + k.id + '\')">Editar</button>' +
+    cont.innerHTML = '<table class="tabla tarjetas"><thead><tr><th>Servicio</th><th>Categoría</th><th>Precio</th><th></th></tr></thead><tbody>' +
+      lista.map(k => '<tr><td data-th="Servicio"><b>' + esc(k.nombre) + '</b></td><td data-th="Categoría">' + esc(k.categoria||'—') + '</td><td data-th="Precio">' + money(k.precio) + '</td>' +
+        '<td data-th=""><div class="acc-tabla"><button class="btn btn-sec btn-mini" onclick="abrirModalCatalogo(\'' + k.id + '\')">Editar</button>' +
         '<button class="btn btn-peligro btn-mini" onclick="borrarCatalogo(\'' + k.id + '\')">Borrar</button></div></td></tr>').join('') +
       '</tbody></table>';
   } else {
-    cont.innerHTML = '<table class="tabla"><thead><tr><th>Producto</th><th>Marca</th><th>Precio</th><th>Stock</th><th></th></tr></thead><tbody>' +
+    cont.innerHTML = '<table class="tabla tarjetas"><thead><tr><th>Producto</th><th>Marca</th><th>Precio</th><th>Stock</th><th></th></tr></thead><tbody>' +
       lista.map(k => {
         const bajo = Number(k.stock||0) <= Number(k.stockMin||0);
         const stockCell = (k.stock||0) + ' ' + esc(k.unidad||'') + (bajo ? ' <span class="chip chip-rojo">Bajo</span>' : '');
-        return '<tr><td><b>' + esc(k.nombre) + '</b> <span class="sub">' + esc(k.categoria||'') + '</span></td>' +
-          '<td>' + (k.marca==='B&N' ? '<span class="chip chip-azul">B&amp;N</span>' : esc(k.marca||'—')) + '</td>' +
-          '<td>' + money(k.precio) + '</td><td>' + stockCell + '</td>' +
-          '<td><div class="acc-tabla"><button class="btn btn-sec btn-mini" onclick="abrirModalCatalogo(\'' + k.id + '\')">Editar</button>' +
+        return '<tr><td data-th="Producto"><b>' + esc(k.nombre) + '</b> <span class="sub">' + esc(k.categoria||'') + '</span></td>' +
+          '<td data-th="Marca">' + (k.marca==='B&N' ? '<span class="chip chip-azul">B&amp;N</span>' : esc(k.marca||'—')) + '</td>' +
+          '<td data-th="Precio">' + money(k.precio) + '</td><td data-th="Stock">' + stockCell + '</td>' +
+          '<td data-th=""><div class="acc-tabla"><button class="btn btn-sec btn-mini" onclick="abrirModalCatalogo(\'' + k.id + '\')">Editar</button>' +
           '<button class="btn btn-peligro btn-mini" onclick="borrarCatalogo(\'' + k.id + '\')">Borrar</button></div></td></tr>';
       }).join('') + '</tbody></table>';
   }
@@ -2584,12 +2661,12 @@ function pintarStock() {
   const lista = productos().filter(k => k.nombre.toLowerCase().includes(filtro)).sort((a,b) => a.nombre.localeCompare(b.nombre));
   document.getElementById('lista-stock').innerHTML = !lista.length
     ? '<div class="vacio">No hay productos. Agrégalos en la pestaña <b>Catálogo</b>.</div>'
-    : '<table class="tabla"><thead><tr><th>Producto</th><th>Stock</th><th>Mínimo</th><th>Valor</th><th></th></tr></thead><tbody>' +
-      lista.map(k => '<tr><td><b>' + esc(k.nombre) + '</b> <span class="sub">' + esc(k.categoria||'') + '</span></td>' +
-        '<td><b>' + (k.stock||0) + '</b> ' + esc(k.unidad||'') + (stockBajo(k) ? ' <span class="chip chip-rojo">Bajo</span>' : '') + '</td>' +
-        '<td>' + (k.stockMin||0) + '</td>' +
-        '<td>' + money(Number(k.stock||0) * Number(k.precio||0)) + '</td>' +
-        '<td><button class="btn btn-sec btn-mini" onclick="abrirModalMov(\'' + k.id + '\')">Mover</button></td></tr>').join('') +
+    : '<table class="tabla tarjetas"><thead><tr><th>Producto</th><th>Stock</th><th>Mínimo</th><th>Valor</th><th></th></tr></thead><tbody>' +
+      lista.map(k => '<tr><td data-th="Producto"><b>' + esc(k.nombre) + '</b> <span class="sub">' + esc(k.categoria||'') + '</span></td>' +
+        '<td data-th="Stock"><b>' + (k.stock||0) + '</b> ' + esc(k.unidad||'') + (stockBajo(k) ? ' <span class="chip chip-rojo">Bajo</span>' : '') + '</td>' +
+        '<td data-th="Mínimo">' + (k.stockMin||0) + '</td>' +
+        '<td data-th="Valor">' + money(Number(k.stock||0) * Number(k.precio||0)) + '</td>' +
+        '<td data-th=""><button class="btn btn-sec btn-mini" onclick="abrirModalMov(\'' + k.id + '\')">Mover</button></td></tr>').join('') +
       '</tbody></table>';
 
   actualizarBadgeStock();
@@ -2625,14 +2702,14 @@ function pintarMovimientos() {
 
   document.getElementById('lista-movimientos').innerHTML = !movs.length
     ? '<div class="vacio">' + (db.movimientos.length ? 'Ningún movimiento coincide con el filtro.' : 'Sin movimientos registrados todavía.') + '</div>'
-    : '<table class="tabla"><thead><tr><th>Fecha</th><th>Producto</th><th>Movimiento</th><th>Motivo</th><th>Registró</th></tr></thead><tbody>' +
+    : '<table class="tabla tarjetas"><thead><tr><th>Fecha</th><th>Producto</th><th>Movimiento</th><th>Motivo</th><th>Registró</th></tr></thead><tbody>' +
       movs.map(m => {
         const [cls,txt] = TIPO_MOV[m.tipo] || TIPO_MOV.ajuste;
-        return '<tr><td>' + fechaBonita(m.fecha) + '<br><span class="sub">' + m.hora + '</span></td>' +
-          '<td>' + esc(nombreDe(m.productoId)) + '</td>' +
-          '<td><span class="chip ' + cls + '">' + txt + ' ' + m.cantidad + '</span></td>' +
-          '<td class="sub">' + esc(m.motivo || '—') + '</td>' +
-          '<td class="sub">' + esc(m.usuarioNombre || '—') + '</td></tr>';
+        return '<tr><td data-th="Fecha">' + fechaBonita(m.fecha) + '<br><span class="sub">' + m.hora + '</span></td>' +
+          '<td data-th="Producto">' + esc(nombreDe(m.productoId)) + '</td>' +
+          '<td data-th="Movimiento"><span class="chip ' + cls + '">' + txt + ' ' + m.cantidad + '</span></td>' +
+          '<td data-th="Motivo" class="sub">' + esc(m.motivo || '—') + '</td>' +
+          '<td data-th="Registró" class="sub">' + esc(m.usuarioNombre || '—') + '</td></tr>';
       }).join('') + '</tbody></table>';
 }
 function abrirModalMov(productoId) {
@@ -2686,7 +2763,9 @@ function totalVenta(v) { return v.items.reduce((s,i) => s + Number(i.precio) * N
 
 /* Toda venta pasa por aquí: se cobre desde la caja, al agendar o al salir del
    consultorio. Así el correlativo, el stock y los pendientes siempre cuadran. */
-function registrarVenta({ pacienteId, items, metodoPago, nota, descuento, ordenId, citaId }) {
+function registrarVenta({ pacienteId, items, metodoPago, nota, descuento, ordenId, citaId,
+                          canal, contacto, telefono, direccion }) {
+  const porWhatsApp = canal === 'whatsapp';
   const venta = {
     id: nuevoId(),
     numero: db.config.correlativo++,
@@ -2700,6 +2779,13 @@ function registrarVenta({ pacienteId, items, metodoPago, nota, descuento, ordenI
     usuarioNombre: sesion ? sesion.nombre : '—',
     ordenId: ordenId || '',
     citaId: citaId || '',
+    // Venta a distancia: el producto sale del stock igual, pero todavía no está
+    // en manos del cliente. Sin esto, "vendido" y "entregado" se confunden.
+    canal: porWhatsApp ? 'whatsapp' : 'mostrador',
+    entrega: porWhatsApp ? 'pendiente' : 'entregado',
+    contacto: contacto || '',
+    telefono: telefono || '',
+    direccion: direccion || '',
     anulada: false
   };
   db.ventas.push(venta);
@@ -2731,7 +2817,10 @@ function abrirModalVenta(pacienteId) {
   document.getElementById('v-quien').textContent = 'Registra: ' + (sesion ? sesion.nombre : '—') + ' · ' + fechaBonita(hoyStr()) + ' ' + horaAhora();
   llenarSelectPacientes('v-paciente', pacienteId);
   const sel = document.getElementById('v-paciente');
-  sel.insertAdjacentHTML('afterbegin', '<option value=""' + (pacienteId ? '' : ' selected') + '>— Venta sin paciente (mostrador) —</option>');
+  sel.insertAdjacentHTML('afterbegin', '<option value="">— Venta sin paciente (mostrador) —</option>');
+  // Se fija a mano: dejarlo al atributo `selected` de la opción insertada
+  // depende del navegador, y si falla la venta se le carga a un paciente al azar
+  sel.value = pacienteId || '';
   document.getElementById('v-item').innerHTML = '<option value="">+ Elegir servicio o producto…</option>' +
     '<optgroup label="Servicios">' + vendibles.filter(k => k.tipo==='servicio').map(k =>
       '<option value="' + k.id + '">' + esc(k.nombre) + ' — ' + money(k.precio) + '</option>').join('') + '</optgroup>' +
@@ -2740,8 +2829,65 @@ function abrirModalVenta(pacienteId) {
   document.getElementById('v-descuento').value = 0;
   document.getElementById('v-nota').value = '';
   document.getElementById('v-pago').value = 'Efectivo';
+  document.getElementById('v-contacto').value = '';
+  document.getElementById('v-telefono').value = '';
+  document.getElementById('v-direccion').value = '';
+  elegirCanal('mostrador');
+  pintarRapidos();
   pintarCarrito();
   document.getElementById('modal-venta').classList.remove('oculto');
+}
+
+/* Los suplementos se venden de a uno y siempre son los mismos: un botón por
+   producto ahorra abrir el desplegable en cada venta. En celular es la
+   diferencia entre despachar rápido y pelearse con el teléfono. */
+function pintarRapidos() {
+  const cont = document.getElementById('v-rapidos');
+  if (!cont) return;
+  const top = db.catalogo
+    .filter(k => k.tipo === 'producto' && Number(k.precio) > 0)
+    .sort((a,b) => a.nombre.localeCompare(b.nombre))
+    .slice(0, 8);
+  cont.innerHTML = !top.length ? '' : top.map(k => {
+    const hay = Number(k.stock || 0);
+    return '<button type="button" class="rapido' + (hay <= 0 ? ' agotado' : '') + '"' +
+      (hay <= 0 ? ' disabled' : ' onclick="agregarPorId(\'' + k.id + '\')"') + '>' +
+      '<b>' + esc(k.nombre) + '</b>' +
+      '<small>' + money(k.precio) + ' · ' + (hay > 0 ? 'quedan ' + hay : 'sin stock') + '</small></button>';
+  }).join('');
+}
+function agregarPorId(catalogoId) {
+  const k = db.catalogo.find(x => x.id === catalogoId);
+  if (!k) return;
+  const ya = carrito.find(i => i.catalogoId === k.id);
+  if (ya) ya.cant++;
+  else carrito.push({ catalogoId: k.id, nombre: k.nombre, tipo: k.tipo, categoria: k.categoria || '', precio: Number(k.precio), cant: 1 });
+  pintarCarrito();
+}
+
+/* Vender por WhatsApp no es lo mismo que vender en el mostrador: no hay nadie
+   enfrente, se cobra por Yape y hay que llevarle el pedido a alguna parte. */
+let canalVenta = 'mostrador';
+function elegirCanal(canal) {
+  canalVenta = canal;
+  document.getElementById('canal-mostrador').classList.toggle('sel', canal === 'mostrador');
+  document.getElementById('canal-whatsapp').classList.toggle('sel', canal === 'whatsapp');
+  document.getElementById('v-bloque-envio').classList.toggle('oculto', canal !== 'whatsapp');
+  if (canal === 'whatsapp') {
+    // Lo que más se usa a distancia; se puede cambiar
+    if (document.getElementById('v-pago').value === 'Efectivo') document.getElementById('v-pago').value = 'Yape / Plin';
+    cambioPacienteVenta();
+  }
+  pintarCarrito(); // el texto del botón depende del canal
+}
+/* Si el que compra ya es paciente, sus datos no se vuelven a teclear */
+function cambioPacienteVenta() {
+  if (canalVenta !== 'whatsapp') return;
+  const p = db.pacientes.find(x => x.id === document.getElementById('v-paciente').value);
+  if (!p) return;
+  const c = document.getElementById('v-contacto'), t = document.getElementById('v-telefono');
+  if (!c.value.trim()) c.value = p.nombre || '';
+  if (!t.value.trim()) t.value = p.telefono || '';
 }
 function agregarAlCarrito() {
   const sel = document.getElementById('v-item');
@@ -2773,9 +2919,10 @@ function faltaStock() {
 function pintarCarrito() {
   const cont = document.getElementById('v-carrito');
   const btn = document.getElementById('btn-cobrar');
+  const textoCobrar = () => canalVenta === 'whatsapp' ? 'Registrar pedido' : 'Cobrar y guardar';
   if (!carrito.length) {
     cont.innerHTML = '<div class="vacio" style="padding:16px">Aún no agregas nada a la venta.</div>';
-    btn.disabled = true; btn.textContent = 'Cobrar y guardar';
+    btn.disabled = true; btn.textContent = textoCobrar();
     return;
   }
   const desc = Number(document.getElementById('v-descuento').value || 0);
@@ -2806,7 +2953,7 @@ function pintarCarrito() {
     : '');
 
   btn.disabled = faltan.length > 0;
-  btn.textContent = faltan.length ? '🚫 Sin stock' : 'Cobrar y guardar';
+  btn.textContent = faltan.length ? '🚫 Sin stock' : textoCobrar();
 }
 function guardarVenta() {
   if (!carrito.length) { alert('Agrega al menos un servicio o producto.'); return; }
@@ -2822,6 +2969,15 @@ function guardarVenta() {
     return;
   }
 
+  // En una venta a distancia hay que saber a quién y a dónde: si no, el pedido
+  // queda cobrado pero nadie sabe entregarlo
+  const contacto = document.getElementById('v-contacto').value.trim();
+  const telefono = document.getElementById('v-telefono').value.trim();
+  if (canalVenta === 'whatsapp') {
+    if (!contacto) { alert('Escribe el nombre de quien compra.'); document.getElementById('v-contacto').focus(); return; }
+    if (!telefono) { alert('Escribe el celular de WhatsApp: sin eso no se le puede coordinar la entrega.'); document.getElementById('v-telefono').focus(); return; }
+  }
+
   const venta = registrarVenta({
     pacienteId: document.getElementById('v-paciente').value,
     items: carrito,
@@ -2829,7 +2985,10 @@ function guardarVenta() {
     metodoPago: document.getElementById('v-pago').value,
     nota: document.getElementById('v-nota').value.trim(),
     ordenId: ordenCobrando,
-    citaId: citaCobrando
+    citaId: citaCobrando,
+    canal: canalVenta,
+    contacto, telefono,
+    direccion: document.getElementById('v-direccion').value.trim()
   });
   ordenCobrando = null; citaCobrando = null;
   guardar(); cerrarModales();
@@ -2981,16 +3140,92 @@ function descartarOrden(id) {
   guardar(); pintarVentas();
 }
 
+/* ================== PEDIDOS A DISTANCIA ==================
+   Una venta por WhatsApp queda cobrada pero NO entregada. Si no se lleva ese
+   estado aparte, un pedido se pierde entre las ventas del día y el cliente
+   reclama algo que el sistema ya dio por despachado. */
+const ESTADO_ENTREGA = {
+  pendiente: ['chip-amarillo', '📦 Por enviar'],
+  enviado:   ['chip-azul',     '🚚 En camino'],
+  entregado: ['chip-verde',    '✅ Entregado']
+};
+function pedidosPorEntregar() {
+  return db.ventas
+    .filter(v => v.canal === 'whatsapp' && !v.anulada && v.entrega !== 'entregado')
+    .sort((a,b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+}
+function pintarPedidosEnvio() {
+  const cont = document.getElementById('pedidos-envio');
+  if (!cont) return;
+  const pend = pedidosPorEntregar();
+  cont.innerHTML = !pend.length ? '' :
+    '<h2>📦 Pedidos por entregar (' + pend.length + ')</h2>' +
+    pend.map(v => {
+      const [cls, txt] = ESTADO_ENTREGA[v.entrega] || ESTADO_ENTREGA.pendiente;
+      const dias = diasDesde(v.fecha);
+      return '<div class="tarjeta" style="border-left:4px solid #25d366">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">' +
+          '<b style="font-size:16px">' + esc(nombreEnVenta(v)) + '</b>' +
+          '<b style="font-size:19px;color:#123c5a">' + money(totalVenta(v)) + '</b>' +
+        '</div>' +
+        '<div class="sub">Ticket #' + v.numero + ' · ' + fechaBonita(v.fecha) + ' · ' + esc(v.metodoPago || '') +
+          (dias >= 2 ? ' · <b style="color:#c0392b">hace ' + dias + ' días</b>' : '') + '</div>' +
+        '<div style="margin:6px 0">' + v.items.map(i => '<div class="sub">• ' + i.cant + '× ' + esc(i.nombre) + '</div>').join('') + '</div>' +
+        (v.direccion ? '<div class="sub">📍 ' + esc(v.direccion) + '</div>' : '') +
+        (v.telefono ? '<div class="sub">📱 ' + esc(v.telefono) + '</div>' : '') +
+        '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">' +
+          '<span class="chip ' + cls + '">' + txt + '</span>' +
+          (v.entrega === 'pendiente' ? '<button class="btn btn-sec btn-mini" onclick="marcarEntrega(\'' + v.id + '\',\'enviado\')">🚚 Marcar enviado</button>' : '') +
+          '<button class="btn btn-mini" onclick="marcarEntrega(\'' + v.id + '\',\'entregado\')">✅ Ya lo recibió</button>' +
+          (v.telefono ? '<button class="btn btn-mini btn-wa" onclick="avisarPorWhatsApp(\'' + v.id + '\')">💬 Escribirle</button>' : '') +
+          '<button class="btn btn-sec btn-mini" onclick="verTicket(\'' + v.id + '\')">🖨 Ticket</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+}
+function diasDesde(fecha) {
+  const d = Math.round((new Date(hoyStr()) - new Date(fecha)) / 86400000);
+  return isNaN(d) ? 0 : d;
+}
+function marcarEntrega(id, estado) {
+  const v = db.ventas.find(x => x.id === id);
+  if (!v) return;
+  v.entrega = estado;
+  if (estado === 'entregado') { v.entregadoPor = sesion ? sesion.nombre : '—'; v.entregadoFecha = hoyStr(); }
+  guardar(); pintarVentas();
+}
+/* Abre WhatsApp con el detalle ya escrito: hoy lo tipean a mano en cada pedido */
+function avisarPorWhatsApp(id) {
+  const v = db.ventas.find(x => x.id === id);
+  if (!v || !v.telefono) return;
+  const lineas = v.items.map(i => '• ' + i.cant + 'x ' + i.nombre + ' — S/ ' + (i.precio * i.cant).toFixed(2));
+  const texto =
+    'Hola ' + (v.contacto || '') + '! Te escribo del Consultorio B&N (Dr. Mariano Arredondo).\n\n' +
+    'Tu pedido #' + String(v.numero).padStart(5,'0') + ':\n' + lineas.join('\n') +
+    (v.descuento > 0 ? '\nDescuento: -S/ ' + Number(v.descuento).toFixed(2) : '') +
+    '\n\nTotal: S/ ' + totalVenta(v).toFixed(2) + ' (' + (v.metodoPago || '') + ')' +
+    (v.direccion ? '\nEntrega: ' + v.direccion : '') +
+    '\n\nCualquier cosa me avisas. ¡Gracias!';
+  // Perú es +51; si ya lo escribieron con código de país se respeta
+  const num = v.telefono.replace(/\D/g, '');
+  const full = num.length === 9 ? '51' + num : num;
+  window.open('https://wa.me/' + full + '?text=' + encodeURIComponent(texto), '_blank');
+}
+
 function pintarVentas() {
   pintarOrdenes();
+  pintarPedidosEnvio();
   const filtro = (document.getElementById('buscador-ventas').value || '').toLowerCase().trim();
   const hoy = db.ventas.filter(v => v.fecha === hoyStr() && !v.anulada);
   const totalHoy = hoy.reduce((s,v) => s + totalVenta(v), 0);
   const mias = hoy.filter(v => sesion && v.usuarioId === sesion.id);
+  const porWA = hoy.filter(v => v.canal === 'whatsapp');
   document.getElementById('resumen-hoy').innerHTML =
+    '<h2>Hoy</h2>' +
     '<div class="grid-datos">' +
       '<div class="dato"><small>Ventas de hoy</small><b>' + hoy.length + '</b></div>' +
       '<div class="dato"><small>Ingresos de hoy</small><b>' + money(totalHoy) + '</b></div>' +
+      '<div class="dato"><small>💬 Por WhatsApp</small><b>' + porWA.length + ' · ' + money(porWA.reduce((s,v) => s + totalVenta(v), 0)) + '</b></div>' +
       '<div class="dato"><small>Registradas por ' + esc(sesion ? sesion.nombre : '—') + '</small><b>' + mias.length + ' · ' + money(mias.reduce((s,v) => s + totalVenta(v), 0)) + '</b></div>' +
     '</div>';
 
@@ -3002,17 +3237,23 @@ function pintarVentas() {
 
   document.getElementById('lista-ventas').innerHTML = !lista.length
     ? '<div class="vacio">' + (db.ventas.length ? 'Ninguna venta coincide con la búsqueda.' : 'Aún no hay ventas registradas. Presiona <b>+ Nueva venta</b>.') + '</div>'
-    : '<table class="tabla"><thead><tr><th>#</th><th>Fecha</th><th>Paciente</th><th>Detalle</th><th>Total</th><th>Registró</th><th></th></tr></thead><tbody>' +
-      lista.map(v => '<tr' + (v.anulada ? ' style="opacity:.55"' : '') + '>' +
-        '<td><b>#' + v.numero + '</b>' + (v.anulada ? '<br><span class="chip chip-rojo">Anulada</span>' : '') + '</td>' +
-        '<td>' + fechaBonita(v.fecha) + '<br><span class="sub">' + v.hora + '</span></td>' +
-        '<td>' + esc(nombreEnVenta(v)) + '</td>' +
-        '<td class="sub">' + v.items.map(i => i.cant + '× ' + esc(i.nombre)).join('<br>') + '</td>' +
-        '<td><b>' + money(totalVenta(v)) + '</b><br><span class="sub">' + esc(v.metodoPago||'') + '</span></td>' +
-        '<td class="sub">' + esc(v.usuarioNombre || '—') + '</td>' +
-        '<td><div class="acc-tabla"><button class="btn btn-sec btn-mini" onclick="verTicket(\'' + v.id + '\')">🖨 Ticket</button>' +
+    : '<table class="tabla tarjetas"><thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Detalle</th><th>Total</th><th>Registró</th><th></th></tr></thead><tbody>' +
+      lista.map(v => {
+        const [cls, txt] = ESTADO_ENTREGA[v.entrega] || [];
+        return '<tr' + (v.anulada ? ' style="opacity:.55"' : '') + '>' +
+        '<td data-th="Ticket"><b>#' + v.numero + '</b>' + (v.anulada ? ' <span class="chip chip-rojo">Anulada</span>' : '') + '</td>' +
+        '<td data-th="Fecha">' + fechaBonita(v.fecha) + ' <span class="sub">' + v.hora + '</span></td>' +
+        '<td data-th="Cliente">' + esc(nombreEnVenta(v)) +
+          (v.canal === 'whatsapp' ? ' <span class="chip chip-verde">💬 WhatsApp</span>' : '') +
+          (v.canal === 'whatsapp' && txt && !v.anulada ? '<br><span class="chip ' + cls + '">' + txt + '</span>' : '') + '</td>' +
+        '<td data-th="Detalle" class="sub">' + v.items.map(i => i.cant + '× ' + esc(i.nombre)).join('<br>') + '</td>' +
+        '<td data-th="Total"><b>' + money(totalVenta(v)) + '</b> <span class="sub">' + esc(v.metodoPago||'') + '</span></td>' +
+        '<td data-th="Registró" class="sub">' + esc(v.usuarioNombre || '—') + '</td>' +
+        '<td data-th=""><div class="acc-tabla"><button class="btn btn-sec btn-mini" onclick="verTicket(\'' + v.id + '\')">🖨 Ticket</button>' +
+        (v.canal === 'whatsapp' && v.telefono && !v.anulada ? '<button class="btn btn-mini btn-wa" onclick="avisarPorWhatsApp(\'' + v.id + '\')">💬</button>' : '') +
         (!v.anulada ? '<button class="btn btn-peligro btn-mini" onclick="anularVenta(\'' + v.id + '\')">Anular</button>' : '') +
-        '</div></td></tr>').join('') + '</tbody></table>';
+        '</div></td></tr>';
+      }).join('') + '</tbody></table>';
 }
 
 /* ================== MÓDULO 6 · TICKET IMPRIMIBLE ==================
@@ -3029,7 +3270,12 @@ function verTicket(id) {
     '<div>TICKET N° ' + String(v.numero).padStart(5,'0') + (v.anulada ? '  ** ANULADO **' : '') + '</div>' +
     '<div>' + fechaBonita(v.fecha) + '  ' + v.hora + '</div>' +
     '<div>Atendió: ' + esc(v.usuarioNombre || '—') + '</div>' +
-    '<div>Paciente: ' + esc(nombreEnVenta(v)) + '</div>' +
+    '<div>' + (v.canal === 'whatsapp' ? 'Cliente' : 'Paciente') + ': ' + esc(nombreEnVenta(v)) + '</div>' +
+    (v.canal === 'whatsapp'
+      ? '<div>Pedido por WhatsApp</div>' +
+        (v.telefono ? '<div>Cel: ' + esc(v.telefono) + '</div>' : '') +
+        (v.direccion ? '<div>Entrega: ' + esc(v.direccion) + '</div>' : '')
+      : '') +
     '<hr>' +
     '<table>' + v.items.map(i =>
       '<tr><td colspan="2">' + esc(i.nombre) + '</td></tr>' +
@@ -3146,6 +3392,14 @@ function pintarReportes() {
   const porPago = {};
   ventas.forEach(v => { porPago[v.metodoPago || '—'] = (porPago[v.metodoPago || '—'] || 0) + totalVenta(v); });
 
+  // Dónde se vende: la pregunta del lanzamiento de la marca B&N. Si WhatsApp
+  // pesa más que el mostrador, la marca camina sola y no depende de la consulta.
+  const ventasWA  = ventas.filter(v => v.canal === 'whatsapp');
+  const ventasMos = ventas.filter(v => v.canal !== 'whatsapp');
+  const montoWA  = ventasWA.reduce((s,v) => s + totalVenta(v), 0);
+  const montoMos = ventasMos.reduce((s,v) => s + totalVenta(v), 0);
+  const sinEntregar = db.ventas.filter(v => v.canal === 'whatsapp' && !v.anulada && v.entrega !== 'entregado').length;
+
   const topItems = Object.values(porItem).sort((a,b) => b.monto - a.monto);
   const barra = (parte, todo) => {
     const pct = todo ? Math.round(parte / todo * 100) : 0;
@@ -3167,20 +3421,29 @@ function pintarReportes() {
       '<div style="display:flex;justify-content:space-between;margin-top:12px"><b>Productos (suplementos B&amp;N)</b><b>' + money(porProductos) + '</b></div>' + barra(porProductos, total) +
     '</div>' +
 
+    '<h2>Dónde vende</h2>' +
+    '<div class="tarjeta">' +
+      '<div style="display:flex;justify-content:space-between"><b>🏥 En el consultorio</b><b>' + money(montoMos) + '</b></div>' +
+      '<div class="sub">' + plural(ventasMos.length,'venta','ventas') + '</div>' + barra(montoMos, total) +
+      '<div style="display:flex;justify-content:space-between;margin-top:12px"><b>💬 Por WhatsApp</b><b>' + money(montoWA) + '</b></div>' +
+      '<div class="sub">' + plural(ventasWA.length,'venta','ventas') + '</div>' + barra(montoWA, total) +
+      (sinEntregar ? '<div class="aviso aviso-amarillo" style="margin:12px 0 0">📦 Hay <b>' + plural(sinEntregar,'pedido','pedidos') + '</b> sin entregar (de todos los tiempos, no solo del rango).</div>' : '') +
+    '</div>' +
+
     '<h2>Ingresos por categoría</h2>' +
     (Object.keys(porCategoria).length
-      ? '<table class="tabla"><thead><tr><th>Categoría</th><th>Ingresos</th><th>%</th></tr></thead><tbody>' +
+      ? '<table class="tabla tarjetas"><thead><tr><th>Categoría</th><th>Ingresos</th><th>%</th></tr></thead><tbody>' +
         Object.entries(porCategoria).sort((a,b) => b[1]-a[1]).map(([c,m]) =>
-          '<tr><td>' + esc(c) + '</td><td><b>' + money(m) + '</b></td><td>' + (total ? Math.round(m/total*100) : 0) + '%</td></tr>').join('') +
+          '<tr><td data-th="Categoría">' + esc(c) + '</td><td data-th="Ingresos"><b>' + money(m) + '</b></td><td data-th="%">' + (total ? Math.round(m/total*100) : 0) + '%</td></tr>').join('') +
         '</tbody></table>'
       : '<div class="vacio">Sin datos en este rango.</div>') +
 
     '<h2>Más vendidos</h2>' +
     (topItems.length
-      ? '<table class="tabla"><thead><tr><th>#</th><th>Ítem</th><th>Tipo</th><th>Cantidad</th><th>Ingresos</th></tr></thead><tbody>' +
-        topItems.map((i,n) => '<tr><td>' + (n+1) + '</td><td><b>' + esc(i.nombre) + '</b></td>' +
-          '<td>' + (i.tipo==='producto' ? '<span class="chip chip-verde">Producto</span>' : '<span class="chip chip-azul">Servicio</span>') + '</td>' +
-          '<td><b>' + i.cant + '</b></td><td>' + money(i.monto) + '</td></tr>').join('') + '</tbody></table>'
+      ? '<table class="tabla tarjetas"><thead><tr><th>#</th><th>Ítem</th><th>Tipo</th><th>Cantidad</th><th>Ingresos</th></tr></thead><tbody>' +
+        topItems.map((i,n) => '<tr><td data-th="Puesto">' + (n+1) + '</td><td data-th="Ítem"><b>' + esc(i.nombre) + '</b></td>' +
+          '<td data-th="Tipo">' + (i.tipo==='producto' ? '<span class="chip chip-verde">Producto</span>' : '<span class="chip chip-azul">Servicio</span>') + '</td>' +
+          '<td data-th="Cantidad"><b>' + i.cant + '</b></td><td data-th="Ingresos">' + money(i.monto) + '</td></tr>').join('') + '</tbody></table>'
       : '<div class="vacio">Sin ventas en este rango.</div>') +
 
     htmlPatologias(f) +
@@ -3196,26 +3459,28 @@ function pintarReportes() {
 
     '<h2>Ventas por usuario</h2>' +
     (Object.keys(porUsuario).length
-      ? '<table class="tabla"><thead><tr><th>Usuario</th><th>N° ventas</th><th>Ingresos</th><th>%</th></tr></thead><tbody>' +
+      ? '<table class="tabla tarjetas"><thead><tr><th>Usuario</th><th>N° ventas</th><th>Ingresos</th><th>%</th></tr></thead><tbody>' +
         Object.entries(porUsuario).sort((a,b) => b[1].monto - a[1].monto).map(([n,u]) =>
-          '<tr><td><b>' + esc(n) + '</b></td><td>' + u.n + '</td><td>' + money(u.monto) + '</td><td>' + (total ? Math.round(u.monto/total*100) : 0) + '%</td></tr>').join('') +
+          '<tr><td data-th="Usuario"><b>' + esc(n) + '</b></td><td data-th="N° ventas">' + u.n + '</td><td data-th="Ingresos">' + money(u.monto) + '</td><td data-th="%">' + (total ? Math.round(u.monto/total*100) : 0) + '%</td></tr>').join('') +
         '</tbody></table>'
       : '<div class="vacio">Sin ventas en este rango.</div>') +
 
     '<h2>Cómo pagaron</h2>' +
     (Object.keys(porPago).length
-      ? '<table class="tabla"><thead><tr><th>Método</th><th>Monto</th><th>%</th></tr></thead><tbody>' +
+      ? '<table class="tabla tarjetas"><thead><tr><th>Método</th><th>Monto</th><th>%</th></tr></thead><tbody>' +
         Object.entries(porPago).sort((a,b) => b[1]-a[1]).map(([m,v]) =>
-          '<tr><td>' + esc(m) + '</td><td><b>' + money(v) + '</b></td><td>' + (total ? Math.round(v/total*100) : 0) + '%</td></tr>').join('') +
+          '<tr><td data-th="Método">' + esc(m) + '</td><td data-th="Monto"><b>' + money(v) + '</b></td><td data-th="%">' + (total ? Math.round(v/total*100) : 0) + '%</td></tr>').join('') +
         '</tbody></table>'
       : '');
 }
 function exportarReporte() {
   const f = filtrosReporte();
-  const filas = [['Ticket','Fecha','Hora','Paciente','Item','Tipo','Categoria','Cantidad','Precio unit','Subtotal','Descuento venta','Total venta','Metodo pago','Registro']];
+  const filas = [['Ticket','Fecha','Hora','Cliente','Canal','Entrega','Item','Tipo','Categoria','Cantidad','Precio unit','Subtotal','Descuento venta','Total venta','Metodo pago','Registro']];
   ventasFiltradas().sort((a,b) => a.numero - b.numero).forEach(v => {
     v.items.forEach((i,n) => filas.push([
       v.numero, v.fecha, v.hora, nombreEnVenta(v),
+      v.canal === 'whatsapp' ? 'WhatsApp' : 'Consultorio',
+      v.canal === 'whatsapp' ? (v.entrega || 'pendiente') : '',
       i.nombre, i.tipo, i.categoria || '', i.cant, Number(i.precio).toFixed(2), (i.precio*i.cant).toFixed(2),
       n === 0 ? Number(v.descuento||0).toFixed(2) : '', n === 0 ? totalVenta(v).toFixed(2) : '',
       v.metodoPago || '', v.usuarioNombre || ''
@@ -3478,7 +3743,16 @@ function cargarDemo() {
   const venta = (dias, hora, pacienteId, items, pago, usuario, descuento) => ({
     id:nuevoId(), numero:db.config.correlativo++, fecha:sumarDias(hoyStr(), dias), hora,
     pacienteId, items, descuento:descuento||0, metodoPago:pago, nota:'',
-    usuarioId:usuario.id, usuarioNombre:usuario.nombre, anulada:false
+    usuarioId:usuario.id, usuarioNombre:usuario.nombre,
+    canal:'mostrador', entrega:'entregado', contacto:'', telefono:'', direccion:'', anulada:false
+  });
+  /* Pedidos de la marca B&N que llegaron por WhatsApp: gente que no pasó por el
+     consultorio. Sin ellos la demo no muestra el canal que más va a crecer. */
+  const pedidoWA = (dias, hora, contacto, telefono, direccion, items, pago, entrega, pacienteId) => ({
+    id:nuevoId(), numero:db.config.correlativo++, fecha:sumarDias(hoyStr(), dias), hora,
+    pacienteId:pacienteId||'', items, descuento:0, metodoPago:pago, nota:'Pedido por WhatsApp',
+    usuarioId:uRec.id, usuarioNombre:uRec.nombre,
+    canal:'whatsapp', entrega, contacto, telefono, direccion, anulada:false
   });
   db.ventas = [
     venta(-22, '10:15', p1, [it(k1,1)], 'Efectivo', uRec),
@@ -3489,7 +3763,14 @@ function cargarDemo() {
     venta(-7,  '10:00', p2, [it(k1,1), it(k7,2)], 'Yape / Plin', uRec),
     venta(-4,  '15:20', p3, [it(k6,1), it(k7,1)], 'Efectivo', uRec),
     venta(-2,  '09:50', p1, [it(k2,1)], 'Efectivo', uDoc),
-    venta(0,   '10:30', p2, [it(k5,1), it(k6,1)], 'Tarjeta', uRec)
+    venta(0,   '10:30', p2, [it(k5,1), it(k6,1)], 'Tarjeta', uRec),
+    // Ya entregados
+    pedidoWA(-16, '18:40', 'Carmen Torres',  '987112233', 'Av. Brasil 1450, Jesús María', [it(k5,2)], 'Yape / Plin', 'entregado'),
+    pedidoWA(-11, '20:05', 'Rosa Aguilar',   '956778899', 'Los Olivos — coordinó recojo',  [it(k6,1), it(k7,1)], 'Yape / Plin', 'entregado'),
+    pedidoWA(-5,  '19:20', 'María González Ruiz', '987654321', 'Surco, Av. Primavera 890', [it(k5,1)], 'Transferencia', 'entregado', p1),
+    // Pendientes: aparecen en la bandeja "Pedidos por entregar"
+    pedidoWA(-1,  '21:10', 'Luis Paredes',   '944556677', 'San Miguel, Calle Lima 233',    [it(k7,2)], 'Yape / Plin', 'enviado'),
+    pedidoWA(0,   '09:05', 'Patricia Ríos',  '933221100', 'Pueblo Libre — envío por delivery', [it(k5,1), it(k6,1)], 'Yape / Plin', 'pendiente')
   ];
   // Las consultas ya atendidas de días pasados están cobradas: si no, aparecerían
   // todas como deuda en el mostrador. Solo la de hoy queda por cobrar.
@@ -3499,7 +3780,8 @@ function cargarDemo() {
     const v = { id:nuevoId(), numero:0, fecha:c.fecha, hora:c.hora,
       pacienteId:c.pacienteId, items:[it(serv,1)], descuento:0,
       metodoPago:pagos[n % pagos.length], nota:'', citaId:c.id,
-      usuarioId:uRec.id, usuarioNombre:uRec.nombre, anulada:false };
+      usuarioId:uRec.id, usuarioNombre:uRec.nombre,
+      canal:'mostrador', entrega:'entregado', contacto:'', telefono:'', direccion:'', anulada:false };
     db.ventas.push(v);
     c.pagada = true; c.ventaId = v.id;
   });
