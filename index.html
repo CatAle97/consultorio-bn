@@ -1105,7 +1105,7 @@
     <h3>☁️ Sincronización</h3>
     <div id="nube-cuerpo"></div>
     <div class="acciones">
-      <button class="btn btn-sec" onclick="cerrarModales()">Cerrar</button>
+      <button class="btn btn-sec" id="btn-nube-cerrar" onclick="cerrarModales()">Cerrar</button>
       <button class="btn" id="btn-nube-accion" onclick="accionNube()">Conectar</button>
     </div>
   </div>
@@ -1202,11 +1202,17 @@ function limpiarBorrados() {
   const corte = Date.now() - 90 * 86400000;
   db.borrados = db.borrados.filter(b => b.cuando > corte);
 }
-function fusionar(otro) {
+/* `otroManda` se usa al conectar un equipo por primera vez. Sin eso, un celular
+   recién instalado tiene los usuarios de fábrica (PIN 1234 / 4321) con los mismos
+   ids que los reales, y al fusionar le devolvería los PIN de fábrica a todo el
+   consultorio. En la primera conexión el equipo se pone al día, no al revés. */
+function fusionar(otro, otroManda) {
   const muertos = new Set([...(db.borrados || []), ...(otro.borrados || [])].map(b => b.id));
   COLECCIONES.forEach(c => {
-    const map = new Map((otro[c] || []).map(x => [x.id, x]));
-    (db[c] || []).forEach(x => map.set(x.id, x)); // lo que tengo en pantalla manda sobre lo de afuera
+    const base  = otroManda ? (db[c] || [])    : (otro[c] || []);
+    const encima= otroManda ? (otro[c] || []) : (db[c] || []);
+    const map = new Map(base.map(x => [x.id, x]));
+    encima.forEach(x => map.set(x.id, x));
     muertos.forEach(id => map.delete(id));        // lo borrado no vuelve
     db[c] = [...map.values()];
   });
@@ -1305,7 +1311,7 @@ function marcarPendienteDeSubir() {
   // no tiene sentido subir el archivo entero cuatro veces
   marcarPendienteDeSubir.t = setTimeout(sincronizar, 1500);
 }
-async function sincronizar(forzar) {
+async function sincronizar(forzar, nubeManda) {
   if (!nubeConfigurada() || !nube.sesion || nube.subiendo) return;
   if (!navigator.onLine) { pintarEstadoNube(); return; }
   if (!nube.pendiente && !forzar) return;
@@ -1317,7 +1323,7 @@ async function sincronizar(forzar) {
     const filas = await r.json();
     // Lo de la nube se fusiona con lo de aquí: gana lo que este equipo tiene en
     // pantalla, pero no se pierde nada de lo que hizo el otro
-    if (filas.length && filas[0].datos) fusionar(filas[0].datos);
+    if (filas.length && filas[0].datos) fusionar(filas[0].datos, nubeManda);
 
     const cuerpo = { id: 'principal', datos: db, actualizado: new Date().toISOString() };
     const w = await api('/rest/v1/consultorio', {
@@ -1373,6 +1379,8 @@ window.addEventListener('offline', pintarEstadoNube);
 function abrirModalNube() {
   const cuerpo = document.getElementById('nube-cuerpo');
   const btn = document.getElementById('btn-nube-accion');
+  // Sin conectar y sin sesión no hay nada detrás del modal: no se ofrece cerrar
+  document.getElementById('btn-nube-cerrar').classList.toggle('oculto', nubeConfigurada() && !nube.sesion && !sesion);
   if (!nubeConfigurada()) {
     cuerpo.innerHTML = '<div class="aviso aviso-amarillo">La sincronización todavía no está activada en esta versión del sistema. ' +
       'Los datos se guardan <b>solo en este equipo</b>.</div>';
@@ -1412,11 +1420,16 @@ async function accionNube() {
   btn.disabled = true; btn.textContent = 'Conectando…'; err.textContent = '';
   try {
     await conectarNube(inp.value.trim());
-    await sincronizar(true);
-    abrirModalNube();
-    alert('Listo. Este equipo ya está conectado al consultorio.');
+    // Este equipo se pone al día con el consultorio, no al revés: si tenía datos
+    // de prueba o los PIN de fábrica, no se los impone a los demás
+    await sincronizar(true, true);
+    cerrarModales();
+    pintarAcceso();
+    alert('Listo. Este equipo ya está conectado al consultorio.\n\nEntra con tu PIN de siempre.');
   } catch (e) {
-    err.textContent = 'La clave no es correcta.';
+    err.textContent = e.message === 'clave-incorrecta'
+      ? 'La clave no es correcta.'
+      : 'No se pudo conectar. Revisa que haya internet.';
     btn.disabled = false; btn.textContent = 'Conectar este equipo';
   }
   pintarEstadoNube();
@@ -1455,6 +1468,16 @@ let pinCandidato = null;
 let pinEscrito = '';
 
 function pintarAcceso() {
+  // Un equipo sin conectar mostraría el sistema vacío y con los PIN de fábrica.
+  // Antes que eso, se pide la clave del consultorio: es lo primero que ve un
+  // celular recién instalado.
+  if (nubeConfigurada() && !nube.sesion) {
+    document.getElementById('pantalla-acceso').classList.remove('oculto');
+    document.getElementById('paso-quien').classList.add('oculto');
+    document.getElementById('paso-pin').classList.add('oculto');
+    abrirModalNube();
+    return;
+  }
   document.getElementById('usuarios-acceso').innerHTML = db.usuarios.map(u =>
     '<button class="btn-usuario" onclick="elegirUsuario(\'' + u.id + '\')">' +
     '<span><b>' + esc(u.nombre) + '</b><br><span class="sub">' + (u.rol === 'doctor' ? 'Doctor / dueño' : 'Recepción') + '</span></span>' +
@@ -4661,6 +4684,9 @@ setInterval(() => {
 
 /* ================== MODALES / INICIO ================== */
 function cerrarModales() {
+  // En un equipo sin conectar, cerrar el modal dejaría una pantalla en blanco:
+  // no hay nada detrás hasta que se escriba la clave del consultorio
+  if (nubeConfigurada() && !nube.sesion && !sesion) return;
   document.querySelectorAll('.fondo-modal').forEach(m => m.classList.add('oculto'));
   // Si otra pestaña guardó algo mientras había un modal abierto, ahora sí se aplica
   if (recargaPendiente) sincronizarDesdeOtraPestana();
