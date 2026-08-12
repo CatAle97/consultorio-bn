@@ -607,7 +607,7 @@
   <!-- ============ MÓDULO 5 · VENTAS ============ -->
   <section id="sec-ventas" class="oculto">
     <div class="barra">
-      <input type="search" id="buscador-ventas" placeholder="Buscar por N° de ticket o paciente…" oninput="pintarVentas()">
+      <input type="search" id="buscador-ventas" placeholder="Buscar por N° de ticket, paciente o «distribuidor»…" oninput="pintarVentas()">
       <button class="btn" onclick="abrirModalVenta()">+ Nueva venta</button>
     </div>
     <div id="ordenes-pendientes"></div>
@@ -922,9 +922,10 @@
     <!-- ORDEN A PROPÓSITO: primero lo que se lleva y cuánto es. El paciente va
          al final y es opcional — si registrar cuesta más que anotar en un papel,
          se vuelve al papel. -->
-    <!-- Dos listas de precio reales: el paciente paga una, el colega que
-         revende paga otra. Solo aparece si hay productos con precio mayorista. -->
-    <div id="v-listas" class="oculto">
+    <!-- Dos listas de precio reales: el paciente paga una, el distribuidor que
+         revende paga otra. Siempre visible: aunque el precio se ajuste a mano,
+         la venta tiene que quedar marcada con el tipo que fue. -->
+    <div id="v-listas">
       <label style="margin-top:0">¿A quién le vendes?</label>
       <div class="canales">
         <button type="button" class="canal sel" id="lista-paciente" onclick="cambiarListaPrecio('paciente')">Paciente</button>
@@ -2978,12 +2979,16 @@ function totalVenta(v) { return v.items.reduce((s,i) => s + Number(i.precio) * N
 
 /* Toda venta pasa por aquí: se cobre desde la caja, al agendar o al salir del
    consultorio. Así el correlativo, el stock y los pendientes siempre cuadran. */
-function registrarVenta({ pacienteId, items, metodoPago, nota, descuento, ordenId, citaId }) {
+function registrarVenta({ pacienteId, items, metodoPago, nota, descuento, ordenId, citaId, lista }) {
   const venta = {
     id: nuevoId(),
     numero: db.config.correlativo++,
     fecha: hoyStr(), hora: horaAhora(),
     pacienteId: pacienteId || '',
+    // A quién se le vendió: 'paciente' (precio final) o 'colega' (distribuidor).
+    // Se guarda en la venta porque el precio puede ajustarse a mano y después
+    // no habría forma de saber de qué tipo fue.
+    lista: lista === 'colega' ? 'colega' : 'paciente',
     items: items.map(i => ({ ...i })),
     descuento: Number(descuento) || 0,
     metodoPago: metodoPago || 'Efectivo',
@@ -3033,11 +3038,11 @@ function abrirModalVenta(pacienteId) {
   pintarPacienteElegido();
   document.getElementById('v-item-buscar').value = '';
   document.getElementById('v-item-lista').classList.add('oculto');
-  // El selector de lista solo estorba si el Dr. no vende a colegas
-  const hayMayorista = db.catalogo.some(k => Number(k.precioMayor) > 0);
-  document.getElementById('v-listas').classList.toggle('oculto', !hayMayorista);
+  // Siempre visible: aunque el precio se termine ajustando a mano, tiene que
+  // quedar registrado si la venta fue a distribuidor o a precio final
+  document.getElementById('v-listas').classList.remove('oculto');
   listaPrecio = 'paciente';
-  if (hayMayorista) cambiarListaPrecio('paciente');
+  cambiarListaPrecio('paciente');
   document.getElementById('v-descuento').value = 0;
   document.getElementById('v-nota').value = '';
   document.getElementById('v-pago').value = 'Efectivo';
@@ -3104,7 +3109,7 @@ function elegirItemVenta(id) {
   document.getElementById('v-item-lista').classList.add('oculto');
 }
 /* A quién se le vende decide el precio: el paciente paga la lista normal, un
-   colega que revende paga la de mayorista. Son dos listas reales del negocio,
+   distribuidor que revende paga la suya. Son dos listas reales del negocio,
    no un descuento a ojo. */
 let listaPrecio = 'paciente';
 function precioSegunLista(k) {
@@ -3121,6 +3126,9 @@ function cambiarListaPrecio(cual) {
     if (k) i.precio = precioSegunLista(k);
   });
   pintarCarrito();
+  // Si el buscador de productos está abierto, sus precios también deben cambiar
+  const sug = document.getElementById('v-item-lista');
+  if (sug && !sug.classList.contains('oculto')) buscarItemVenta();
 }
 function agregarPorId(catalogoId) {
   const k = db.catalogo.find(x => x.id === catalogoId);
@@ -3230,6 +3238,15 @@ function pintarCarrito() {
   const desc = Number(document.getElementById('v-descuento').value || 0);
   const bruto = carrito.reduce((s,i) => s + i.precio * i.cant, 0);
   const faltan = faltaStock();
+  // Vendiendo a distribuidor, lo que no tenga precio distribuidor se está
+  // cobrando al precio de venta normal. Se avisa antes de cobrar, no después.
+  const sinMayor = listaPrecio === 'colega'
+    ? carrito.filter(i => {
+        if (i.tipo !== 'producto') return false; // un servicio no tiene lista mayorista
+        const k = db.catalogo.find(x => x.id === i.catalogoId);
+        return k && !(Number(k.precioMayor) > 0);
+      })
+    : [];
 
   cont.innerHTML = carrito.map(i => {
     const k = db.catalogo.find(x => x.id === i.catalogoId);
@@ -3243,7 +3260,16 @@ function pintarCarrito() {
       '<button class="btn btn-peligro btn-mini" onclick="quitarDelCarrito(\'' + i.catalogoId + '\')">✕</button></div>';
   }).join('') +
   (desc > 0 ? '<div class="carrito-item"><span class="nom sub">Descuento</span><b style="color:var(--danger)">− ' + money(desc) + '</b></div>' : '') +
-  '<div class="total-venta"><span>TOTAL</span><span>' + money(bruto - desc) + '</span></div>' +
+  '<div class="total-venta"><span>TOTAL' + (listaPrecio === 'colega' ? ' <span class="chip chip-morado">Distribuidor</span>' : '') + '</span><span>' + money(bruto - desc) + '</span></div>' +
+  (sinMayor.length
+    ? '<div class="aviso aviso-amarillo" style="margin:10px 0 0">💡 <b>' +
+        plural(sinMayor.length,'producto no tiene','productos no tienen') + ' precio distribuidor</b> cargado, ' +
+        'así que va al precio de venta normal: ' +
+        sinMayor.map(i => esc(i.nombre)).join(', ') + '.' +
+        '<div class="sub" style="margin-top:6px">Cárgalo en <b>⚙️ Precios</b> y no habrá que ajustarlo a mano cada vez. ' +
+        'Mientras tanto puedes usar el campo <b>Descuento</b>; la venta igual queda marcada como distribuidor.</div>' +
+      '</div>'
+    : '') +
   // No se puede cobrar lo que no se puede entregar: se avisa aquí, no al final
   (faltan.length
     ? '<div class="aviso aviso-rojo" style="margin:10px 0 0">' +
@@ -3277,6 +3303,7 @@ function guardarVenta() {
     descuento: desc,
     metodoPago: document.getElementById('v-pago').value,
     nota: document.getElementById('v-nota').value.trim(),
+    lista: listaPrecio,
     ordenId: ordenCobrando,
     citaId: citaCobrando
   });
@@ -3447,7 +3474,9 @@ function pintarVentas() {
   const lista = db.ventas.filter(v => {
     if (!filtro) return true;
     const pac = v.pacienteId ? nombrePaciente(v.pacienteId).toLowerCase() : 'mostrador';
-    return String(v.numero).includes(filtro) || pac.includes(filtro);
+    // Escribir "distribuidor" saca todas las ventas de esa lista de un tirón
+    const tipo = v.lista === 'colega' ? 'distribuidor' : 'paciente';
+    return String(v.numero).includes(filtro) || pac.includes(filtro) || tipo.includes(filtro);
   }).sort((a,b) => b.numero - a.numero);
 
   document.getElementById('lista-ventas').innerHTML = !lista.length
@@ -3456,7 +3485,8 @@ function pintarVentas() {
       lista.map(v => '<tr' + (v.anulada ? ' style="opacity:.55"' : '') + '>' +
         '<td data-th="Ticket"><b>#' + v.numero + '</b>' + (v.anulada ? ' <span class="chip chip-rojo">Anulada</span>' : '') + '</td>' +
         '<td data-th="Fecha">' + fechaBonita(v.fecha) + ' <span class="sub">' + v.hora + '</span></td>' +
-        '<td data-th="Cliente">' + esc(nombreEnVenta(v)) + '</td>' +
+        '<td data-th="Cliente">' + esc(nombreEnVenta(v)) +
+          (v.lista === 'colega' ? ' <span class="chip chip-morado">Distribuidor</span>' : '') + '</td>' +
         '<td data-th="Detalle" class="sub">' + v.items.map(i => i.cant + '× ' + esc(i.nombre)).join('<br>') + '</td>' +
         '<td data-th="Total"><b>' + money(totalVenta(v)) + '</b> <span class="sub">' + esc(v.metodoPago||'') + '</span></td>' +
         '<td data-th="Registró" class="sub">' + esc(v.usuarioNombre || '—') + '</td>' +
@@ -3480,6 +3510,8 @@ function verTicket(id) {
     '<div>' + fechaBonita(v.fecha) + '  ' + v.hora + '</div>' +
     '<div>Atendió: ' + esc(v.usuarioNombre || '—') + '</div>' +
     '<div>Paciente: ' + esc(nombreEnVenta(v)) + '</div>' +
+    // Queda impreso en el papel: al revisar tickets viejos se sabe con qué lista se cobró
+    (v.lista === 'colega' ? '<div><b>** VENTA A DISTRIBUIDOR **</b></div>' : '') +
     '<hr>' +
     '<table>' + v.items.map(i =>
       '<tr><td colspan="2">' + esc(i.nombre) + '</td></tr>' +
