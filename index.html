@@ -278,6 +278,14 @@
   #ticket td { padding:1px 0; vertical-align:top; }
   #ticket .der { text-align:right; }
 
+  /* --- Dos listas de precio --- */
+  .canales { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .canal { padding:12px 8px; border:1px solid var(--border); border-radius:10px; background:var(--surface);
+           cursor:pointer; font-family:inherit; font-size:14px; color:var(--text); text-align:center; transition:all .15s; }
+  .canal:hover { border-color:var(--rol); background:var(--rol-suave); }
+  .canal.sel { background:var(--rol); color:#fff; border-color:var(--rol); font-weight:700;
+               box-shadow:0 4px 14px var(--rol-sombra); }
+
   /* --- Buscador de lo que se vende --- */
   .buscar-item { position:relative; }
   .buscar-item .sugerencias { max-height:300px; }
@@ -832,7 +840,7 @@
       <div><label>Categoría</label>
         <select id="k-categoria"></select>
       </div>
-      <div><label>Precio</label><input id="k-precio" type="number" step="0.01" min="0" placeholder="Ej: 120"></div>
+      <div><label>Precio al paciente</label><input id="k-precio" type="number" step="0.01" min="0" placeholder="Ej: 280" oninput="pintarMargenCatalogo()"></div>
     </div>
     <div id="campos-producto" class="oculto">
       <div class="fila-2">
@@ -845,6 +853,16 @@
         <div><label>Stock actual</label><input id="k-stock" type="number" min="0" step="1" placeholder="Ej: 24"></div>
         <div><label>Stock mínimo (alerta)</label><input id="k-stockmin" type="number" min="0" step="1" placeholder="Ej: 5"></div>
       </div>
+      <!-- Costo y precio a colegas: esto no lo ve recepción en ninguna pantalla -->
+      <div class="fila-2">
+        <div><label>Le cuesta (S/)</label>
+          <input id="k-costo" type="number" step="0.01" min="0" placeholder="Ej: 150" oninput="pintarMargenCatalogo()">
+        </div>
+        <div><label>Precio a colegas (S/)</label>
+          <input id="k-mayor" type="number" step="0.01" min="0" placeholder="Ej: 200" oninput="pintarMargenCatalogo()">
+        </div>
+      </div>
+      <div id="k-margen"></div>
     </div>
     <div class="acciones">
       <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
@@ -899,6 +917,16 @@
     <!-- ORDEN A PROPÓSITO: primero lo que se lleva y cuánto es. El paciente va
          al final y es opcional — si registrar cuesta más que anotar en un papel,
          se vuelve al papel. -->
+    <!-- Dos listas de precio reales: el paciente paga una, el colega que
+         revende paga otra. Solo aparece si hay productos con precio mayorista. -->
+    <div id="v-listas" class="oculto">
+      <label style="margin-top:0">¿A quién le vendes?</label>
+      <div class="canales">
+        <button type="button" class="canal sel" id="lista-paciente" onclick="cambiarListaPrecio('paciente')">Paciente</button>
+        <button type="button" class="canal" id="lista-colega" onclick="cambiarListaPrecio('colega')">Colega / reventa</button>
+      </div>
+    </div>
+
     <label>¿Qué se lleva?</label>
     <!-- Un solo campo en vez de una parrilla de botones: al tocarlo muestra
          todo el catálogo ordenado por lo que más se vende, así con 10 productos
@@ -2262,17 +2290,51 @@ function pintarCatalogo() {
         '<button class="btn btn-peligro btn-mini" onclick="borrarCatalogo(\'' + k.id + '\')">Borrar</button></div></td></tr>').join('') +
       '</tbody></table>';
   } else {
-    cont.innerHTML = '<table class="tabla tarjetas"><thead><tr><th>Producto</th><th>Marca</th><th>Precio</th><th>Stock</th><th></th></tr></thead><tbody>' +
+    const faltanCostos = lista.filter(k => !Number(k.costo)).length;
+    cont.innerHTML =
+      (faltanCostos ? '<div class="aviso aviso-amarillo">💡 <b>' + plural(faltanCostos,'producto','productos') +
+        '</b> sin costo cargado. Sin ese dato el sistema sabe cuánto vendió, pero no cuánto ganó.</div>' : '') +
+      '<table class="tabla tarjetas"><thead><tr><th>Producto</th><th>Marca</th><th>Precio</th><th>Stock</th><th></th></tr></thead><tbody>' +
       lista.map(k => {
         const bajo = Number(k.stock||0) <= Number(k.stockMin||0);
         const stockCell = (k.stock||0) + ' ' + esc(k.unidad||'') + (bajo ? ' <span class="chip chip-rojo">Bajo</span>' : '');
         return '<tr><td data-th="Producto"><b>' + esc(k.nombre) + '</b> <span class="sub">' + esc(k.categoria||'') + '</span></td>' +
           '<td data-th="Marca">' + (k.marca==='B&N' ? '<span class="chip chip-azul">B&amp;N</span>' : esc(k.marca||'—')) + '</td>' +
-          '<td data-th="Precio">' + money(k.precio) + '</td><td data-th="Stock">' + stockCell + '</td>' +
+          '<td data-th="Precio">' + money(k.precio) +
+            (Number(k.costo) ? '<br><span class="sub">gana ' + money(gananciaUnidad(k)) + ' · ' + margenPct(k) + '%</span>' : '') +
+            (Number(k.precioMayor) ? '<br><span class="sub">colegas ' + money(k.precioMayor) + '</span>' : '') + '</td>' +
+          '<td data-th="Stock">' + stockCell + '</td>' +
           '<td data-th=""><div class="acc-tabla"><button class="btn btn-sec btn-mini" onclick="abrirModalCatalogo(\'' + k.id + '\')">Editar</button>' +
           '<button class="btn btn-peligro btn-mini" onclick="borrarCatalogo(\'' + k.id + '\')">Borrar</button></div></td></tr>';
       }).join('') + '</tbody></table>';
   }
+}
+/* Lo que deja cada unidad. El margen se calcula sobre la venta (no sobre el
+   costo): es como se lee en cualquier negocio —"de cada S/100 que entran,
+   S/46 son ganancia"— y evita los porcentajes infladísimos del otro cálculo. */
+function gananciaUnidad(k, precio) {
+  const p = Number(precio != null ? precio : k.precio || 0);
+  return p - Number(k.costo || 0);
+}
+function margenPct(k, precio) {
+  const p = Number(precio != null ? precio : k.precio || 0);
+  return p ? Math.round(gananciaUnidad(k, p) / p * 100) : 0;
+}
+function pintarMargenCatalogo() {
+  const cont = document.getElementById('k-margen');
+  if (!cont) return;
+  const precio = Number(document.getElementById('k-precio').value || 0);
+  const costo  = Number(document.getElementById('k-costo').value || 0);
+  const mayor  = Number(document.getElementById('k-mayor').value || 0);
+  if (!costo || !precio) { cont.innerHTML = ''; return; }
+  const k = { precio, costo };
+  const linea = (etiqueta, p) => '<div style="display:flex;justify-content:space-between;gap:10px">' +
+    '<span>' + etiqueta + '</span><b>' + money(gananciaUnidad(k, p)) + ' · ' + margenPct(k, p) + '%</b></div>';
+  cont.innerHTML = '<div class="aviso" style="border-left-color:var(--success);background:var(--success-bg);margin-top:12px">' +
+    '<b>Le queda por unidad</b>' + linea('Vendiendo al paciente', precio) +
+    (mayor ? linea('Vendiendo a un colega', mayor) : '') +
+    (costo >= precio ? '<div class="sub" style="color:var(--danger);margin-top:4px">⚠️ El costo es igual o mayor que el precio: estaría perdiendo.</div>' : '') +
+  '</div>';
 }
 function llenarCategorias(tipo, sel) {
   document.getElementById('k-categoria').innerHTML = CATEGORIAS[tipo].map(c => '<option' + (c===sel?' selected':'') + '>' + c + '</option>').join('');
@@ -2295,6 +2357,9 @@ function abrirModalCatalogo(id) {
   document.getElementById('k-unidad').value = k ? (k.unidad||'') : '';
   document.getElementById('k-stock').value = k ? (k.stock||'') : '';
   document.getElementById('k-stockmin').value = k ? (k.stockMin||'') : '';
+  document.getElementById('k-costo').value = k ? (k.costo||'') : '';
+  document.getElementById('k-mayor').value = k ? (k.precioMayor||'') : '';
+  pintarMargenCatalogo();
   document.getElementById('modal-catalogo').dataset.editando = id || '';
   document.getElementById('modal-catalogo').classList.remove('oculto');
   document.getElementById('k-nombre').focus();
@@ -2314,6 +2379,8 @@ function guardarCatalogo() {
     datos.unidad = document.getElementById('k-unidad').value.trim();
     datos.stock = document.getElementById('k-stock').value || 0;
     datos.stockMin = document.getElementById('k-stockmin').value || 0;
+    datos.costo = document.getElementById('k-costo').value || 0;
+    datos.precioMayor = document.getElementById('k-mayor').value || 0;
   }
   const idEdit = document.getElementById('modal-catalogo').dataset.editando;
   if (idEdit) Object.assign(db.catalogo.find(x => x.id === idEdit), datos);
@@ -2340,16 +2407,20 @@ function cargarCatalogoDr() {
     { nombre:'Apéndice',         categoria:'Cirugía' },
     { nombre:'Vesícula',         categoria:'Cirugía' }
   ];
+  /* Lista real del Dr. `precio` = lo que paga el paciente; `precioMayor` = lo que
+     paga un colega que revende. El COSTO no está en su tabla —los S/200 de
+     "precio compra DRS" son la venta a colegas, no lo que a él le cuesta— así
+     que entra vacío y el sistema lo reclama hasta que se cargue. */
   const productos = [
-    { nombre:'Proteína polvo vainilla 1.5kg',    categoria:'Suplemento', precio:280, unidad:'bolsa' },
-    { nombre:'Proteína polvo chocolate 1.5kg',   categoria:'Suplemento', precio:280, unidad:'bolsa' },
-    { nombre:'Proteína líquida fresa 1L',        categoria:'Suplemento', precio:200, unidad:'botella' },
-    { nombre:'Proteína líquida maracumango 1L',  categoria:'Suplemento', precio:200, unidad:'botella' },
-    { nombre:'Gomitas multivitamin 90u',         categoria:'Vitamina',   precio:150, unidad:'frasco' },
-    { nombre:'Gomitas biotina 90u',              categoria:'Vitamina',   precio:150, unidad:'frasco' },
-    { nombre:'Gomitas hierro + vitamina C 30u',  categoria:'Vitamina',   precio:150, unidad:'frasco' },
-    { nombre:'Gomitas B12 + ácido fólico 90u',   categoria:'Vitamina',   precio:150, unidad:'frasco' },
-    { nombre:'Fibra soluble 320g',               categoria:'Suplemento', precio:85,  unidad:'bolsa' }
+    { nombre:'Proteína polvo vainilla 1.5kg',    categoria:'Suplemento', precio:280, mayor:200, unidad:'bolsa' },
+    { nombre:'Proteína polvo chocolate 1.5kg',   categoria:'Suplemento', precio:280, mayor:200, unidad:'bolsa' },
+    { nombre:'Proteína líquida fresa 1L',        categoria:'Suplemento', precio:200, mayor:140, unidad:'botella' },
+    { nombre:'Proteína líquida maracumango 1L',  categoria:'Suplemento', precio:200, mayor:140, unidad:'botella' },
+    { nombre:'Gomitas multivitamin 90u',         categoria:'Vitamina',   precio:150, mayor:100, unidad:'frasco' },
+    { nombre:'Gomitas biotina 90u',              categoria:'Vitamina',   precio:150, mayor:100, unidad:'frasco' },
+    { nombre:'Gomitas hierro + vitamina C 30u',  categoria:'Vitamina',   precio:150, mayor:100, unidad:'frasco' },
+    { nombre:'Gomitas B12 + ácido fólico 90u',   categoria:'Vitamina',   precio:150, mayor:100, unidad:'frasco' },
+    { nombre:'Fibra soluble 320g',               categoria:'Suplemento', precio:85,  mayor:60,  unidad:'bolsa' }
   ];
   const existe = (tipo, nombre) => db.catalogo.some(k => k.tipo === tipo && k.nombre.trim().toLowerCase() === nombre.trim().toLowerCase());
   let nuevos = 0;
@@ -2361,13 +2432,17 @@ function cargarCatalogoDr() {
   productos.forEach(p => {
     if (existe('producto', p.nombre)) return;
     db.catalogo.push({ id:nuevoId(), tipo:'producto', nombre:p.nombre, categoria:p.categoria, marca:'B&N',
-      unidad:p.unidad, precio:p.precio, stock:0, stockMin:5, activo:true });
+      unidad:p.unidad, precio:p.precio, precioMayor:p.mayor, costo:0, stock:0, stockMin:5, activo:true });
     nuevos++;
   });
   guardar();
   cambiarCatalogo(catTipo);
   alert(nuevos
-    ? 'Se agregaron ' + nuevos + (nuevos===1?' ítem':' ítems') + ' al catálogo.\n\n• Los 8 servicios quedaron SIN precio — edítalos cuando el Dr. te los pase.\n• Los 9 suplementos entraron con su precio de venta y stock en 0.'
+    ? 'Se agregaron ' + nuevos + (nuevos===1?' ítem':' ítems') + ' al catálogo.\n\n' +
+      '• Los 8 servicios quedaron SIN precio — edítalos cuando el Dr. te los pase.\n' +
+      '• Los 9 suplementos entraron con su precio al paciente y su precio a colegas.\n' +
+      '• Falta el STOCK (entró en 0): regístralo desde Stock → Registrar entrada.\n' +
+      '• Falta el COSTO de cada uno: sin eso el sistema sabe cuánto se vendió, pero no cuánto se ganó.'
     : 'La lista ya estaba cargada. No se agregó nada nuevo.');
 }
 
@@ -2953,6 +3028,11 @@ function abrirModalVenta(pacienteId) {
   pintarPacienteElegido();
   document.getElementById('v-item-buscar').value = '';
   document.getElementById('v-item-lista').classList.add('oculto');
+  // El selector de lista solo estorba si el Dr. no vende a colegas
+  const hayMayorista = db.catalogo.some(k => Number(k.precioMayor) > 0);
+  document.getElementById('v-listas').classList.toggle('oculto', !hayMayorista);
+  listaPrecio = 'paciente';
+  if (hayMayorista) cambiarListaPrecio('paciente');
   document.getElementById('v-descuento').value = 0;
   document.getElementById('v-nota').value = '';
   document.getElementById('v-pago').value = 'Efectivo';
@@ -3007,7 +3087,7 @@ function buscarItemVenta() {
       (agotado ? '' : ' onmousedown="elegirItemVenta(\'' + k.id + '\')"') + '>' +
       '<div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline">' +
         '<b>' + esc(k.nombre) + '</b>' +
-        '<b style="white-space:nowrap">' + money(k.precio) + '</b>' +
+        '<b style="white-space:nowrap">' + money(precioSegunLista(k)) + '</b>' +
       '</div>' +
       '<small>' + detalle + (agotado ? ' — no se puede cobrar' : '') + '</small></div>';
   }).join('');
@@ -3018,12 +3098,34 @@ function elegirItemVenta(id) {
   document.getElementById('v-item-buscar').value = '';
   document.getElementById('v-item-lista').classList.add('oculto');
 }
+/* A quién se le vende decide el precio: el paciente paga la lista normal, un
+   colega que revende paga la de mayorista. Son dos listas reales del negocio,
+   no un descuento a ojo. */
+let listaPrecio = 'paciente';
+function precioSegunLista(k) {
+  const mayor = Number(k.precioMayor || 0);
+  return listaPrecio === 'colega' && mayor > 0 ? mayor : Number(k.precio || 0);
+}
+function cambiarListaPrecio(cual) {
+  listaPrecio = cual;
+  document.getElementById('lista-paciente').classList.toggle('sel', cual === 'paciente');
+  document.getElementById('lista-colega').classList.toggle('sel', cual === 'colega');
+  // Lo que ya está en el carrito se reprecia, si no quedaría mezclado
+  carrito.forEach(i => {
+    const k = db.catalogo.find(x => x.id === i.catalogoId);
+    if (k) i.precio = precioSegunLista(k);
+  });
+  pintarCarrito();
+}
 function agregarPorId(catalogoId) {
   const k = db.catalogo.find(x => x.id === catalogoId);
   if (!k) return;
   const ya = carrito.find(i => i.catalogoId === k.id);
   if (ya) ya.cant++;
-  else carrito.push({ catalogoId: k.id, nombre: k.nombre, tipo: k.tipo, categoria: k.categoria || '', precio: Number(k.precio), cant: 1 });
+  // El costo se copia en la venta: si mañana sube, la ganancia de esta venta
+  // no puede cambiar sola. Un reporte del mes pasado tiene que dar siempre igual.
+  else carrito.push({ catalogoId: k.id, nombre: k.nombre, tipo: k.tipo, categoria: k.categoria || '',
+                      precio: precioSegunLista(k), costo: Number(k.costo || 0), cant: 1 });
   pintarCarrito();
 }
 
@@ -3460,18 +3562,32 @@ function pintarReportes() {
 
   // Ingresos separando lo que deja el consultorio (servicios) de lo que deja la marca B&N (productos)
   let porServicios = 0, porProductos = 0;
+  // Lo que costó la mercadería vendida, para saber la ganancia y no solo la venta
+  let costoTotal = 0, ventaConCosto = 0, unidadesSinCosto = 0;
   const porItem = {}, porCategoria = {};
   ventas.forEach(v => {
     const ratio = totalVenta(v) / (v.items.reduce((s,i) => s + i.precio * i.cant, 0) || 1); // reparte el descuento
     v.items.forEach(i => {
       const monto = i.precio * i.cant * ratio;
       if (i.tipo === 'servicio') porServicios += monto; else porProductos += monto;
-      const k = porItem[i.nombre] || (porItem[i.nombre] = { nombre: i.nombre, tipo: i.tipo, cant: 0, monto: 0 });
+      const k = porItem[i.nombre] || (porItem[i.nombre] = { nombre: i.nombre, tipo: i.tipo, cant: 0, monto: 0, costo: 0, conCosto: 0 });
       k.cant += i.cant; k.monto += monto;
       const c = i.categoria || 'Sin categoría';
       porCategoria[c] = (porCategoria[c] || 0) + monto;
+      // Solo entra al cálculo lo que tiene costo: mezclar sin costo inflaría la ganancia
+      const costoUnit = Number(i.costo || 0);
+      if (i.tipo === 'producto') {
+        if (costoUnit > 0) {
+          costoTotal += costoUnit * i.cant;
+          ventaConCosto += monto;
+          k.costo += costoUnit * i.cant;
+          k.conCosto += monto;
+        } else unidadesSinCosto += i.cant;
+      }
     });
   });
+  const ganancia = ventaConCosto - costoTotal;
+  const margen = ventaConCosto ? Math.round(ganancia / ventaConCosto * 100) : 0;
 
   // Citas del rango (por eso el reporte no depende solo de las ventas)
   const citas = db.citas.filter(c => c.fecha >= f.desde && c.fecha <= f.hasta);
@@ -3511,6 +3627,28 @@ function pintarReportes() {
       '<div style="display:flex;justify-content:space-between;margin-top:12px"><b>Productos (suplementos B&amp;N)</b><b>' + money(porProductos) + '</b></div>' + barra(porProductos, total) +
     '</div>' +
 
+    // Vender no es ganar: esta es la cifra que le dice al Dr. si el negocio de
+    // suplementos vale la pena, no el total facturado.
+    (ventaConCosto || unidadesSinCosto
+      ? '<h2>Cuánto deja la marca B&amp;N</h2>' +
+        '<div class="tarjeta">' +
+          (ventaConCosto
+            ? '<div class="grid-datos" style="margin-bottom:10px">' +
+                '<div class="dato"><small>Vendido en suplementos</small><b>' + money(ventaConCosto) + '</b></div>' +
+                '<div class="dato"><small>Le costó</small><b style="color:var(--danger)">' + money(costoTotal) + '</b></div>' +
+                '<div class="dato"><small>Ganancia</small><b style="color:var(--success)">' + money(ganancia) + '</b></div>' +
+                '<div class="dato"><small>Margen</small><b>' + margen + '%</b></div>' +
+              '</div>' +
+              '<div class="sub">De cada S/ 100 que entran por suplementos, <b>S/ ' + margen + '</b> son ganancia.</div>'
+            : '') +
+          (unidadesSinCosto
+            ? '<div class="aviso aviso-amarillo" style="margin:' + (ventaConCosto ? '12px 0 0' : '0') + '">⚠️ <b>' +
+              unidadesSinCosto + '</b> ' + plural(unidadesSinCosto,'unidad vendida no tiene','unidades vendidas no tienen') +
+              ' costo cargado, así que no entran en este cálculo. Complétalo en <b>⚙️ Precios</b>.</div>'
+            : '') +
+        '</div>'
+      : '') +
+
     '<h2>Ingresos por categoría</h2>' +
     (Object.keys(porCategoria).length
       ? '<table class="tabla tarjetas"><thead><tr><th>Categoría</th><th>Ingresos</th><th>%</th></tr></thead><tbody>' +
@@ -3521,10 +3659,14 @@ function pintarReportes() {
 
     '<h2>Más vendidos</h2>' +
     (topItems.length
-      ? '<table class="tabla tarjetas"><thead><tr><th>#</th><th>Ítem</th><th>Tipo</th><th>Cantidad</th><th>Ingresos</th></tr></thead><tbody>' +
+      ? '<table class="tabla tarjetas"><thead><tr><th>#</th><th>Ítem</th><th>Tipo</th><th>Cantidad</th><th>Ingresos</th><th>Ganancia</th></tr></thead><tbody>' +
         topItems.map((i,n) => '<tr><td data-th="Puesto">' + (n+1) + '</td><td data-th="Ítem"><b>' + esc(i.nombre) + '</b></td>' +
           '<td data-th="Tipo">' + (i.tipo==='producto' ? '<span class="chip chip-verde">Producto</span>' : '<span class="chip chip-azul">Servicio</span>') + '</td>' +
-          '<td data-th="Cantidad"><b>' + i.cant + '</b></td><td data-th="Ingresos">' + money(i.monto) + '</td></tr>').join('') + '</tbody></table>'
+          '<td data-th="Cantidad"><b>' + i.cant + '</b></td><td data-th="Ingresos">' + money(i.monto) + '</td>' +
+          '<td data-th="Ganancia">' + (i.conCosto
+            ? '<b style="color:var(--success)">' + money(i.conCosto - i.costo) + '</b> <span class="sub">' +
+              Math.round((i.conCosto - i.costo) / i.conCosto * 100) + '%</span>'
+            : '<span class="sub">—</span>') + '</td></tr>').join('') + '</tbody></table>'
       : '<div class="vacio">Sin ventas en este rango.</div>') +
 
     htmlPatologias(f) +
