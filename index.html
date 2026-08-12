@@ -639,6 +639,7 @@
   <section id="sec-config" class="oculto">
     <div class="barra">
       <button class="btn" id="btn-cfg-precios" onclick="cambiarConfig('precios')">💲 Precios</button>
+      <button class="btn btn-sec" id="btn-cfg-promos" onclick="cambiarConfig('promos')">🏷 Promociones</button>
       <button class="btn btn-sec" id="btn-cfg-usuarios" onclick="cambiarConfig('usuarios')">👥 Usuarios</button>
       <button class="btn btn-sec" id="btn-cfg-datos" onclick="cambiarConfig('datos')">💾 Datos</button>
     </div>
@@ -653,6 +654,17 @@
         <button class="btn" onclick="abrirModalCatalogo()">+ Nuevo</button>
       </div>
       <div id="lista-catalogo"></div>
+    </div>
+
+    <!-- Las promociones las define el dueño, no se improvisan en el mostrador:
+         recepción solo puede aplicar lo que esté cargado y vigente aquí. -->
+    <div id="cfg-promos" class="oculto">
+      <div class="sub" style="margin-bottom:10px">Los descuentos que recepción puede aplicar en caja. <b>Si no hay ninguna cargada, recepción no puede descontar nada.</b></div>
+      <div class="barra">
+        <span style="flex:1"></span>
+        <button class="btn" onclick="abrirModalPromo()">+ Nueva promoción</button>
+      </div>
+      <div id="lista-promos"></div>
     </div>
 
     <div id="cfg-usuarios" class="oculto">
@@ -949,8 +961,13 @@
       <div><label>Método de pago</label>
         <select id="v-pago"><option>Efectivo</option><option>Yape / Plin</option><option>Tarjeta</option><option>Transferencia</option></select>
       </div>
-      <div><label>Descuento (S/)</label><input id="v-descuento" type="number" min="0" step="0.5" value="0" oninput="pintarCarrito()"></div>
+      <!-- El descuento no se escribe a mano: se elige entre las promociones que
+           el doctor dejó cargadas y vigentes. Así nadie regala plata en el mostrador. -->
+      <div><label>Promoción</label>
+        <select id="v-promo" onchange="pintarCarrito()"><option value="">Sin descuento</option></select>
+      </div>
     </div>
+    <div id="v-promo-ayuda" class="sub"></div>
 
     <div class="bloque-opcional">
       <label style="margin-top:0">¿Es paciente del consultorio? <span class="sub" style="font-weight:400">— opcional</span></label>
@@ -1022,6 +1039,58 @@
   </div>
 </div>
 
+<!-- ============ MODAL PROMOCIÓN ============ -->
+<div id="modal-promo" class="fondo-modal oculto">
+  <div class="modal">
+    <h3 id="titulo-modal-promo">Nueva promoción</h3>
+    <div class="sub" style="margin-bottom:12px">Recepción la verá como una opción en la venta. No podrá cambiarle el monto.</div>
+
+    <label>Nombre de la promoción *</label>
+    <input id="pr-nombre" placeholder="Ej: 10% aniversario / Oferta proteína de agosto">
+    <div class="sub">Este nombre sale impreso en el ticket del paciente.</div>
+
+    <label style="margin-top:14px">¿A qué se le aplica?</label>
+    <div class="canales">
+      <button type="button" class="canal sel" id="pr-alc-total" onclick="cambiarAlcancePromo('total')">A toda la venta</button>
+      <button type="button" class="canal" id="pr-alc-producto" onclick="cambiarAlcancePromo('producto')">A un producto</button>
+    </div>
+
+    <div id="pr-bloque-producto" class="oculto">
+      <label>¿Cuál producto?</label>
+      <select id="pr-catalogo" onchange="pintarEjemploPromo()"></select>
+      <div class="sub">La promoción solo aparecerá en caja si ese producto está en la venta.</div>
+    </div>
+
+    <div class="fila-2" style="margin-top:14px">
+      <div><label>Tipo de descuento</label>
+        <select id="pr-tipo" onchange="pintarEjemploPromo()">
+          <option value="porcentaje">Porcentaje (%)</option>
+          <option value="monto">Monto fijo (S/)</option>
+        </select>
+      </div>
+      <div><label>Valor *</label>
+        <input id="pr-valor" type="number" min="0" step="0.5" placeholder="Ej: 10" oninput="pintarEjemploPromo()">
+      </div>
+    </div>
+    <div id="pr-ejemplo"></div>
+
+    <!-- Vigencia: una oferta "del mes" se apaga sola. Si no, alguien la sigue
+         aplicando en diciembre porque nadie se acordó de desactivarla. -->
+    <div class="fila-2" style="margin-top:14px">
+      <div><label>Vigente desde <span class="sub" style="font-weight:400">— opcional</span></label>
+        <input id="pr-desde" type="date"></div>
+      <div><label>Vigente hasta <span class="sub" style="font-weight:400">— opcional</span></label>
+        <input id="pr-hasta" type="date"></div>
+    </div>
+    <div class="sub">Déjalas vacías si la promoción no tiene fecha de fin. Al pasar la fecha, deja de aparecer en caja sola.</div>
+
+    <div class="acciones">
+      <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
+      <button class="btn" onclick="guardarPromo()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============ MODAL TICKET (MÓDULO 6) ============ -->
 <div id="modal-ticket" class="fondo-modal oculto">
   <div class="modal" style="max-width:340px">
@@ -1058,7 +1127,7 @@ const USUARIOS_INICIALES = [
   { id: 'u-recepcion', nombre: 'Recepción', rol: 'recepcion', pin: '1234' },
   { id: 'u-doctor', nombre: 'Dr. Arredondo', rol: 'doctor', pin: '4321' }
 ];
-let db = { pacientes: [], citas: [], catalogo: [], ventas: [], movimientos: [], atenciones: [], ordenes: [], controles: [], usuarios: [], config: { correlativo: 1, negocio: NEGOCIO } };
+let db = { pacientes: [], citas: [], catalogo: [], ventas: [], movimientos: [], atenciones: [], ordenes: [], controles: [], usuarios: [], promos: [], config: { correlativo: 1, negocio: NEGOCIO } };
 
 function cargar() {
   try {
@@ -1073,6 +1142,7 @@ function cargar() {
   db.atenciones = db.atenciones || [];
   db.ordenes = db.ordenes || [];
   db.controles = db.controles || [];
+  db.promos = db.promos || [];
   // Si nunca se crearon usuarios, se siembran los dos de fábrica (PIN 1234 / 4321 — cambiarlos)
   db.usuarios = (db.usuarios && db.usuarios.length) ? db.usuarios : USUARIOS_INICIALES.map(u => ({ ...u }));
   db.config = db.config || { correlativo: 1, negocio: NEGOCIO };
@@ -1091,7 +1161,7 @@ function guardar() {
   localStorage.setItem(CLAVE, txt);
   selloDisco = txt;
 }
-const COLECCIONES = ['pacientes','citas','catalogo','ventas','movimientos','atenciones','ordenes','controles','usuarios'];
+const COLECCIONES = ['pacientes','citas','catalogo','ventas','movimientos','atenciones','ordenes','controles','usuarios','promos'];
 function fusionarConDisco(disco) {
   COLECCIONES.forEach(c => {
     const map = new Map((disco[c] || []).map(x => [x.id, x]));
@@ -2977,9 +3047,59 @@ let controlTrasCobrar = null;  // control que hay que agendar apenas termine el 
 function horaAhora() { const d = new Date(); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
 function totalVenta(v) { return v.items.reduce((s,i) => s + Number(i.precio) * Number(i.cant), 0) - Number(v.descuento || 0); }
 
+/* ================== PROMOCIONES ==================
+   El descuento dejó de escribirse a mano. El doctor carga aquí las ofertas del
+   mes y recepción solo puede elegir entre esas. Dos consecuencias buscadas:
+   nadie regala plata en el mostrador, y en reportes se ve qué promoción movió
+   ventas de verdad —antes todo era "descuento" sin nombre. */
+function promoVigente(pr, fecha) {
+  if (!pr || pr.activa === false) return false;
+  const f = fecha || hoyStr();
+  if (pr.desde && f < pr.desde) return false;
+  if (pr.hasta && f > pr.hasta) return false;
+  return true;
+}
+/* Cuánto descuenta esta promoción sobre ESTE carrito. Devuelve 0 si no aplica:
+   una oferta de proteína no descuenta nada si no hay proteína en la venta. */
+function descuentoDePromo(pr, items) {
+  if (!pr) return 0;
+  const valor = Number(pr.valor || 0);
+  if (valor <= 0) return 0;
+  const bruto = items.reduce((s,i) => s + Number(i.precio) * Number(i.cant), 0);
+
+  if (pr.alcance === 'producto') {
+    const linea = items.filter(i => i.catalogoId === pr.catalogoId);
+    if (!linea.length) return 0;
+    const base = linea.reduce((s,i) => s + Number(i.precio) * Number(i.cant), 0);
+    const unidades = linea.reduce((s,i) => s + Number(i.cant), 0);
+    // El monto fijo es POR UNIDAD: "S/10 menos en proteína" y se lleva 3 → S/30.
+    // El tope evita que el producto termine costando menos que cero.
+    const d = pr.tipo === 'monto' ? valor * unidades : base * valor / 100;
+    return Math.min(redondeo(d), base);
+  }
+  const d = pr.tipo === 'monto' ? valor : bruto * valor / 100;
+  return Math.min(redondeo(d), bruto);
+}
+function redondeo(n) { return Math.round(Number(n || 0) * 100) / 100; }
+/* Qué promociones puede ofrecer recepción ahora mismo: vigentes hoy y que de
+   verdad descuenten algo sobre lo que hay en el carrito. */
+function promosParaCarrito(items) {
+  return db.promos.filter(pr => promoVigente(pr) && descuentoDePromo(pr, items) > 0);
+}
+function textoPromo(pr) {
+  const v = Number(pr.valor || 0);
+  const cuanto = pr.tipo === 'monto' ? money(v) : v + '%';
+  if (pr.alcance === 'producto') {
+    const k = db.catalogo.find(x => x.id === pr.catalogoId);
+    return cuanto + ' en ' + (k ? k.nombre : '(producto eliminado)') +
+           (pr.tipo === 'monto' ? ' por unidad' : '');
+  }
+  return cuanto + ' de toda la venta';
+}
+
 /* Toda venta pasa por aquí: se cobre desde la caja, al agendar o al salir del
    consultorio. Así el correlativo, el stock y los pendientes siempre cuadran. */
-function registrarVenta({ pacienteId, items, metodoPago, nota, descuento, ordenId, citaId, lista }) {
+function registrarVenta({ pacienteId, items, metodoPago, nota, descuento, ordenId, citaId, lista, promoId, promoNombre }) {
   const venta = {
     id: nuevoId(),
     numero: db.config.correlativo++,
@@ -2991,6 +3111,8 @@ function registrarVenta({ pacienteId, items, metodoPago, nota, descuento, ordenI
     lista: lista === 'colega' ? 'colega' : 'paciente',
     items: items.map(i => ({ ...i })),
     descuento: Number(descuento) || 0,
+    promoId: promoId || '',
+    promoNombre: promoNombre || '',
     metodoPago: metodoPago || 'Efectivo',
     nota: nota || '',
     usuarioId: sesion ? sesion.id : '',
@@ -3043,7 +3165,7 @@ function abrirModalVenta(pacienteId) {
   document.getElementById('v-listas').classList.remove('oculto');
   listaPrecio = 'paciente';
   cambiarListaPrecio('paciente');
-  document.getElementById('v-descuento').value = 0;
+  document.getElementById('v-promo').value = '';
   document.getElementById('v-nota').value = '';
   document.getElementById('v-pago').value = 'Efectivo';
   pintarCarrito();
@@ -3227,15 +3349,41 @@ function faltaStock() {
     return out;
   }, []);
 }
+/* Rearma la lista de promociones cada vez que cambia el carrito: una oferta de
+   proteína tiene que aparecer al agregar proteína y desaparecer al quitarla.
+   Devuelve la promoción elegida y cuánto descuenta. */
+function refrescarPromosVenta() {
+  const sel = document.getElementById('v-promo');
+  const ayuda = document.getElementById('v-promo-ayuda');
+  const elegida = sel.value;
+  const disponibles = promosParaCarrito(carrito);
+  sel.innerHTML = '<option value="">Sin descuento</option>' +
+    disponibles.map(pr => '<option value="' + pr.id + '">' + esc(pr.nombre) +
+      ' · ' + esc(textoPromo(pr)) + '</option>').join('');
+  // Si la que estaba elegida dejó de aplicar (quitaron el producto), se cae sola
+  sel.value = disponibles.some(pr => pr.id === elegida) ? elegida : '';
+  sel.disabled = !disponibles.length;
+
+  const hayCargadas = db.promos.some(pr => promoVigente(pr));
+  ayuda.innerHTML = disponibles.length ? ''
+    : (!db.promos.length
+        ? 'No hay promociones cargadas. Las define el Dr. en <b>Configuración → 🏷 Promociones</b>.'
+        : hayCargadas
+          ? 'Ninguna promoción vigente aplica a lo que hay en esta venta.'
+          : 'Las promociones cargadas están vencidas o desactivadas.');
+
+  const promo = disponibles.find(pr => pr.id === sel.value) || null;
+  return { promo, desc: promo ? descuentoDePromo(promo, carrito) : 0 };
+}
 function pintarCarrito() {
   const cont = document.getElementById('v-carrito');
   const btn = document.getElementById('btn-cobrar');
+  const { promo, desc } = refrescarPromosVenta();
   if (!carrito.length) {
     cont.innerHTML = '<div class="vacio" style="padding:16px">Aún no agregas nada a la venta.</div>';
     btn.disabled = true; btn.textContent = 'Cobrar y guardar';
     return;
   }
-  const desc = Number(document.getElementById('v-descuento').value || 0);
   const bruto = carrito.reduce((s,i) => s + i.precio * i.cant, 0);
   const faltan = faltaStock();
   // Vendiendo a distribuidor, lo que no tenga precio distribuidor se está
@@ -3259,7 +3407,9 @@ function pintarCarrito() {
       '<b style="min-width:80px;text-align:right">' + money(i.precio * i.cant) + '</b>' +
       '<button class="btn btn-peligro btn-mini" onclick="quitarDelCarrito(\'' + i.catalogoId + '\')">✕</button></div>';
   }).join('') +
-  (desc > 0 ? '<div class="carrito-item"><span class="nom sub">Descuento</span><b style="color:var(--danger)">− ' + money(desc) + '</b></div>' : '') +
+  (desc > 0 ? '<div class="carrito-item"><span class="nom sub">🏷 ' + esc(promo.nombre) +
+      '<br><span class="sub">' + esc(textoPromo(promo)) + '</span></span>' +
+      '<b style="color:var(--danger)">− ' + money(desc) + '</b></div>' : '') +
   '<div class="total-venta"><span>TOTAL' + (listaPrecio === 'colega' ? ' <span class="chip chip-morado">Distribuidor</span>' : '') + '</span><span>' + money(bruto - desc) + '</span></div>' +
   (sinMayor.length
     ? '<div class="aviso aviso-amarillo" style="margin:10px 0 0">💡 <b>' +
@@ -3267,7 +3417,7 @@ function pintarCarrito() {
         'así que va al precio de venta normal: ' +
         sinMayor.map(i => esc(i.nombre)).join(', ') + '.' +
         '<div class="sub" style="margin-top:6px">Cárgalo en <b>⚙️ Precios</b> y no habrá que ajustarlo a mano cada vez. ' +
-        'Mientras tanto puedes usar el campo <b>Descuento</b>; la venta igual queda marcada como distribuidor.</div>' +
+        'La venta igual queda marcada como distribuidor.</div>' +
       '</div>'
     : '') +
   // No se puede cobrar lo que no se puede entregar: se avisa aquí, no al final
@@ -3285,9 +3435,9 @@ function pintarCarrito() {
 }
 function guardarVenta() {
   if (!carrito.length) { alert('Agrega al menos un servicio o producto.'); return; }
-  const desc = Number(document.getElementById('v-descuento').value || 0);
-  const bruto = carrito.reduce((s,i) => s + i.precio * i.cant, 0);
-  if (desc > bruto) { alert('El descuento no puede ser mayor que el total.'); return; }
+  // El descuento se recalcula aquí, no se lee de la pantalla: lo que se cobra
+  // tiene que salir de la promoción, no de un número que alguien pudo tocar.
+  const { promo, desc } = refrescarPromosVenta();
   // No se cobra lo que no hay: entregarían menos de lo que el paciente pagó
   const sinStock = faltaStock();
   if (sinStock.length) {
@@ -3304,6 +3454,10 @@ function guardarVenta() {
     metodoPago: document.getElementById('v-pago').value,
     nota: document.getElementById('v-nota').value.trim(),
     lista: listaPrecio,
+    // El nombre se copia, no se referencia: si el Dr. borra la promo el mes que
+    // viene, el ticket de hoy tiene que seguir diciendo con cuál se cobró
+    promoId: promo ? promo.id : '',
+    promoNombre: promo ? promo.nombre : '',
     ordenId: ordenCobrando,
     citaId: citaCobrando
   });
@@ -3487,7 +3641,8 @@ function pintarVentas() {
         '<td data-th="Fecha">' + fechaBonita(v.fecha) + ' <span class="sub">' + v.hora + '</span></td>' +
         '<td data-th="Cliente">' + esc(nombreEnVenta(v)) +
           (v.lista === 'colega' ? ' <span class="chip chip-morado">Distribuidor</span>' : '') + '</td>' +
-        '<td data-th="Detalle" class="sub">' + v.items.map(i => i.cant + '× ' + esc(i.nombre)).join('<br>') + '</td>' +
+        '<td data-th="Detalle" class="sub">' + v.items.map(i => i.cant + '× ' + esc(i.nombre)).join('<br>') +
+          (v.promoNombre ? '<br><span class="chip chip-naranja">🏷 ' + esc(v.promoNombre) + '</span>' : '') + '</td>' +
         '<td data-th="Total"><b>' + money(totalVenta(v)) + '</b> <span class="sub">' + esc(v.metodoPago||'') + '</span></td>' +
         '<td data-th="Registró" class="sub">' + esc(v.usuarioNombre || '—') + '</td>' +
         '<td data-th=""><div class="acc-tabla"><button class="btn btn-sec btn-mini" onclick="verTicket(\'' + v.id + '\')">🖨 Ticket</button>' +
@@ -3520,7 +3675,7 @@ function verTicket(id) {
     '<hr>' +
     '<table>' +
       (v.descuento > 0 ? '<tr><td>Subtotal</td><td class="der">' + bruto.toFixed(2) + '</td></tr>' +
-        '<tr><td>Descuento</td><td class="der">-' + Number(v.descuento).toFixed(2) + '</td></tr>' : '') +
+        '<tr><td>' + esc(v.promoNombre || 'Descuento') + '</td><td class="der">-' + Number(v.descuento).toFixed(2) + '</td></tr>' : '') +
       '<tr><td><b>TOTAL S/</b></td><td class="der"><b>' + totalVenta(v).toFixed(2) + '</b></td></tr>' +
       '<tr><td>Pago</td><td class="der">' + esc(v.metodoPago || '') + '</td></tr>' +
     '</table>' +
@@ -3642,6 +3797,20 @@ function pintarReportes() {
   const porPago = {};
   ventas.forEach(v => { porPago[v.metodoPago || '—'] = (porPago[v.metodoPago || '—'] || 0) + totalVenta(v); });
 
+  // Qué promoción movió ventas de verdad y cuánto costó: sin esto, una oferta
+  // se renueva "porque parecía que funcionaba"
+  const porPromo = {};
+  let descuentoTotal = 0;
+  ventas.forEach(v => {
+    const d = Number(v.descuento || 0);
+    if (d <= 0) return;
+    descuentoTotal += d;
+    const nom = v.promoNombre || 'Descuento sin promoción';
+    const p = porPromo[nom] || (porPromo[nom] = { n: 0, descontado: 0, vendido: 0 });
+    p.n++; p.descontado += d; p.vendido += totalVenta(v);
+  });
+  const listaPromos = Object.entries(porPromo).sort((a,b) => b[1].descontado - a[1].descontado);
+
 
   const topItems = Object.values(porItem).sort((a,b) => b.monto - a.monto);
   const barra = (parte, todo) => {
@@ -3684,6 +3853,21 @@ function pintarReportes() {
               ' costo cargado, así que no entran en este cálculo. Complétalo en <b>⚙️ Precios</b>.</div>'
             : '') +
         '</div>'
+      : '') +
+
+    (listaPromos.length
+      ? '<h2>Promociones</h2>' +
+        '<div class="tarjeta" style="margin-bottom:10px"><div class="sub">En este rango se dejaron de cobrar <b style="color:var(--danger)">' +
+          money(descuentoTotal) + '</b> por promociones — un <b>' +
+          (total + descuentoTotal ? Math.round(descuentoTotal / (total + descuentoTotal) * 100) : 0) +
+          '%</b> de lo que se habría facturado a precio de lista.</div></div>' +
+        '<table class="tabla tarjetas"><thead><tr><th>Promoción</th><th>Ventas</th><th>Descontado</th><th>Facturado igual</th></tr></thead><tbody>' +
+        listaPromos.map(([nom,p]) =>
+          '<tr><td data-th="Promoción"><b>🏷 ' + esc(nom) + '</b></td>' +
+          '<td data-th="Ventas"><b>' + p.n + '</b></td>' +
+          '<td data-th="Descontado"><b style="color:var(--danger)">' + money(p.descontado) + '</b></td>' +
+          '<td data-th="Facturado igual">' + money(p.vendido) + '</td></tr>').join('') +
+        '</tbody></table>'
       : '') +
 
     '<h2>Ingresos por categoría</h2>' +
@@ -3759,13 +3943,135 @@ function exportarReporte() {
 let cfgVista = 'precios';
 function cambiarConfig(v) {
   cfgVista = v;
-  ['precios','usuarios','datos'].forEach(x => {
+  ['precios','promos','usuarios','datos'].forEach(x => {
     document.getElementById('btn-cfg-' + x).style.cssText = v===x ? '' : 'background:#fff;color:#333;border:1px solid var(--border)';
     document.getElementById('cfg-' + x).classList.toggle('oculto', v !== x);
   });
   if (v === 'precios') pintarCatalogo();
+  if (v === 'promos') pintarPromos();
   if (v === 'usuarios') pintarUsuarios();
   if (v === 'datos') pintarDatos();
+}
+
+/* ---------- Configuración · Promociones ---------- */
+function pintarPromos() {
+  const hoy = hoyStr();
+  const lista = [...db.promos].sort((a,b) => (a.nombre||'').localeCompare(b.nombre||''));
+  document.getElementById('lista-promos').innerHTML = !lista.length
+    ? '<div class="vacio">Aún no hay promociones. Mientras no cargues ninguna, recepción cobra siempre el precio de lista.<br><br>' +
+      'Ejemplos de lo que puedes crear: <b>10% de toda la venta</b> en aniversario, o <b>S/20 menos en Proteína B&amp;N</b> durante agosto.</div>'
+    : '<table class="tabla tarjetas"><thead><tr><th>Promoción</th><th>Descuento</th><th>Vigencia</th><th>Estado</th><th></th></tr></thead><tbody>' +
+      lista.map(pr => {
+        const vence = pr.hasta && pr.hasta < hoy;
+        const futura = pr.desde && pr.desde > hoy;
+        const estado = pr.activa === false ? '<span class="chip chip-gris">Desactivada</span>'
+          : vence ? '<span class="chip chip-rojo">Vencida</span>'
+          : futura ? '<span class="chip chip-azul">Empieza el ' + fechaBonita(pr.desde) + '</span>'
+          : '<span class="chip chip-verde">Activa en caja</span>';
+        return '<tr' + (promoVigente(pr) ? '' : ' style="opacity:.6"') + '>' +
+          '<td data-th="Promoción"><b>' + esc(pr.nombre) + '</b></td>' +
+          '<td data-th="Descuento">' + esc(textoPromo(pr)) + '</td>' +
+          '<td data-th="Vigencia" class="sub">' +
+            (pr.desde || pr.hasta
+              ? (pr.desde ? fechaBonita(pr.desde) : 'siempre') + ' → ' + (pr.hasta ? fechaBonita(pr.hasta) : 'sin fin')
+              : 'Sin fecha de fin') + '</td>' +
+          '<td data-th="Estado">' + estado + '</td>' +
+          '<td data-th=""><div class="acc-tabla">' +
+            '<button class="btn btn-sec btn-mini" onclick="abrirModalPromo(\'' + pr.id + '\')">Editar</button>' +
+            '<button class="btn btn-sec btn-mini" onclick="alternarPromo(\'' + pr.id + '\')">' +
+              (pr.activa === false ? 'Activar' : 'Desactivar') + '</button>' +
+            '<button class="btn btn-peligro btn-mini" onclick="borrarPromo(\'' + pr.id + '\')">Eliminar</button>' +
+          '</div></td></tr>';
+      }).join('') + '</tbody></table>';
+}
+function abrirModalPromo(id) {
+  const pr = id ? db.promos.find(x => x.id === id) : null;
+  document.getElementById('titulo-modal-promo').textContent = pr ? 'Editar promoción' : 'Nueva promoción';
+  document.getElementById('modal-promo').dataset.editando = id || '';
+  // Solo productos: una promo sobre "Manga gástrica" no tiene sentido en caja
+  const prods = db.catalogo.filter(k => k.tipo === 'producto' && k.activo !== false)
+    .sort((a,b) => a.nombre.localeCompare(b.nombre));
+  document.getElementById('pr-catalogo').innerHTML = !prods.length
+    ? '<option value="">— No hay suplementos cargados —</option>'
+    : prods.map(k => '<option value="' + k.id + '">' + esc(k.nombre) + ' · ' + money(k.precio) + '</option>').join('');
+
+  document.getElementById('pr-nombre').value = pr ? pr.nombre : '';
+  document.getElementById('pr-tipo').value = pr ? (pr.tipo || 'porcentaje') : 'porcentaje';
+  document.getElementById('pr-valor').value = pr ? pr.valor : '';
+  document.getElementById('pr-desde').value = pr ? (pr.desde || '') : '';
+  document.getElementById('pr-hasta').value = pr ? (pr.hasta || '') : '';
+  cambiarAlcancePromo(pr ? (pr.alcance || 'total') : 'total');
+  if (pr && pr.catalogoId) document.getElementById('pr-catalogo').value = pr.catalogoId;
+  document.getElementById('modal-promo').classList.remove('oculto');
+}
+function cambiarAlcancePromo(cual) {
+  alcancePromo = cual;
+  document.getElementById('pr-alc-total').classList.toggle('sel', cual === 'total');
+  document.getElementById('pr-alc-producto').classList.toggle('sel', cual === 'producto');
+  document.getElementById('pr-bloque-producto').classList.toggle('oculto', cual !== 'producto');
+  pintarEjemploPromo();
+}
+let alcancePromo = 'total';
+/* Se ve el resultado en soles antes de guardar: "20%" no dice nada, "de S/280
+   pasa a S/224" sí. Evita cargar una promo que no era la que se pensaba. */
+function pintarEjemploPromo() {
+  const cont = document.getElementById('pr-ejemplo');
+  const tipo = document.getElementById('pr-tipo').value;
+  const valor = Number(document.getElementById('pr-valor').value || 0);
+  if (!valor) { cont.innerHTML = ''; return; }
+  if (alcancePromo === 'producto') {
+    const k = db.catalogo.find(x => x.id === document.getElementById('pr-catalogo').value);
+    if (!k) { cont.innerHTML = ''; return; }
+    const p = Number(k.precio || 0);
+    const d = Math.min(tipo === 'monto' ? valor : p * valor / 100, p);
+    cont.innerHTML = '<div class="aviso" style="margin-top:10px">' + esc(k.nombre) + ': de <b>' + money(p) +
+      '</b> pasa a <b>' + money(p - d) + '</b> por unidad.' +
+      (tipo === 'monto' ? '<div class="sub" style="margin-top:4px">Si se lleva 3, se descuentan ' + money(valor * 3) + '.</div>' : '') +
+      '</div>';
+    return;
+  }
+  cont.innerHTML = '<div class="aviso" style="margin-top:10px">' +
+    (tipo === 'monto'
+      ? 'Se descuentan <b>' + money(valor) + '</b> del total, sea cual sea la compra.'
+      : 'Una venta de <b>S/ 300</b> quedaría en <b>' + money(300 - 300 * valor / 100) + '</b>.') + '</div>';
+}
+function guardarPromo() {
+  const nombre = document.getElementById('pr-nombre').value.trim();
+  const valor = Number(document.getElementById('pr-valor').value || 0);
+  const tipo = document.getElementById('pr-tipo').value;
+  const catalogoId = document.getElementById('pr-catalogo').value;
+  const desde = document.getElementById('pr-desde').value;
+  const hasta = document.getElementById('pr-hasta').value;
+  if (!nombre) { alert('Ponle un nombre a la promoción: es el que se imprime en el ticket.'); return; }
+  if (valor <= 0) { alert('El descuento tiene que ser mayor que cero.'); return; }
+  if (tipo === 'porcentaje' && valor > 100) { alert('Un porcentaje no puede pasar de 100.'); return; }
+  if (alcancePromo === 'producto' && !catalogoId) { alert('Elige a qué producto se le aplica.'); return; }
+  if (desde && hasta && hasta < desde) { alert('La fecha de fin no puede ser anterior a la de inicio.'); return; }
+
+  const id = document.getElementById('modal-promo').dataset.editando;
+  const datos = { nombre, alcance: alcancePromo, catalogoId: alcancePromo === 'producto' ? catalogoId : '',
+                  tipo, valor, desde, hasta };
+  if (id) Object.assign(db.promos.find(x => x.id === id), datos);
+  else db.promos.push({ id: nuevoId(), activa: true, creada: hoyStr(), ...datos });
+  guardar(); cerrarModales(); pintarPromos();
+}
+function alternarPromo(id) {
+  const pr = db.promos.find(x => x.id === id);
+  if (!pr) return;
+  pr.activa = pr.activa === false;
+  guardar(); pintarPromos();
+}
+function borrarPromo(id) {
+  const pr = db.promos.find(x => x.id === id);
+  if (!pr) return;
+  // Las ventas ya cobradas guardan el nombre de la promo aparte, así que
+  // borrarla no toca ningún ticket viejo
+  const usada = db.ventas.filter(v => v.promoId === id).length;
+  if (!confirm('¿Eliminar la promoción «' + pr.nombre + '»?\n\n' +
+    (usada ? 'Se aplicó en ' + plural(usada,'venta','ventas') + '. Esos tickets no cambian.\n\n' : '') +
+    'Si solo quieres que deje de aparecer en caja, usa Desactivar.')) return;
+  db.promos = db.promos.filter(x => x.id !== id);
+  guardar(); pintarPromos();
 }
 function pintarDatos() {
   const n = {
@@ -3800,7 +4106,7 @@ function abrirBorrarTodo() {
     '• ' + plural(db.citas.length, 'cita') + '\n' +
     '• ' + plural(db.ventas.length, 'venta') + '\n' +
     '• ' + plural(db.movimientos.length, 'movimiento') + ' de stock\n\n' +
-    'Los usuarios, sus PIN y los precios se conservan.\n' +
+    'Los usuarios, sus PIN, los precios y las promociones se conservan.\n' +
     'Esto NO se puede deshacer.\n\n' +
     'Escribe BORRAR para confirmar:');
   if (r === null) return;
@@ -3821,7 +4127,7 @@ function borrarTodo() {
   guardar();
   irA('config'); cambiarConfig('datos');
   refrescarBadges();
-  alert('Listo. El sistema quedó en cero.\n\nSe conservaron los usuarios, sus PIN y los precios del catálogo.');
+  alert('Listo. El sistema quedó en cero.\n\nSe conservaron los usuarios, sus PIN, los precios del catálogo y las promociones.');
 }
 
 function pintarUsuarios() {
@@ -3914,7 +4220,7 @@ function cargarDemo() {
     ],
     citas: [],
     catalogo: [],
-    ventas: [], movimientos: [], atenciones: [], ordenes: [], controles: [],
+    ventas: [], movimientos: [], atenciones: [], ordenes: [], controles: [], promos: [],
     usuarios: usuariosActuales,
     config: { correlativo:1, negocio:NEGOCIO }
   };
