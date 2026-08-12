@@ -207,6 +207,21 @@
   .rapido.agotado { opacity:.45; cursor:not-allowed; }
   .rapido.agotado:hover { border-color:#c4ccd4; background:#fff; }
 
+  /* --- Buscador de paciente (se escribe, no se despliega) --- */
+  .buscar-pac { position:relative; }
+  .sugerencias { position:absolute; left:0; right:0; top:100%; z-index:5; background:#fff;
+                 border:1px solid #c4ccd4; border-radius:8px; margin-top:4px; max-height:260px;
+                 overflow-y:auto; box-shadow:0 6px 18px rgba(0,0,0,.12); }
+  .sugerencia { padding:11px 12px; cursor:pointer; border-bottom:1px solid #eef2f5; font-size:14px; }
+  .sugerencia:last-child { border-bottom:none; }
+  .sugerencia:hover, .sugerencia.marcada { background:var(--rol-suave); }
+  .sugerencia b { display:block; }
+  .sugerencia small { color:#6b7580; font-size:12px; }
+  .pac-elegido { display:flex; align-items:center; justify-content:space-between; gap:10px;
+                 background:var(--rol-suave); border:1px solid var(--rol); border-radius:8px; padding:10px 12px; }
+  .pac-elegido b { font-size:15px; }
+  .pac-elegido small { display:block; color:#6b7580; font-size:12px; }
+
   /* --- Canal de venta: mostrador vs WhatsApp --- */
   .canales { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .canal { padding:12px 8px; border:1px solid #c4ccd4; border-radius:10px; background:#fff; cursor:pointer;
@@ -778,7 +793,18 @@
     </div>
 
     <label>Paciente</label>
-    <select id="v-paciente" onchange="cambioPacienteVenta()"><option value="">— Venta sin paciente (mostrador) —</option></select>
+    <!-- Se escribe el nombre en vez de buscarlo en una lista: con cientos de
+         pacientes un desplegable es inservible, y más en un celular.
+         El <select> sigue existiendo oculto porque es donde vive el valor real. -->
+    <div class="buscar-pac">
+      <input id="v-pac-buscar" type="search" autocomplete="off"
+             placeholder="Escribe el nombre o el DNI…"
+             oninput="buscarPacienteVenta()" onfocus="buscarPacienteVenta()">
+      <div id="v-pac-lista" class="sugerencias oculto"></div>
+      <div id="v-pac-elegido" class="oculto"></div>
+      <div class="sub" id="v-pac-ayuda">Déjalo vacío si es una venta de mostrador.</div>
+    </div>
+    <select id="v-paciente" class="oculto" onchange="cambioPacienteVenta()"><option value="">— Venta sin paciente (mostrador) —</option></select>
 
     <!-- Solo para venta a distancia: a quién se le envía y a dónde -->
     <div id="v-bloque-envio" class="oculto">
@@ -2821,6 +2847,10 @@ function abrirModalVenta(pacienteId) {
   // Se fija a mano: dejarlo al atributo `selected` de la opción insertada
   // depende del navegador, y si falla la venta se le carga a un paciente al azar
   sel.value = pacienteId || '';
+  // El buscador arranca limpio y muestra a quién se le vende, si ya viene elegido
+  document.getElementById('v-pac-buscar').value = '';
+  document.getElementById('v-pac-lista').classList.add('oculto');
+  pintarPacienteElegido();
   document.getElementById('v-item').innerHTML = '<option value="">+ Elegir servicio o producto…</option>' +
     '<optgroup label="Servicios">' + vendibles.filter(k => k.tipo==='servicio').map(k =>
       '<option value="' + k.id + '">' + esc(k.nombre) + ' — ' + money(k.precio) + '</option>').join('') + '</optgroup>' +
@@ -2880,6 +2910,73 @@ function elegirCanal(canal) {
   }
   pintarCarrito(); // el texto del botón depende del canal
 }
+/* ---------- Buscador de paciente en la venta ----------
+   El valor real vive en el <select id="v-paciente"> oculto; esto es solo la
+   forma de llegar a él escribiendo. Así el resto del sistema (cobrar desde el
+   mostrador, la ficha, guardar la venta) sigue leyendo el mismo sitio. */
+function pacientesQueCoinciden(texto) {
+  const t = normalizar(texto);
+  const activos = db.pacientes.filter(p => !p.archivado);
+  // Los dígitos solo se comparan contra el documento si el que busca escribió
+  // alguno: si no, "incluye la cadena vacía" daría por buenos a todos
+  const digitos = t.replace(/\D/g, '');
+  const lista = !t ? activos
+    : activos.filter(p => normalizar(p.nombre).includes(t) ||
+        (digitos && String(p.documento || '').includes(digitos)));
+  return lista.sort((a,b) => a.nombre.localeCompare(b.nombre)).slice(0, 8);
+}
+function buscarPacienteVenta() {
+  const txt = document.getElementById('v-pac-buscar').value;
+  const cont = document.getElementById('v-pac-lista');
+  const hallados = pacientesQueCoinciden(txt);
+  // Con el campo vacío no se abre la lista sola: lo normal es no elegir a nadie
+  if (!txt.trim()) { cont.classList.add('oculto'); cont.innerHTML = ''; return; }
+  cont.innerHTML = !hallados.length
+    ? '<div class="sugerencia sub">Nadie coincide con «' + esc(txt.trim()) + '». Si no es paciente, déjalo vacío.</div>'
+    : hallados.map(p =>
+        '<div class="sugerencia" onmousedown="elegirPacienteVenta(\'' + p.id + '\')">' +
+          '<b>' + esc(p.nombre) + '</b>' +
+          '<small>' + esc(p.docTipo || 'DNI') + ' ' + esc(p.documento || '—') +
+          (p.telefono ? ' · ' + esc(p.telefono) : '') + '</small>' +
+        '</div>').join('');
+  cont.classList.remove('oculto');
+}
+function elegirPacienteVenta(id) {
+  const p = db.pacientes.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('v-paciente').value = id;
+  document.getElementById('v-pac-lista').classList.add('oculto');
+  document.getElementById('v-pac-buscar').value = '';
+  pintarPacienteElegido();
+  cambioPacienteVenta();
+}
+function quitarPacienteVenta() {
+  document.getElementById('v-paciente').value = '';
+  pintarPacienteElegido();
+  document.getElementById('v-pac-buscar').focus();
+}
+/* Muestra a quién se le está vendiendo; mientras hay alguien elegido, el
+   buscador se esconde para no dejar dudas de a nombre de quién va la venta. */
+function pintarPacienteElegido() {
+  const id = document.getElementById('v-paciente').value;
+  const p = db.pacientes.find(x => x.id === id);
+  const caja = document.getElementById('v-pac-elegido');
+  const buscador = document.getElementById('v-pac-buscar');
+  const ayuda = document.getElementById('v-pac-ayuda');
+  caja.classList.toggle('oculto', !p);
+  buscador.classList.toggle('oculto', !!p);
+  ayuda.classList.toggle('oculto', !!p);
+  if (!p) { caja.innerHTML = ''; return; }
+  caja.innerHTML = '<div class="pac-elegido"><span><b>' + esc(p.nombre) + '</b>' +
+    '<small>' + esc(p.docTipo || 'DNI') + ' ' + esc(p.documento || '—') + '</small></span>' +
+    '<button type="button" class="btn btn-sec btn-mini" onclick="quitarPacienteVenta()">Cambiar</button></div>';
+}
+/* Al tocar fuera se cierra la lista, si no queda tapando el resto del formulario */
+document.addEventListener('click', e => {
+  const lista = document.getElementById('v-pac-lista');
+  if (lista && !lista.classList.contains('oculto') && !e.target.closest('.buscar-pac')) lista.classList.add('oculto');
+});
+
 /* Si el que compra ya es paciente, sus datos no se vuelven a teclear */
 function cambioPacienteVenta() {
   if (canalVenta !== 'whatsapp') return;
