@@ -290,6 +290,9 @@
   .rapido.agotado { opacity:.4; cursor:not-allowed; box-shadow:none; }
   .rapido.agotado:hover { border-color:var(--border); background:var(--surface); box-shadow:none; }
 
+  /* Lo opcional se ve como opcional: separado de lo que sí hay que llenar */
+  .bloque-opcional { margin-top:18px; padding-top:16px; border-top:1px dashed var(--border); }
+
   /* --- Buscador de paciente (se escribe, no se despliega) --- */
   .buscar-pac { position:relative; }
   .sugerencias { position:absolute; left:0; right:0; top:100%; z-index:5; background:var(--surface);
@@ -859,32 +862,40 @@
     <h3>Nueva venta</h3>
     <div class="sub" id="v-quien"></div>
 
-    <label>Paciente</label>
-    <!-- Se escribe el nombre en vez de buscarlo en una lista: con cientos de
-         pacientes un desplegable es inservible, y más en un celular.
-         El <select> sigue existiendo oculto porque es donde vive el valor real. -->
-    <div class="buscar-pac">
-      <input id="v-pac-buscar" type="search" autocomplete="off"
-             placeholder="Escribe el nombre o el DNI…"
-             oninput="buscarPacienteVenta()" onfocus="buscarPacienteVenta()">
-      <div id="v-pac-lista" class="sugerencias oculto"></div>
-      <div id="v-pac-elegido" class="oculto"></div>
-      <div class="sub" id="v-pac-ayuda">Déjalo vacío si es una venta de mostrador.</div>
-    </div>
-    <select id="v-paciente" class="oculto"><option value="">— Venta sin paciente (mostrador) —</option></select>
-
-    <label>Agregar servicio o producto</label>
-    <select id="v-item" onchange="agregarAlCarrito()"></select>
+    <!-- ORDEN A PROPÓSITO: primero lo que se lleva y cuánto es. El paciente va
+         al final y es opcional — si registrar cuesta más que anotar en un papel,
+         se vuelve al papel. -->
+    <label>¿Qué se lleva?</label>
     <div id="v-rapidos" class="rapidos"></div>
+    <select id="v-item" onchange="agregarAlCarrito()" style="margin-top:8px"></select>
     <div id="v-carrito" style="margin-top:10px"></div>
+
     <div class="fila-2" style="margin-top:12px">
       <div><label>Método de pago</label>
         <select id="v-pago"><option>Efectivo</option><option>Yape / Plin</option><option>Tarjeta</option><option>Transferencia</option></select>
       </div>
       <div><label>Descuento (S/)</label><input id="v-descuento" type="number" min="0" step="0.5" value="0" oninput="pintarCarrito()"></div>
     </div>
-    <label>Nota (opcional)</label>
-    <input id="v-nota" placeholder="Ej: pago parcial, promoción…">
+
+    <div class="bloque-opcional">
+      <label style="margin-top:0">¿Es paciente del consultorio? <span class="sub" style="font-weight:400">— opcional</span></label>
+      <!-- Se escribe el nombre en vez de buscarlo en una lista: con cientos de
+           pacientes un desplegable es inservible, y más en un celular.
+           El <select> sigue existiendo oculto porque es donde vive el valor real. -->
+      <div class="buscar-pac">
+        <input id="v-pac-buscar" type="search" autocomplete="off"
+               placeholder="Escribe el nombre o el DNI…"
+               oninput="buscarPacienteVenta()" onfocus="buscarPacienteVenta()">
+        <div id="v-pac-lista" class="sugerencias oculto"></div>
+        <div id="v-pac-elegido" class="oculto"></div>
+        <div class="sub" id="v-pac-ayuda">Anotarlo permite saber quién vuelve a comprar. Si no lo sabes, sigue de largo.</div>
+      </div>
+      <select id="v-paciente" class="oculto"><option value="">— Venta sin paciente (mostrador) —</option></select>
+
+      <label>Nota <span class="sub" style="font-weight:400">— opcional</span></label>
+      <input id="v-nota" placeholder="Ej: pago parcial, promoción…">
+    </div>
+
     <div class="acciones">
       <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
       <button class="btn" id="btn-cobrar" onclick="guardarVenta()">Cobrar y guardar</button>
@@ -2899,7 +2910,8 @@ function abrirModalVenta(pacienteId) {
   document.getElementById('v-pac-buscar').value = '';
   document.getElementById('v-pac-lista').classList.add('oculto');
   pintarPacienteElegido();
-  document.getElementById('v-item').innerHTML = '<option value="">+ Elegir servicio o producto…</option>' +
+  // El desplegable es la vía secundaria: lo normal es tocar un botón de arriba
+  document.getElementById('v-item').innerHTML = '<option value="">o busca en el catálogo (consultas, otros productos)…</option>' +
     '<optgroup label="Servicios">' + vendibles.filter(k => k.tipo==='servicio').map(k =>
       '<option value="' + k.id + '">' + esc(k.nombre) + ' — ' + money(k.precio) + '</option>').join('') + '</optgroup>' +
     '<optgroup label="Productos">' + vendibles.filter(k => k.tipo==='producto').map(k =>
