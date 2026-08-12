@@ -1232,10 +1232,13 @@ function fusionarConDisco(disco) { fusionar(disco); }
      mientras el doctor atendía, no se pisan.
    · La clave del consultorio se escribe una vez por equipo. Es la contraseña de
      una cuenta de Supabase; la sesión queda guardada y no se vuelve a pedir. */
+/* La clave publicable va en el código a propósito: es pública por diseño y por
+   sí sola no abre nada. Lo que protege los datos son las reglas del servidor
+   (RLS), que exigen haber entrado con la clave del consultorio. */
 const NUBE = {
-  url: '',   // se completa al conectar el consultorio
-  anon: '',
-  correo: 'consultorio@bn.local'
+  url: 'https://lwbtqrccmfehsginetgs.supabase.co',
+  anon: 'sb_publishable_jxBAZkCgE9wOPvO16J7TWg_Z1qvqmHr',
+  correo: 'sistema@consultoriobn.com'
 };
 const CLAVE_SESION = 'consultoriobn_nube';
 let nube = { sesion: null, estado: 'sin-configurar', pendiente: false, subiendo: false, ultima: null };
