@@ -3546,11 +3546,12 @@ function pintarStock() {
   const lista = productos().filter(k => k.nombre.toLowerCase().includes(filtro)).sort((a,b) => a.nombre.localeCompare(b.nombre));
   document.getElementById('lista-stock').innerHTML = !lista.length
     ? '<div class="vacio">No hay productos. Agrégalos en la pestaña <b>Catálogo</b>.</div>'
-    : '<table class="tabla tarjetas"><thead><tr><th>Producto</th><th>Stock</th><th>Mínimo</th><th>Valor</th><th></th></tr></thead><tbody>' +
+    // Sin la columna de Valor: en Stock se cuentan unidades. Lo que vale el
+    // inventario es cosa del dueño y se ve en Reportes, no en el mostrador.
+    : '<table class="tabla tarjetas"><thead><tr><th>Producto</th><th>Stock</th><th>Mínimo</th><th></th></tr></thead><tbody>' +
       lista.map(k => '<tr><td data-th="Producto"><b>' + esc(k.nombre) + '</b> <span class="sub">' + esc(k.categoria||'') + '</span></td>' +
         '<td data-th="Stock"><b>' + (k.stock||0) + '</b> ' + esc(k.unidad||'') + (stockBajo(k) ? ' <span class="chip chip-rojo">Bajo</span>' : '') + '</td>' +
         '<td data-th="Mínimo">' + (k.stockMin||0) + '</td>' +
-        '<td data-th="Valor">' + money(Number(k.stock||0) * Number(k.precio||0)) + '</td>' +
         '<td data-th=""><button class="btn btn-sec btn-mini" onclick="abrirModalMov(\'' + k.id + '\')">Mover</button></td></tr>').join('') +
       '</tbody></table>';
 
