@@ -177,6 +177,18 @@
   table.tabla tbody tr:hover { background:var(--bg); }
   .acc-tabla { display:flex; gap:6px; }
 
+  /* Detalle plegable de una entrega. Cerrado ocupa un renglón; abierto muestra
+     producto por producto. El triangulito nativo ya dice si está abierto. */
+  /* En celular la fila se vuelve tarjeta con el texto a la derecha; el detalle
+     se lee mucho mejor alineado a la izquierda */
+  .items-entrega { text-align:left; min-width:0; }
+  .items-entrega > summary { cursor:pointer; padding:2px 0; font-size:13px; }
+  .items-entrega > summary::marker { color:var(--rol); }
+  .items-entrega > summary:hover .pista { text-decoration:underline; }
+  .items-entrega .pista { color:var(--rol); font-size:12px; font-weight:600; }
+  .items-entrega[open] .pista { display:none; }
+  .items-entrega .linea-item { margin-top:3px; padding-left:14px; font-size:13px; }
+
   .slots { display:grid; grid-template-columns:repeat(auto-fill,minmax(74px,1fr)); gap:6px; margin:2px 0 4px; }
   .slot { padding:9px 4px; border:1px solid var(--border); border-radius:8px; background:var(--surface);
           cursor:pointer; font-size:14px; font-family:inherit; color:var(--text); transition:all .15s; }
@@ -3483,11 +3495,16 @@ function verCuenta(id) {
       : '<table class="tabla tarjetas"><thead><tr><th>Fecha</th><th>Detalle</th><th>Se llevó</th><th>Abonó</th></tr></thead><tbody>' +
         movs.map(m => '<tr>' +
           '<td data-th="Fecha">' + fechaBonita(m.fecha) + (m.hora ? ' <span class="sub">' + m.hora + '</span>' : '') + '</td>' +
-          '<td data-th="Detalle"><span class="sub">' + esc(m.detalle) + '</span>' +
-            // El renglón por producto: sin esto, "15 und" no dice qué marcas salieron
-            (m.items ? m.items.map(i =>
-              '<div style="margin-top:2px"><b>' + i.cant + '×</b> ' + esc(i.nombre) + chipMarca(i.marca) +
-              ' <span class="sub">a ' + money(i.precio) + '</span></div>').join('') : '') +
+          // El detalle va plegado: con diez entregas, mostrarlo siempre convierte
+          // la libreta en una pared de texto y se pierde lo que importa (el saldo).
+          '<td data-th="Detalle">' + (m.items && m.items.length
+            ? '<details class="items-entrega"><summary><span class="sub">' + esc(m.detalle) + '</span>' +
+                '<span class="pista"> · ver detalle</span></summary>' +
+              m.items.map(i =>
+                '<div class="linea-item"><b>' + i.cant + '×</b> ' + esc(i.nombre) + chipMarca(i.marca) +
+                ' <span class="sub">a ' + money(i.precio) + '</span></div>').join('') +
+              '</details>'
+            : '<span class="sub">' + esc(m.detalle) + '</span>') +
           '</td>' +
           '<td data-th="Se llevó">' + (m.tipo === 'cargo' ? '<b>' + money(m.monto) + '</b>' : '<span class="sub">—</span>') + '</td>' +
           '<td data-th="Abonó">' + (m.tipo === 'abono'
