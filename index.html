@@ -3455,12 +3455,21 @@ function verCuenta(id) {
   // Qué marcas se llevó en total: lo primero que quiere saber el dueño
   const llevados = productosLlevados(id);
   const unidades = llevados.reduce((s,k) => s + k.cant, 0);
+  const marcas = porMarca(id);
   document.getElementById('cuenta-productos').innerHTML = !llevados.length ? '' :
     '<h2>Qué se llevó</h2>' +
     '<div class="sub" style="margin-bottom:8px">' + plural(unidades,'unidad','unidades') + ' en total, sumando todas las entregas a crédito.</div>' +
-    '<table class="tabla tarjetas"><thead><tr><th>Producto</th><th>Unidades</th><th>Entregas</th><th>Monto</th></tr></thead><tbody>' +
+    // Cuánto es marca propia y cuánto de terceros: es lo primero que mira el dueño
+    (marcas.length > 1
+      ? '<div class="grid-datos">' + marcas.map(m =>
+          '<div class="dato"><small>' + esc(m.marca) + '</small><b>' + money(m.monto) + '</b>' +
+          '<span class="sub">' + m.cant + ' und · ' + plural(m.productos,'producto','productos') + '</span></div>').join('') +
+        '</div>'
+      : '') +
+    '<table class="tabla tarjetas"><thead><tr><th>Producto</th><th>Marca</th><th>Unidades</th><th>Entregas</th><th>Monto</th></tr></thead><tbody>' +
     llevados.map(k => '<tr>' +
       '<td data-th="Producto"><b>' + esc(k.nombre) + '</b></td>' +
+      '<td data-th="Marca">' + (k.marca ? '<span class="chip ' + (k.marca === 'B&N' ? 'chip-verde' : 'chip-gris') + '">' + esc(k.marca) + '</span>' : '<span class="sub">—</span>') + '</td>' +
       '<td data-th="Unidades"><b>' + k.cant + '</b></td>' +
       '<td data-th="Entregas" class="sub">' + plural(k.veces,'vez','veces') + '</td>' +
       '<td data-th="Monto">' + money(k.monto) + '</td>' +
@@ -3477,7 +3486,7 @@ function verCuenta(id) {
           '<td data-th="Detalle"><span class="sub">' + esc(m.detalle) + '</span>' +
             // El renglón por producto: sin esto, "15 und" no dice qué marcas salieron
             (m.items ? m.items.map(i =>
-              '<div style="margin-top:2px"><b>' + i.cant + '×</b> ' + esc(i.nombre) +
+              '<div style="margin-top:2px"><b>' + i.cant + '×</b> ' + esc(i.nombre) + chipMarca(i.marca) +
               ' <span class="sub">a ' + money(i.precio) + '</span></div>').join('') : '') +
           '</td>' +
           '<td data-th="Se llevó">' + (m.tipo === 'cargo' ? '<b>' + money(m.monto) + '</b>' : '<span class="sub">—</span>') + '</td>' +
@@ -3709,6 +3718,18 @@ function nombreDistribuidor(id) {
   const d = db.distribuidores.find(x => x.id === id);
   return d ? d.nombre : '(distribuidor eliminado)';
 }
+/* La marca de una línea vendida. Las ventas viejas no la guardaban, así que se
+   busca en el catálogo; las nuevas la traen copiada y valen aunque el producto
+   cambie de marca después. */
+function marcaDeItem(i) {
+  if (i.marca) return i.marca;
+  const k = db.catalogo.find(x => x.id === i.catalogoId);
+  return (k && k.marca) || '';
+}
+function chipMarca(marca) {
+  if (!marca) return '';
+  return ' <span class="chip ' + (marca === 'B&N' ? 'chip-verde' : 'chip-gris') + '">' + esc(marca) + '</span>';
+}
 function esCredito(v) { return !!v.credito && !v.anulada; }
 /* Lo que se llevó al crédito y todavía figura (una venta anulada no debe nada) */
 function cargosDe(id) {
@@ -3731,12 +3752,25 @@ function deudaTotal() {
 function productosLlevados(id) {
   const acum = {};
   cargosDe(id).forEach(v => v.items.forEach(i => {
-    const k = acum[i.nombre] || (acum[i.nombre] = { nombre: i.nombre, tipo: i.tipo, cant: 0, monto: 0, veces: 0 });
+    const k = acum[i.nombre] || (acum[i.nombre] = { nombre: i.nombre, tipo: i.tipo, marca: marcaDeItem(i), cant: 0, monto: 0, veces: 0 });
     k.cant  += Number(i.cant);
     k.monto += Number(i.precio) * Number(i.cant);
     k.veces++;
   }));
-  return Object.values(acum).sort((a, b) => b.cant - a.cant || a.nombre.localeCompare(b.nombre));
+  // Primero lo propio: al Dr. le interesa distinto lo que se lleva de B&N que
+  // lo que se lleva de otras marcas
+  return Object.values(acum).sort((a, b) =>
+    (b.marca === 'B&N') - (a.marca === 'B&N') || b.cant - a.cant || a.nombre.localeCompare(b.nombre));
+}
+/* Cuánto de lo entregado es de la marca propia y cuánto de terceros */
+function porMarca(id) {
+  const acum = {};
+  productosLlevados(id).forEach(k => {
+    const m = k.marca || 'Sin marca';
+    const a = acum[m] || (acum[m] = { marca: m, cant: 0, monto: 0, productos: 0 });
+    a.cant += k.cant; a.monto += k.monto; a.productos++;
+  });
+  return Object.values(acum).sort((a, b) => b.monto - a.monto);
 }
 /* Estado de cuenta: cargos y abonos mezclados en orden, como una libreta */
 function movimientosCuenta(id) {
@@ -3745,7 +3779,7 @@ function movimientosCuenta(id) {
       fecha: v.fecha, hora: v.hora || '', tipo: 'cargo', id: v.id,
       detalle: 'Ticket #' + v.numero + ' · ' + v.items.reduce((s,i) => s + Number(i.cant), 0) + ' und',
       // Qué se llevó exactamente en esa entrega, no solo cuántas unidades
-      items: v.items.map(i => ({ nombre: i.nombre, cant: Number(i.cant), precio: Number(i.precio) })),
+      items: v.items.map(i => ({ nombre: i.nombre, cant: Number(i.cant), precio: Number(i.precio), marca: marcaDeItem(i) })),
       monto: totalVenta(v)
     })),
     ...abonosDe(id).map(a => ({
@@ -3988,8 +4022,10 @@ function agregarPorId(catalogoId) {
   if (ya) ya.cant++;
   // El costo se copia en la venta: si mañana sube, la ganancia de esta venta
   // no puede cambiar sola. Un reporte del mes pasado tiene que dar siempre igual.
+  // La marca se copia igual que el costo: si mañana el producto cambia de marca
+  // en el catálogo, lo que se entregó ese día no puede cambiar solo
   else carrito.push({ catalogoId: k.id, nombre: k.nombre, tipo: k.tipo, categoria: k.categoria || '',
-                      precio: precioSegunLista(k), costo: Number(k.costo || 0), cant: 1 });
+                      marca: k.marca || '', precio: precioSegunLista(k), costo: Number(k.costo || 0), cant: 1 });
   pintarCarrito();
 }
 
