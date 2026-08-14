@@ -644,7 +644,7 @@
   <section id="sec-stock" class="oculto">
     <div class="barra">
       <input type="search" id="buscador-stock" placeholder="Buscar producto…" oninput="pintarStock()">
-      <button class="btn" onclick="abrirModalMov()">+ Registrar entrada</button>
+      <button class="btn" id="btn-nueva-entrada" onclick="abrirModalMov()">+ Registrar entrada</button>
     </div>
     <div id="alertas-stock"></div>
     <div id="lista-stock"></div>
@@ -1673,7 +1673,9 @@ const PESTANAS = ['ventas','atenciones','pacientes','agenda','distribuidores','s
 /* El orden importa: el primero de la lista es la pantalla en la que arranca cada
    rol al entrar. Recepción abre en Caja, que es donde pasa el día. */
 const VISTA_ROL = {
-  doctor:    ['atenciones','pacientes','distribuidores','reportes','config'],
+  // El doctor ve el stock pero no lo mueve: le sirve para saber qué pedir, no
+  // para registrar entradas y salidas. Eso es trabajo del mostrador.
+  doctor:    ['atenciones','pacientes','distribuidores','stock','reportes','config'],
   recepcion: ['ventas','pacientes','agenda','distribuidores','stock','movimientos']
 };
 // Secciones que no son pestaña pero cuelgan de una que sí lo es
@@ -3368,7 +3370,10 @@ function pintarDistribuidores() {
             money(debe) + '</b>' + (debe <= 0 ? ' <span class="chip chip-verde">Al día</span>' : '') + '</td>' +
           '<td data-th=""><div class="acc-tabla">' +
             '<button class="btn btn-sec btn-mini" onclick="verCuenta(\'' + d.id + '\')">Estado de cuenta</button>' +
-            (debe > 0 ? '<button class="btn btn-mini" onclick="abrirModalAbono(\'' + d.id + '\')">💵 Abonar</button>' : '') +
+            // El doctor consulta la cuenta; quien recibe la plata y la registra
+            // es recepción. Que el dueño no pueda marcar pagos evita que un
+            // abono quede anotado sin que nadie lo haya cobrado.
+            (debe > 0 && !esDoctor() ? '<button class="btn btn-mini" onclick="abrirModalAbono(\'' + d.id + '\')">💵 Abonar</button>' : '') +
           '</div></td></tr>';
       }).join('') + '</tbody></table>';
   actualizarBadgeDeuda();
@@ -3431,11 +3436,15 @@ function verCuenta(id) {
         (debe > 0 ? 'var(--warning)' : 'var(--success)') + '">' + money(debe) + '</b></div>' +
     '</div>' +
     '<div class="barra">' +
-      (debe > 0 ? '<button class="btn" onclick="abrirModalAbono(\'' + id + '\')">💵 Registrar abono</button>' : '') +
+      (debe > 0 && !esDoctor() ? '<button class="btn" onclick="abrirModalAbono(\'' + id + '\')">💵 Registrar abono</button>' : '') +
       '<button class="btn btn-sec" onclick="abrirModalDistribuidor(\'' + id + '\')">Editar datos</button>' +
       '<span style="flex:1"></span>' +
-      '<button class="btn btn-peligro btn-mini" onclick="borrarDistribuidor(\'' + id + '\')">Eliminar</button>' +
-    '</div>';
+      (!esDoctor() ? '<button class="btn btn-peligro btn-mini" onclick="borrarDistribuidor(\'' + id + '\')">Eliminar</button>' : '') +
+    '</div>' +
+    // Para el dueño esta pantalla es de consulta: ve cuánto le deben, no cobra
+    (esDoctor() && debe > 0
+      ? '<div class="sub" style="margin-bottom:12px">Cuando ' + esc(d.nombre) + ' pague, recepción lo registra desde su usuario y el saldo se actualiza aquí solo.</div>'
+      : '');
 
   const movs = movimientosCuenta(id);
   document.getElementById('cuenta-movimientos').innerHTML =
@@ -3449,7 +3458,8 @@ function verCuenta(id) {
           '<td data-th="Se llevó">' + (m.tipo === 'cargo' ? '<b>' + money(m.monto) + '</b>' : '<span class="sub">—</span>') + '</td>' +
           '<td data-th="Abonó">' + (m.tipo === 'abono'
             ? '<b style="color:var(--success)">' + money(m.monto) + '</b>' +
-              '<button class="btn btn-peligro btn-mini" style="margin-left:8px" onclick="borrarAbono(\'' + m.id + '\')">✕</button>'
+              // Deshacer un abono también es tocar la caja: solo recepción
+              (!esDoctor() ? '<button class="btn btn-peligro btn-mini" style="margin-left:8px" onclick="borrarAbono(\'' + m.id + '\')">✕</button>' : '')
             : '<span class="sub">—</span>') + '</td>' +
           '</tr>').join('') + '</tbody></table>');
 
@@ -3538,6 +3548,10 @@ function registrarMov(productoId, tipo, cantidad, motivo, ventaId) {
 function pintarStock() {
   const filtro = (document.getElementById('buscador-stock').value || '').toLowerCase().trim();
   const bajos = productosBajos();
+  // Para el doctor esta pantalla es de consulta: mira qué hay y qué falta pedir.
+  // Quien recibe la mercadería y anota entradas y salidas es recepción.
+  const soloVer = esDoctor();
+  document.getElementById('btn-nueva-entrada').classList.toggle('oculto', soloVer);
   document.getElementById('alertas-stock').innerHTML = bajos.length
     ? '<div class="aviso aviso-rojo"><b>⚠️ ' + plural(bajos.length,'producto','productos') + ' en stock bajo:</b> ' +
       bajos.map(k => esc(k.nombre) + ' (' + (k.stock||0) + ')').join(' · ') + '</div>'
@@ -3548,11 +3562,13 @@ function pintarStock() {
     ? '<div class="vacio">No hay productos. Agrégalos en la pestaña <b>Catálogo</b>.</div>'
     // Sin la columna de Valor: en Stock se cuentan unidades. Lo que vale el
     // inventario es cosa del dueño y se ve en Reportes, no en el mostrador.
-    : '<table class="tabla tarjetas"><thead><tr><th>Producto</th><th>Stock</th><th>Mínimo</th><th></th></tr></thead><tbody>' +
+    : '<table class="tabla tarjetas"><thead><tr><th>Producto</th><th>Stock</th><th>Mínimo</th>' +
+      (soloVer ? '' : '<th></th>') + '</tr></thead><tbody>' +
       lista.map(k => '<tr><td data-th="Producto"><b>' + esc(k.nombre) + '</b> <span class="sub">' + esc(k.categoria||'') + '</span></td>' +
         '<td data-th="Stock"><b>' + (k.stock||0) + '</b> ' + esc(k.unidad||'') + (stockBajo(k) ? ' <span class="chip chip-rojo">Bajo</span>' : '') + '</td>' +
         '<td data-th="Mínimo">' + (k.stockMin||0) + '</td>' +
-        '<td data-th=""><button class="btn btn-sec btn-mini" onclick="abrirModalMov(\'' + k.id + '\')">Mover</button></td></tr>').join('') +
+        (soloVer ? '' : '<td data-th=""><button class="btn btn-sec btn-mini" onclick="abrirModalMov(\'' + k.id + '\')">Mover</button></td>') +
+        '</tr>').join('') +
       '</tbody></table>';
 
   actualizarBadgeStock();
