@@ -285,12 +285,14 @@
   .opcion-baja.peligro:hover { border-color:var(--danger); background:var(--danger-bg); }
   .opcion-baja b { display:block; margin-bottom:4px; }
 
-  /* --- Ticket 80mm --- */
-  #ticket { width:280px; margin:0 auto; background:#fff; padding:14px; font-family:"Courier New",monospace; font-size:12px; color:#000; }
+  /* --- Ticket 58mm --- */
+  /* Ancho de la vista previa a escala del papel de 58 mm: lo que se ve en
+     pantalla es lo que sale impreso, incluidos los cortes de línea */
+  #ticket { width:216px; margin:0 auto; background:#fff; padding:10px; font-family:"Courier New",monospace; font-size:11px; color:#000; }
   #ticket .t-centro { text-align:center; }
   #ticket hr { border:none; border-top:1px dashed #000; margin:6px 0; }
-  #ticket table { width:100%; border-collapse:collapse; font-size:12px; }
-  #ticket td { padding:1px 0; vertical-align:top; }
+  #ticket table { width:100%; border-collapse:collapse; font-size:11px; table-layout:fixed; }
+  #ticket td { padding:1px 0; vertical-align:top; word-break:break-word; }
   #ticket .der { text-align:right; }
 
   /* --- Dos listas de precio --- */
@@ -436,14 +438,23 @@
     .buscar-item .sugerencias { max-height:none; }
   }
 
-  /* --- Al imprimir: solo sale el ticket --- */
+  /* --- Al imprimir: solo sale el ticket ---
+     Ticketera térmica de 58 mm. El papel mide 58 pero el cabezal solo imprime
+     unos 48: pasarse de ahí no da error, simplemente corta el lado derecho y
+     los totales salen mochos. El margen va en cero porque el propio rollo ya
+     deja su borde; con 4 mm el contenido se corría y se perdía una columna. */
   @media print {
     body { background:#fff; }
     body * { visibility:hidden; }
     #ticket, #ticket * { visibility:visible; }
-    #ticket { position:absolute; left:0; top:0; width:72mm; padding:0; }
+    #ticket { position:absolute; left:0; top:0; width:48mm; padding:0;
+              font-size:9.5pt; line-height:1.25; }
+    #ticket table { font-size:9.5pt; }
+    /* Nombres largos como "VAINILLA WHEY PROTEIN 1.5KG" no entran en un renglón
+       de 58: se parten en vez de desbordar y llevarse el precio fuera del papel */
+    #ticket td { word-break:break-word; }
     .no-print { display:none !important; }
-    @page { margin:4mm; }
+    @page { size:58mm auto; margin:0 1mm; }
   }
 </style>
 </head>
@@ -1239,7 +1250,7 @@
 
 <!-- ============ MODAL TICKET (MÓDULO 6) ============ -->
 <div id="modal-ticket" class="fondo-modal oculto">
-  <div class="modal" style="max-width:340px">
+  <div class="modal" style="max-width:280px">
     <div id="ticket"></div>
     <div id="ticket-luego" class="no-print"></div>
     <div class="acciones no-print">
@@ -4481,7 +4492,7 @@ function pintarVentas() {
 
 /* ================== MÓDULO 6 · TICKET IMPRIMIBLE ==================
    Comprobante interno (NO es boleta ni factura ante SUNAT).
-   Diseñado para ticketera térmica de 80mm. */
+   Diseñado para ticketera térmica de 58mm (área imprimible ~48mm). */
 function verTicket(id) {
   const v = db.ventas.find(x => x.id === id);
   if (!v) return;
