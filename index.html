@@ -469,8 +469,11 @@
     #modal-ticket > .modal { max-width:none !important; width:auto !important;
                              padding:0 !important; border-radius:0 !important;
                              box-shadow:none !important; background:none !important; }
-    #ticket { width:48mm; margin:0; padding:0; font-size:9.5pt; line-height:1.25; }
-    #ticket table { font-size:9.5pt; }
+    /* 8pt en Courier = 28 caracteres por renglón en 48mm. A 9.5pt solo entraban
+       23 y casi todos los suplementos se partían en dos líneas. Sigue siendo
+       perfectamente legible en térmica: es el cuerpo que usan las ticketeras. */
+    #ticket { width:48mm; margin:0; padding:0; font-size:8pt; line-height:1.3; }
+    #ticket table { font-size:8pt; }
     /* Nombres largos como "VAINILLA WHEY PROTEIN 1.5KG" no entran en un renglón
        de 58: se parten en vez de desbordar y llevarse el precio fuera del papel */
     #ticket td { word-break:break-word; }
@@ -519,7 +522,6 @@
 <header>
   <div class="marca">
     <h1>🏥 ATMEDIC</h1>
-    <small>Cirugía bariátrica y digestiva</small>
   </div>
   <nav>
     <!-- Caja va primera: es lo que recepción abre veinte veces al día. Lo demás
@@ -966,7 +968,13 @@
       <option value="producto">Producto (suplemento, insumo…)</option>
     </select>
     <label>Nombre *</label>
-    <input id="k-nombre" placeholder="Ej: Consulta de nutrición / Proteína B&N vainilla">
+    <input id="k-nombre" placeholder="Ej: Consulta de nutrición / Proteína B&N vainilla" oninput="pintarLargoTicket()">
+    <!-- En el papel de 58mm entran 28 caracteres. Un nombre más largo se parte
+         en dos renglones y el ticket se ve desordenado, así que se puede dar una
+         versión corta solo para imprimir, sin tocar el nombre real. -->
+    <label>Nombre en el ticket <span class="sub" style="font-weight:400">— opcional, si el de arriba es muy largo</span></label>
+    <input id="k-nombreticket" maxlength="28" placeholder="Se usa el nombre completo si lo dejas vacío" oninput="pintarLargoTicket()">
+    <div id="k-largo-ticket" class="sub"></div>
     <div class="fila-2">
       <div><label>Categoría</label>
         <select id="k-categoria"></select>
@@ -2882,6 +2890,8 @@ function abrirModalCatalogo(id) {
   alternarCamposCatalogo();
   llenarCategorias(tipo, k ? k.categoria : '');
   document.getElementById('k-nombre').value = k ? k.nombre : '';
+  document.getElementById('k-nombreticket').value = k ? (k.nombreTicket||'') : '';
+  pintarLargoTicket();
   document.getElementById('k-precio').value = k ? (k.precio||'') : '';
   document.getElementById('k-marca').value = k ? (k.marca||'B&N') : 'B&N';
   document.getElementById('k-unidad').value = k ? (k.unidad||'') : '';
@@ -2894,12 +2904,28 @@ function abrirModalCatalogo(id) {
   document.getElementById('modal-catalogo').classList.remove('oculto');
   document.getElementById('k-nombre').focus();
 }
+/* Dice de una si el nombre va a entrar en el papel o se va a partir en dos.
+   28 caracteres es lo que da un rollo de 58mm con la fuente del ticket. */
+const ANCHO_TICKET = 28;
+function pintarLargoTicket() {
+  const cont = document.getElementById('k-largo-ticket');
+  if (!cont) return;
+  const corto = document.getElementById('k-nombreticket').value.trim();
+  const usado = corto || document.getElementById('k-nombre').value.trim();
+  if (!usado) { cont.innerHTML = ''; return; }
+  const sobra = usado.length - ANCHO_TICKET;
+  cont.innerHTML = sobra > 0
+    ? '<span style="color:var(--warning)">⚠️ En el ticket sale en dos renglones (' + usado.length +
+      ' de ' + ANCHO_TICKET + ' caracteres). Escribe arriba una versión corta si lo quieres en uno solo.</span>'
+    : '<span style="color:var(--success)">✅ Entra en un renglón del ticket (' + usado.length + ' de ' + ANCHO_TICKET + ').</span>';
+}
 function guardarCatalogo() {
   const nombre = document.getElementById('k-nombre').value.trim();
   if (!nombre) { alert('El nombre es obligatorio.'); return; }
   const tipo = document.getElementById('k-tipo').value;
   const datos = {
     tipo, nombre,
+    nombreTicket: document.getElementById('k-nombreticket').value.trim(),
     categoria: document.getElementById('k-categoria').value,
     precio: document.getElementById('k-precio').value,
     activo: true
@@ -3770,6 +3796,14 @@ function nombreDistribuidor(id) {
 /* La marca de una línea vendida. Las ventas viejas no la guardaban, así que se
    busca en el catálogo; las nuevas la traen copiada y valen aunque el producto
    cambie de marca después. */
+/* Nombre para imprimir. Las ventas nuevas lo traen copiado; las viejas lo
+   buscan en el catálogo, así que basta con cargar los cortos una vez para que
+   los tickets reimpresos también salgan bien. */
+function nombreEnTicket(i) {
+  if (i.nombreTicket) return i.nombreTicket;
+  const k = db.catalogo.find(x => x.id === i.catalogoId);
+  return (k && k.nombreTicket) || i.nombre;
+}
 function marcaDeItem(i) {
   if (i.marca) return i.marca;
   const k = db.catalogo.find(x => x.id === i.catalogoId);
@@ -4073,7 +4107,8 @@ function agregarPorId(catalogoId) {
   // no puede cambiar sola. Un reporte del mes pasado tiene que dar siempre igual.
   // La marca se copia igual que el costo: si mañana el producto cambia de marca
   // en el catálogo, lo que se entregó ese día no puede cambiar solo
-  else carrito.push({ catalogoId: k.id, nombre: k.nombre, tipo: k.tipo, categoria: k.categoria || '',
+  else carrito.push({ catalogoId: k.id, nombre: k.nombre, nombreTicket: k.nombreTicket || '',
+                      tipo: k.tipo, categoria: k.categoria || '',
                       marca: k.marca || '', precio: precioSegunLista(k), costo: Number(k.costo || 0), cant: 1 });
   pintarCarrito();
 }
@@ -4548,7 +4583,8 @@ function verTicket(id) {
     '<table class="t-items">' +
       '<tr class="t-cab"><td>Cant</td><td class="der">P.Unit</td><td class="der">Total</td></tr>' +
       v.items.map(i =>
-        '<tr><td colspan="3" class="t-nom">' + esc(i.nombre) + '</td></tr>' +
+        // La versión corta si la hay; si no, el nombre completo (se parte solo)
+        '<tr><td colspan="3" class="t-nom">' + esc(nombreEnTicket(i)) + '</td></tr>' +
         '<tr><td>' + i.cant + '</td>' +
           '<td class="der">' + Number(i.precio).toFixed(2) + '</td>' +
           '<td class="der">' + (i.precio * i.cant).toFixed(2) + '</td></tr>'
