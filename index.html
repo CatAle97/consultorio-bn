@@ -637,6 +637,7 @@
   <section id="sec-cuenta" class="oculto">
     <button class="btn btn-sec btn-mini" onclick="irA('distribuidores')">← Volver a distribuidores</button>
     <div id="cuenta-cabecera"></div>
+    <div id="cuenta-productos"></div>
     <div id="cuenta-movimientos"></div>
   </section>
 
@@ -3359,12 +3360,17 @@ function pintarDistribuidores() {
         const debe = saldoDistribuidor(d.id);
         const cargos = cargosDe(d.id).reduce((s,v) => s + totalVenta(v), 0);
         const pagos  = abonosDe(d.id).reduce((s,a) => s + Number(a.monto || 0), 0);
+        const llevados = productosLlevados(d.id);
         return '<tr>' +
           '<td data-th="Distribuidor"><b>' + esc(d.nombre) + '</b>' +
             (d.nota ? '<br><span class="sub">' + esc(d.nota) + '</span>' : '') + '</td>' +
           '<td data-th="Contacto" class="sub">' + (esc(d.documento || '—')) +
             (d.telefono ? '<br>' + esc(d.telefono) : '') + '</td>' +
-          '<td data-th="Se llevó">' + money(cargos) + '</td>' +
+          // Un vistazo de qué se está llevando, sin entrar al estado de cuenta
+          '<td data-th="Se llevó">' + money(cargos) +
+            (llevados.length ? '<br><span class="sub">' + llevados.slice(0,3).map(k => k.cant + '× ' + esc(k.nombre)).join('<br>') +
+              (llevados.length > 3 ? '<br>y ' + plural(llevados.length - 3, 'producto más', 'productos más') : '') + '</span>' : '') +
+          '</td>' +
           '<td data-th="Abonó" style="color:var(--success)">' + money(pagos) + '</td>' +
           '<td data-th="Debe"><b style="color:' + (debe > 0 ? 'var(--warning)' : 'var(--success)') + '">' +
             money(debe) + '</b>' + (debe <= 0 ? ' <span class="chip chip-verde">Al día</span>' : '') + '</td>' +
@@ -3446,6 +3452,20 @@ function verCuenta(id) {
       ? '<div class="sub" style="margin-bottom:12px">Cuando ' + esc(d.nombre) + ' pague, recepción lo registra desde su usuario y el saldo se actualiza aquí solo.</div>'
       : '');
 
+  // Qué marcas se llevó en total: lo primero que quiere saber el dueño
+  const llevados = productosLlevados(id);
+  const unidades = llevados.reduce((s,k) => s + k.cant, 0);
+  document.getElementById('cuenta-productos').innerHTML = !llevados.length ? '' :
+    '<h2>Qué se llevó</h2>' +
+    '<div class="sub" style="margin-bottom:8px">' + plural(unidades,'unidad','unidades') + ' en total, sumando todas las entregas a crédito.</div>' +
+    '<table class="tabla tarjetas"><thead><tr><th>Producto</th><th>Unidades</th><th>Entregas</th><th>Monto</th></tr></thead><tbody>' +
+    llevados.map(k => '<tr>' +
+      '<td data-th="Producto"><b>' + esc(k.nombre) + '</b></td>' +
+      '<td data-th="Unidades"><b>' + k.cant + '</b></td>' +
+      '<td data-th="Entregas" class="sub">' + plural(k.veces,'vez','veces') + '</td>' +
+      '<td data-th="Monto">' + money(k.monto) + '</td>' +
+      '</tr>').join('') + '</tbody></table>';
+
   const movs = movimientosCuenta(id);
   document.getElementById('cuenta-movimientos').innerHTML =
     '<h2>Movimientos</h2>' +
@@ -3454,7 +3474,12 @@ function verCuenta(id) {
       : '<table class="tabla tarjetas"><thead><tr><th>Fecha</th><th>Detalle</th><th>Se llevó</th><th>Abonó</th></tr></thead><tbody>' +
         movs.map(m => '<tr>' +
           '<td data-th="Fecha">' + fechaBonita(m.fecha) + (m.hora ? ' <span class="sub">' + m.hora + '</span>' : '') + '</td>' +
-          '<td data-th="Detalle" class="sub">' + esc(m.detalle) + '</td>' +
+          '<td data-th="Detalle"><span class="sub">' + esc(m.detalle) + '</span>' +
+            // El renglón por producto: sin esto, "15 und" no dice qué marcas salieron
+            (m.items ? m.items.map(i =>
+              '<div style="margin-top:2px"><b>' + i.cant + '×</b> ' + esc(i.nombre) +
+              ' <span class="sub">a ' + money(i.precio) + '</span></div>').join('') : '') +
+          '</td>' +
           '<td data-th="Se llevó">' + (m.tipo === 'cargo' ? '<b>' + money(m.monto) + '</b>' : '<span class="sub">—</span>') + '</td>' +
           '<td data-th="Abonó">' + (m.tipo === 'abono'
             ? '<b style="color:var(--success)">' + money(m.monto) + '</b>' +
@@ -3700,12 +3725,27 @@ function saldoDistribuidor(id) {
 function deudaTotal() {
   return redondeo(db.distribuidores.reduce((s,d) => s + Math.max(0, saldoDistribuidor(d.id)), 0));
 }
+/* Qué marcas se llevó en total, sumando todas las entregas a crédito. Es la
+   pregunta del dueño —"¿qué se está llevando?"— y no se responde mirando
+   ticket por ticket. */
+function productosLlevados(id) {
+  const acum = {};
+  cargosDe(id).forEach(v => v.items.forEach(i => {
+    const k = acum[i.nombre] || (acum[i.nombre] = { nombre: i.nombre, tipo: i.tipo, cant: 0, monto: 0, veces: 0 });
+    k.cant  += Number(i.cant);
+    k.monto += Number(i.precio) * Number(i.cant);
+    k.veces++;
+  }));
+  return Object.values(acum).sort((a, b) => b.cant - a.cant || a.nombre.localeCompare(b.nombre));
+}
 /* Estado de cuenta: cargos y abonos mezclados en orden, como una libreta */
 function movimientosCuenta(id) {
   const filas = [
     ...cargosDe(id).map(v => ({
       fecha: v.fecha, hora: v.hora || '', tipo: 'cargo', id: v.id,
       detalle: 'Ticket #' + v.numero + ' · ' + v.items.reduce((s,i) => s + Number(i.cant), 0) + ' und',
+      // Qué se llevó exactamente en esa entrega, no solo cuántas unidades
+      items: v.items.map(i => ({ nombre: i.nombre, cant: Number(i.cant), precio: Number(i.precio) })),
       monto: totalVenta(v)
     })),
     ...abonosDe(id).map(a => ({
