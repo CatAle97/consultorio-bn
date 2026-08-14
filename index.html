@@ -444,11 +444,22 @@
      los totales salen mochos. El margen va en cero porque el propio rollo ya
      deja su borde; con 4 mm el contenido se corría y se perdía una columna. */
   @media print {
-    body { background:#fff; }
-    body * { visibility:hidden; }
-    #ticket, #ticket * { visibility:visible; }
-    #ticket { position:absolute; left:0; top:0; width:48mm; padding:0;
-              font-size:9.5pt; line-height:1.25; }
+    /* Se OCULTA con display:none, no con visibility. visibility esconde pero
+       conserva el espacio: el sistema entero seguía midiendo varias páginas de
+       alto y la impresora sacaba esas páginas. Y como el modal es fixed, el
+       navegador lo repetía en cada una — de ahí los cuatro tickets iguales. */
+    html, body { height:auto !important; overflow:visible !important; background:#fff; }
+    body > * { display:none !important; }
+
+    /* Del sistema completo solo queda esto, y en flujo normal: una sola página
+       que termina donde termina el ticket. */
+    body > #modal-ticket { display:block !important; position:static !important;
+                           padding:0 !important; background:none !important;
+                           backdrop-filter:none !important; overflow:visible !important; }
+    #modal-ticket > .modal { max-width:none !important; width:auto !important;
+                             padding:0 !important; border-radius:0 !important;
+                             box-shadow:none !important; background:none !important; }
+    #ticket { width:48mm; margin:0; padding:0; font-size:9.5pt; line-height:1.25; }
     #ticket table { font-size:9.5pt; }
     /* Nombres largos como "VAINILLA WHEY PROTEIN 1.5KG" no entran en un renglón
        de 58: se parten en vez de desbordar y llevarse el precio fuera del papel */
