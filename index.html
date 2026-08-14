@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Consultorio B&N — Dr. Mariano Arredondo</title>
+<title>ATMEDIC EIRL — Sistema del consultorio</title>
 <!-- Misma tipografía que zonabariatrica.com. Si no hay internet, cae a la del
      sistema (Roboto en Android) sin romper nada. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -487,7 +487,7 @@
     <!-- Primer arranque de un equipo. Va aquí dentro y no en un modal: la
          pantalla de acceso cubre todo, y un modal quedaría por debajo. -->
     <div id="paso-nube" class="oculto">
-      <h2>🏥 Consultorio B&amp;N</h2>
+      <h2>🏥 ATMEDIC</h2>
       <div class="sub">Conectar este equipo</div>
       <div class="sub" style="margin:14px 0 10px;text-align:left">
         Escribe la <b>clave del consultorio</b> para que este equipo vea los mismos
@@ -502,7 +502,7 @@
          elegirse de una lista, lo que además le mostraba a cualquiera que abriera
          la página quiénes trabajan en el consultorio. -->
     <div id="paso-pin" class="oculto">
-      <h2>🏥 Consultorio B&amp;N</h2>
+      <h2>🏥 ATMEDIC</h2>
       <div class="sub">Escribe tu PIN de 4 dígitos</div>
       <div class="pin-puntos" id="pin-puntos"></div>
       <div id="pin-error" class="sub" style="color:var(--danger);min-height:18px"></div>
@@ -518,8 +518,8 @@
 
 <header>
   <div class="marca">
-    <h1>🏥 Consultorio B&amp;N</h1>
-    <small>Dr. Mariano Arredondo · Cirugía bariátrica</small>
+    <h1>🏥 ATMEDIC</h1>
+    <small>Cirugía bariátrica y digestiva</small>
   </div>
   <nav>
     <!-- Caja va primera: es lo que recepción abre veinte veces al día. Lo demás
@@ -1300,7 +1300,7 @@
 /* ================== BASE DE DATOS LOCAL ==================
    Los 7 módulos comparten esta única estructura guardada en el navegador. */
 const CLAVE = 'consultoriobn_v1';
-const NEGOCIO = 'Consultorio B&N — Dr. Mariano Arredondo';
+const NEGOCIO = 'ATMEDIC EIRL';
 const USUARIOS_INICIALES = [
   { id: 'u-recepcion', nombre: 'Recepción', rol: 'recepcion', pin: '1234' },
   { id: 'u-doctor', nombre: 'Dr. Arredondo', rol: 'doctor', pin: '4321' }
@@ -4853,7 +4853,7 @@ function exportarReporte() {
   const csv = 'sep=;\n' + filas.map(f2 => f2.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(';')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type:'text/csv;charset=utf-8' }));
-  a.download = 'reporte-consultoriobn-' + f.desde + '_a_' + f.hasta + '.csv';
+  a.download = 'reporte-atmedic-' + f.desde + '_a_' + f.hasta + '.csv';
   a.click();
 }
 
@@ -5101,7 +5101,7 @@ function borrarUsuario(id) {
 function descargarRespaldo() {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(db, null, 2)], { type:'application/json' }));
-  a.download = 'respaldo-consultoriobn-' + hoyStr() + '.json';
+  a.download = 'respaldo-atmedic-' + hoyStr() + '.json';
   a.click();
 }
 function restaurarRespaldo(input) {
