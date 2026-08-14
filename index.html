@@ -4522,10 +4522,13 @@ function verTicket(id) {
   const n = db.config.negocioTicket || {};
   const fechaCorta = v.fecha.split('-').reverse().join('/');
   document.getElementById('ticket').innerHTML =
+    // Sin teléfono, por decisión del Dr. Cada línea entra en el papel de 58mm;
+    // si algún día cambia el local, se pisa desde db.config.negocioTicket.
     '<div class="t-centro"><b>' + esc(n.nombre || 'CONSULTORIO B&N') + '</b><br>' +
       esc(n.linea2 || 'Dr. Mariano Arredondo') + '<br>' +
-      esc(n.linea3 || 'Cirugía bariátrica') +
-      (n.direccion ? '<br>' + esc(n.direccion) : '') +
+      esc(n.linea3 || 'Cirugía bariátrica') + '<br>' +
+      esc(n.direccion || 'Av. Joaquín de la Madrid 352') + '<br>' +
+      esc(n.distrito || 'San Borja') +
       (n.telefono ? '<br>Tel: ' + esc(n.telefono) : '') +
     '</div>' +
     '<hr>' +
