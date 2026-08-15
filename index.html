@@ -718,7 +718,7 @@
   <!-- ============ MÓDULO 5 · VENTAS ============ -->
   <section id="sec-ventas" class="oculto">
     <div class="barra">
-      <input type="search" id="buscador-ventas" placeholder="Buscar por N° de ticket, paciente o «distribuidor»…" oninput="pintarVentas()">
+      <input type="search" id="buscador-ventas" placeholder="Buscar por N° de ticket, paciente, RUC o «boleta», «factura», «distribuidor»…" oninput="pintarVentas()">
       <button class="btn" onclick="abrirModalVenta()">+ Nueva venta</button>
     </div>
     <div id="ordenes-pendientes"></div>
@@ -752,6 +752,7 @@
       <button class="btn" id="btn-cfg-precios" onclick="cambiarConfig('precios')">💲 Precios</button>
       <button class="btn btn-sec" id="btn-cfg-promos" onclick="cambiarConfig('promos')">🏷 Promociones</button>
       <button class="btn btn-sec" id="btn-cfg-usuarios" onclick="cambiarConfig('usuarios')">👥 Usuarios</button>
+      <button class="btn btn-sec" id="btn-cfg-facturacion" onclick="cambiarConfig('facturacion')">🧾 Facturación</button>
       <button class="btn btn-sec" id="btn-cfg-datos" onclick="cambiarConfig('datos')">💾 Datos</button>
     </div>
 
@@ -782,6 +783,35 @@
       <div class="sub" style="margin-bottom:10px">Cada persona entra con su PIN. Las ventas y atenciones quedan a nombre de quien las hizo.</div>
       <div id="lista-usuarios"></div>
       <div class="barra" style="margin-top:10px"><button class="btn" onclick="abrirModalUsuario()">+ Nuevo usuario</button></div>
+    </div>
+
+    <!-- Los datos de la empresa vivían hundidos en el código del ticket. Se
+         sacan aquí porque son los mismos que va a pedir el facturador
+         electrónico el día que se conecte, y porque una dirección mal escrita
+         en una factura es un problema, no un detalle. -->
+    <div id="cfg-facturacion" class="oculto">
+      <div id="cfg-fact-estado"></div>
+
+      <h2>Datos de la empresa</h2>
+      <div class="tarjeta">
+        <div class="sub" style="margin-bottom:10px">Salen impresos en cada ticket y son los que va a usar la boleta o la factura electrónica.</div>
+        <div class="fila-2">
+          <div><label style="margin-top:0">Razón social</label><input id="fx-nombre" placeholder="ATMEDIC EIRL"></div>
+          <div><label style="margin-top:0">RUC</label><input id="fx-ruc" inputmode="numeric" maxlength="11" placeholder="20609532514"></div>
+        </div>
+        <div class="fila-2">
+          <div><label>Dirección fiscal</label><input id="fx-direccion" placeholder="Av. Joaquín de la Madrid 352"></div>
+          <div><label>Distrito</label><input id="fx-distrito" placeholder="San Borja"></div>
+        </div>
+        <label>Teléfono <span class="sub" style="font-weight:400">— opcional, sale en el ticket</span></label>
+        <input id="fx-telefono" placeholder="Déjalo vacío si no quieres que aparezca">
+        <div class="barra" style="margin:12px 0 0"><button class="btn" onclick="guardarFacturacion()">Guardar datos</button></div>
+      </div>
+
+      <h2>Emisión electrónica</h2>
+      <div class="tarjeta">
+        <div id="cfg-fact-pasos"></div>
+      </div>
     </div>
 
     <div id="cfg-datos" class="oculto">
@@ -981,6 +1011,15 @@
       </div>
       <div><label>Precio Venta</label><input id="k-precio" type="number" step="0.01" min="0" placeholder="Ej: 280" oninput="pintarMargenCatalogo()"></div>
     </div>
+    <!-- Hace falta por ítem, no por venta: en un mismo ticket puede ir una
+         consulta y un suplemento, y no pagan lo mismo. El precio de arriba
+         siempre es el que paga el cliente, IGV ya incluido. -->
+    <label>IGV <span class="sub" style="font-weight:400">— confírmalo con tu contador</span></label>
+    <select id="k-igv">
+      <option value="gravado">Gravado 18% — el precio ya lo incluye</option>
+      <option value="exonerado">Exonerado — no lleva IGV</option>
+      <option value="inafecto">Inafecto — fuera del IGV</option>
+    </select>
     <div id="campos-producto" class="oculto">
       <div class="fila-2">
         <div><label>Marca</label>
@@ -1114,6 +1153,48 @@
 
       <label>Nota <span class="sub" style="font-weight:400">— opcional</span></label>
       <input id="v-nota" placeholder="Ej: pago parcial, promoción…">
+    </div>
+
+    <!-- ============ COMPROBANTE ============
+         El sistema todavía NO emite ante SUNAT: lo que hace es capturar los
+         datos que la boleta o la factura van a necesitar. Si no se piden en el
+         mostrador, después no hay de dónde sacarlos —el paciente ya se fue— y
+         el día que se conecte el facturador electrónico habría que llamar uno
+         por uno. Por eso se pregunta ahora aunque todavía no sirva. -->
+    <div class="bloque-opcional">
+      <label style="margin-top:0">¿Qué comprobante lleva?</label>
+      <div class="canales">
+        <button type="button" class="canal sel" id="cmp-nota" onclick="cambiarComprobante('nota')">Nota interna</button>
+        <button type="button" class="canal" id="cmp-boleta" onclick="cambiarComprobante('boleta')">Boleta</button>
+        <button type="button" class="canal" id="cmp-factura" onclick="cambiarComprobante('factura')">Factura</button>
+      </div>
+
+      <!-- Boleta: SUNAT solo exige identificar al comprador cuando pasa de
+           S/700. Debajo de eso el campo queda opcional para no frenar la caja. -->
+      <div id="v-bloque-boleta" class="oculto" style="margin-top:10px">
+        <div class="fila-2">
+          <div><label style="margin-top:0">DNI</label>
+            <input id="v-b-doc" inputmode="numeric" maxlength="8" placeholder="8 dígitos" oninput="pintarCarrito()"></div>
+          <div><label style="margin-top:0">Nombre</label>
+            <input id="v-b-nombre" placeholder="Nombre del comprador" oninput="pintarCarrito()"></div>
+        </div>
+      </div>
+
+      <!-- Factura: aquí no hay opcional que valga. Sin RUC y razón social la
+           factura no existe, y es justo el comprobante que el cliente reclama
+           para descargarlo como gasto. -->
+      <div id="v-bloque-factura" class="oculto" style="margin-top:10px">
+        <div class="fila-2">
+          <div><label style="margin-top:0">RUC *</label>
+            <input id="v-f-ruc" inputmode="numeric" maxlength="11" placeholder="11 dígitos" oninput="pintarCarrito()"></div>
+          <div><label style="margin-top:0">Razón social *</label>
+            <input id="v-f-nombre" placeholder="Nombre de la empresa" oninput="pintarCarrito()"></div>
+        </div>
+        <label>Dirección fiscal</label>
+        <input id="v-f-direccion" placeholder="La que figura en su ficha RUC">
+      </div>
+
+      <div id="v-aviso-comprobante" class="sub"></div>
     </div>
 
     <div class="acciones">
@@ -2877,9 +2958,14 @@ function pintarMargenCatalogo() {
 function llenarCategorias(tipo, sel) {
   document.getElementById('k-categoria').innerHTML = CATEGORIAS[tipo].map(c => '<option' + (c===sel?' selected':'') + '>' + c + '</option>').join('');
 }
+/* Un suplemento es un bien y paga IGV; los servicios de salud normalmente van
+   exonerados. Es solo el punto de partida del formulario: quien manda es el
+   contador, y por eso el campo se puede cambiar a mano. */
+function igvPorDefecto(tipo) { return tipo === 'servicio' ? 'exonerado' : 'gravado'; }
 function alternarCamposCatalogo() {
   const tipo = document.getElementById('k-tipo').value;
   document.getElementById('campos-producto').classList.toggle('oculto', tipo !== 'producto');
+  document.getElementById('k-igv').value = igvPorDefecto(tipo);
   llenarCategorias(tipo);
 }
 function abrirModalCatalogo(id) {
@@ -2893,6 +2979,9 @@ function abrirModalCatalogo(id) {
   document.getElementById('k-nombreticket').value = k ? (k.nombreTicket||'') : '';
   pintarLargoTicket();
   document.getElementById('k-precio').value = k ? (k.precio||'') : '';
+  // Va después de alternarCamposCatalogo() a propósito: esa función deja el
+  // IGV que le toca al tipo, y al editar hay que respetar lo que ya se eligió
+  document.getElementById('k-igv').value = (k && k.igv) || igvPorDefecto(tipo);
   document.getElementById('k-marca').value = k ? (k.marca||'B&N') : 'B&N';
   document.getElementById('k-unidad').value = k ? (k.unidad||'') : '';
   document.getElementById('k-stock').value = k ? (k.stock||'') : '';
@@ -2928,6 +3017,7 @@ function guardarCatalogo() {
     nombreTicket: document.getElementById('k-nombreticket').value.trim(),
     categoria: document.getElementById('k-categoria').value,
     precio: document.getElementById('k-precio').value,
+    igv: document.getElementById('k-igv').value,
     activo: true
   };
   if (tipo === 'producto') {
@@ -3779,6 +3869,38 @@ let controlTrasCobrar = null;  // control que hay que agendar apenas termine el 
 function horaAhora() { const d = new Date(); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
 function totalVenta(v) { return v.items.reduce((s,i) => s + Number(i.precio) * Number(i.cant), 0) - Number(v.descuento || 0); }
 
+/* ---------- IGV ----------
+   En Perú el precio de mostrador ya lleva el IGV adentro: nadie pone S/237 en
+   la vitrina para cobrar S/280 en caja. Así que el impuesto no se suma, se
+   saca de adentro del precio. Lo que la boleta necesita es esa separación.
+   Ventas viejas —y catálogo cargado antes de esto— caen al criterio por tipo. */
+const TASA_IGV = 0.18;
+function afectacionItem(i) {
+  if (i.igv) return i.igv;
+  const k = db.catalogo.find(x => x.id === i.catalogoId);
+  return (k && k.igv) || igvPorDefecto(i.tipo);
+}
+function desgloseIGV(v) {
+  const bruto = v.items.reduce((s,i) => s + Number(i.precio) * Number(i.cant), 0);
+  const desc = Number(v.descuento || 0);
+  // El descuento se reparte a prorrata entre los ítems. Si se restara del final,
+  // el IGV quedaría calculado sobre una base que el cliente nunca pagó.
+  const factor = bruto > 0 ? (bruto - desc) / bruto : 1;
+  const d = { gravado: 0, exonerado: 0, inafecto: 0, igv: 0 };
+  v.items.forEach(i => {
+    const neto = Number(i.precio) * Number(i.cant) * factor;
+    const af = afectacionItem(i);
+    if (af === 'gravado') {
+      const base = neto / (1 + TASA_IGV);
+      d.gravado += base; d.igv += neto - base;
+    } else if (af === 'inafecto') d.inafecto += neto;
+    else d.exonerado += neto;
+  });
+  d.total = d.gravado + d.exonerado + d.inafecto + d.igv;
+  return d;
+}
+function tipoComprobante(v) { return v.comprobante || 'nota'; }
+
 /* ================== DISTRIBUIDORES Y CUENTA CORRIENTE ==================
    El distribuidor no compra y paga: se lleva mercadería, la vende por su cuenta
    durante días o semanas, y va abonando de a poco. Por eso no se lleva "venta
@@ -3930,12 +4052,16 @@ function textoPromo(pr) {
 
 /* Toda venta pasa por aquí: se cobre desde la caja, al agendar o al salir del
    consultorio. Así el correlativo, el stock y los pendientes siempre cuadran. */
-function registrarVenta({ pacienteId, items, metodoPago, nota, descuento, ordenId, citaId, lista, promoId, promoNombre, credito, distribuidorId }) {
+function registrarVenta({ pacienteId, items, metodoPago, nota, descuento, ordenId, citaId, lista, promoId, promoNombre, credito, distribuidorId, comprobante, receptor }) {
   const venta = {
     id: nuevoId(),
     numero: db.config.correlativo++,
     fecha: hoyStr(), hora: horaAhora(),
     pacienteId: pacienteId || '',
+    // Qué comprobante corresponde y a nombre de quién. El número de serie no se
+    // guarda aquí: lo asigna el facturador electrónico cuando se conecte.
+    comprobante: comprobante || 'nota',
+    receptor: receptor || null,
     // A quién se le vendió: 'paciente' (precio final) o 'colega' (distribuidor).
     // Se guarda en la venta porque el precio puede ajustarse a mano y después
     // no habría forma de saber de qué tipo fue.
@@ -4009,6 +4135,11 @@ function abrirModalVenta(pacienteId) {
           (saldoDistribuidor(d.id) > 0 ? ' · debe ' + money(saldoDistribuidor(d.id)) : '') + '</option>').join('');
   listaPrecio = 'paciente';
   cambiarListaPrecio('paciente');   // deja el bloque de distribuidor y el crédito ocultos
+  // El comprobante arranca en nota interna: es lo que se entrega hoy. Los datos
+  // del comprador anterior se limpian sí o sí, o la próxima boleta saldría a
+  // nombre del paciente de la venta pasada.
+  ['v-b-doc','v-b-nombre','v-f-ruc','v-f-nombre','v-f-direccion'].forEach(id => document.getElementById(id).value = '');
+  cambiarComprobante('nota');
   pintarCarrito();
   document.getElementById('modal-venta').classList.remove('oculto');
 }
@@ -4107,9 +4238,12 @@ function agregarPorId(catalogoId) {
   // no puede cambiar sola. Un reporte del mes pasado tiene que dar siempre igual.
   // La marca se copia igual que el costo: si mañana el producto cambia de marca
   // en el catálogo, lo que se entregó ese día no puede cambiar solo
+  // El IGV se copia por el mismo motivo que el costo: si el contador reclasifica
+  // un producto el mes que viene, los comprobantes ya emitidos no pueden moverse
   else carrito.push({ catalogoId: k.id, nombre: k.nombre, nombreTicket: k.nombreTicket || '',
                       tipo: k.tipo, categoria: k.categoria || '',
-                      marca: k.marca || '', precio: precioSegunLista(k), costo: Number(k.costo || 0), cant: 1 });
+                      marca: k.marca || '', precio: precioSegunLista(k), costo: Number(k.costo || 0),
+                      igv: k.igv || igvPorDefecto(k.tipo), cant: 1 });
   pintarCarrito();
 }
 
@@ -4172,6 +4306,91 @@ function pintarPacienteElegido() {
   caja.innerHTML = '<div class="pac-elegido"><span><b>' + esc(p.nombre) + '</b>' +
     '<small>' + esc(p.docTipo || 'DNI') + ' ' + esc(p.documento || '—') + '</small></span>' +
     '<button type="button" class="btn btn-sec btn-mini" onclick="quitarPacienteVenta()">Cambiar</button></div>';
+  // Si ya se está pidiendo boleta, el DNI del paciente se copia solo: es el
+  // mismo dato y volver a escribirlo es la excusa perfecta para no llenarlo
+  autocompletarBoleta();
+  pintarCarrito();
+}
+
+/* ---------- Qué comprobante lleva ----------
+   Ojo con lo que este bloque NO hace: no emite nada ante SUNAT ni reserva
+   numeración. Solo deja guardado a nombre de quién va el comprobante. El
+   número real lo pone el facturador electrónico el día que se conecte; si el
+   sistema los inventara antes, esas series nacerían desfasadas. */
+const TOPE_BOLETA_SIN_DOC = 700;
+let comprobante = 'nota';
+function cambiarComprobante(cual) {
+  comprobante = cual;
+  ['nota','boleta','factura'].forEach(c =>
+    document.getElementById('cmp-' + c).classList.toggle('sel', c === cual));
+  document.getElementById('v-bloque-boleta').classList.toggle('oculto', cual !== 'boleta');
+  document.getElementById('v-bloque-factura').classList.toggle('oculto', cual !== 'factura');
+  autocompletarBoleta();
+  // Repinta el carrito, no solo el aviso: el botón de cobrar tiene que bloquearse
+  // en el mismo momento en que se pide una factura, no cuando toquen otro campo
+  pintarCarrito();
+}
+/* Solo llena los campos. Quien la llama se encarga de repintar. */
+function autocompletarBoleta() {
+  if (comprobante !== 'boleta') return;
+  const p = db.pacientes.find(x => x.id === document.getElementById('v-paciente').value);
+  if (!p) return;
+  const doc = document.getElementById('v-b-doc'), nom = document.getElementById('v-b-nombre');
+  // Solo rellena lo que está vacío: si recepción escribió otro comprador
+  // —el esposo, la empresa que paga— no se le pisa lo que puso
+  if (!doc.value.trim() && (p.docTipo || 'DNI') === 'DNI') doc.value = p.documento || '';
+  if (!nom.value.trim()) nom.value = p.nombre;
+}
+/* Devuelve a nombre de quién va el comprobante, o null si es nota interna */
+function receptorDeVenta() {
+  if (comprobante === 'boleta') return {
+    tipoDoc: 'DNI',
+    doc: document.getElementById('v-b-doc').value.replace(/\D/g, ''),
+    nombre: document.getElementById('v-b-nombre').value.trim(),
+    direccion: ''
+  };
+  if (comprobante === 'factura') return {
+    tipoDoc: 'RUC',
+    doc: document.getElementById('v-f-ruc').value.replace(/\D/g, ''),
+    nombre: document.getElementById('v-f-nombre').value.trim(),
+    direccion: document.getElementById('v-f-direccion').value.trim()
+  };
+  return null;
+}
+/* Lo que falta para que el comprobante sea emitible. Vacío = está completo. */
+function faltaComprobante() {
+  const r = receptorDeVenta();
+  if (!r) return '';
+  if (comprobante === 'factura') {
+    if (r.doc.length !== 11) return 'Falta el RUC del cliente (11 dígitos).';
+    if (!r.nombre) return 'Falta la razón social del cliente.';
+    return '';
+  }
+  // Boleta: por debajo del tope, SUNAT no obliga a identificar al comprador
+  const total = totalCarrito();
+  if (total > TOPE_BOLETA_SIN_DOC && r.doc.length !== 8) {
+    return 'Esta boleta pasa de ' + money(TOPE_BOLETA_SIN_DOC) + ': SUNAT exige el DNI del comprador.';
+  }
+  if (r.doc && r.doc.length !== 8) return 'El DNI debe tener 8 dígitos.';
+  return '';
+}
+function pintarAvisoComprobante() {
+  const cont = document.getElementById('v-aviso-comprobante');
+  if (!cont) return;
+  const falta = faltaComprobante();
+  cont.innerHTML = comprobante === 'nota'
+    ? 'Ticket interno del consultorio, sin valor ante SUNAT. Es lo que se viene entregando hasta hoy.'
+    : falta
+      ? '<span style="color:var(--warning)">⚠️ ' + esc(falta) + '</span>'
+      : '<span style="color:var(--success)">✅ Los datos quedan guardados en la venta.</span> ' +
+        'Emite la ' + comprobante + ' desde SUNAT; el ticket sale con todo listo para copiarlo.';
+}
+/* Cuánto se está cobrando ahora mismo. No repinta el select de promociones
+   —de eso se encarga refrescarPromosVenta()—, solo lee lo que ya está elegido. */
+function totalCarrito() {
+  const bruto = carrito.reduce((s,i) => s + i.precio * i.cant, 0);
+  const pr = db.promos.find(x => x.id === document.getElementById('v-promo').value);
+  return bruto - (pr ? descuentoDePromo(pr, carrito) : 0);
 }
 /* Al tocar fuera se cierran las listas, si no quedan tapando el formulario */
 document.addEventListener('click', e => {
@@ -4247,6 +4466,7 @@ function pintarCarrito() {
   if (!carrito.length) {
     cont.innerHTML = '<div class="vacio" style="padding:16px">Aún no agregas nada a la venta.</div>';
     btn.disabled = true; btn.textContent = 'Cobrar y guardar';
+    pintarAvisoComprobante();
     return;
   }
   const bruto = carrito.reduce((s,i) => s + i.precio * i.cant, 0);
@@ -4301,9 +4521,15 @@ function pintarCarrito() {
     : '');
 
   const faltaDistri = esVentaCredito() && !db.distribuidores.find(x => x.id === distribuidorDeVenta());
-  btn.disabled = faltan.length > 0 || faltaDistri;
+  // Una boleta sin DNI pasado el tope se puede seguir cobrando —el aviso ya está
+  // y la plata no puede esperar—, pero una factura sin RUC no: ese comprobante
+  // no se podría emitir nunca y la venta quedaría trabada en los libros
+  const faltaFactura = comprobante === 'factura' && !!faltaComprobante();
+  pintarAvisoComprobante();
+  btn.disabled = faltan.length > 0 || faltaDistri || faltaFactura;
   btn.textContent = faltan.length ? '🚫 Sin stock'
     : faltaDistri ? 'Elige el distribuidor'
+    : faltaFactura ? 'Faltan datos de la factura'
     : esVentaCredito() ? '📋 Entregar a crédito' : 'Cobrar y guardar';
 }
 function guardarVenta() {
@@ -4324,6 +4550,11 @@ function guardarVenta() {
       '\n\nRegistra la entrada en Stock, o quita el producto de la venta.');
     return;
   }
+  // La factura sin RUC ya está bloqueada en el botón; la boleta a la que le
+  // falta el DNI se avisa una vez y se deja pasar: el cliente está esperando
+  const faltaCmp = faltaComprobante();
+  if (faltaCmp && comprobante === 'factura') { alert(faltaCmp); return; }
+  if (faltaCmp && !confirm(faltaCmp + '\n\n¿Cobrar igual?')) return;
 
   const venta = registrarVenta({
     pacienteId: document.getElementById('v-paciente').value,
@@ -4339,6 +4570,8 @@ function guardarVenta() {
     // A crédito la mercadería sale pero la plata no entra: queda como deuda
     credito: aCredito,
     distribuidorId: distriId,
+    comprobante,
+    receptor: receptorDeVenta(),
     ordenId: ordenCobrando,
     citaId: citaCobrando
   });
@@ -4523,9 +4756,12 @@ function pintarVentas() {
   const lista = db.ventas.filter(v => {
     if (!filtro) return true;
     const pac = v.pacienteId ? nombrePaciente(v.pacienteId).toLowerCase() : 'mostrador';
-    // Escribir "distribuidor" saca todas las ventas de esa lista de un tirón
+    // Escribir "distribuidor" saca todas las ventas de esa lista de un tirón,
+    // y "boleta" o "factura" las que están esperando emisión
     const tipo = v.lista === 'colega' ? 'distribuidor' : 'paciente';
-    return String(v.numero).includes(filtro) || pac.includes(filtro) || tipo.includes(filtro);
+    const doc = v.receptor ? String(v.receptor.doc || '') : '';
+    return String(v.numero).includes(filtro) || pac.includes(filtro) || tipo.includes(filtro) ||
+           tipoComprobante(v).includes(filtro) || doc.includes(filtro);
   }).sort((a,b) => b.numero - a.numero);
 
   document.getElementById('lista-ventas').innerHTML = !lista.length
@@ -4536,7 +4772,12 @@ function pintarVentas() {
         '<td data-th="Fecha">' + fechaBonita(v.fecha) + ' <span class="sub">' + v.hora + '</span></td>' +
         '<td data-th="Cliente">' + (v.credito ? esc(nombreDistribuidor(v.distribuidorId)) : esc(nombreEnVenta(v))) +
           (v.lista === 'colega' ? ' <span class="chip chip-morado">Distribuidor</span>' : '') +
-          (v.credito ? ' <span class="chip chip-amarillo">A crédito</span>' : '') + '</td>' +
+          (v.credito ? ' <span class="chip chip-amarillo">A crédito</span>' : '') +
+          // Se ve de un vistazo cuáles hay que emitir en SUNAT al cerrar el día
+          (tipoComprobante(v) !== 'nota'
+            ? ' <span class="chip chip-verde">' + (tipoComprobante(v) === 'factura' ? '🧾 Factura' : '🧾 Boleta') + '</span>' +
+              (v.receptor && v.receptor.doc ? '<br><span class="sub">' + esc(v.receptor.tipoDoc) + ' ' + esc(v.receptor.doc) + '</span>' : '')
+            : '') + '</td>' +
         '<td data-th="Detalle" class="sub">' + v.items.map(i => i.cant + '× ' + esc(i.nombre)).join('<br>') +
           (v.promoNombre ? '<br><span class="chip chip-naranja">🏷 ' + esc(v.promoNombre) + '</span>' : '') + '</td>' +
         '<td data-th="Total"><b>' + money(totalVenta(v)) + '</b> <span class="sub">' + esc(v.metodoPago||'') + '</span></td>' +
@@ -4554,15 +4795,15 @@ function verTicket(id) {
   if (!v) return;
   document.getElementById('ticket-luego').innerHTML = '';
   const bruto = v.items.reduce((s,i) => s + i.precio * i.cant, 0);
-  const n = db.config.negocioTicket || {};
+  const n = datosNegocio();
   const fechaCorta = v.fecha.split('-').reverse().join('/');
   document.getElementById('ticket').innerHTML =
     // Sin teléfono, por decisión del Dr. Cada línea entra en el papel de 58mm;
-    // si algún día cambia el local, se pisa desde db.config.negocioTicket.
-    '<div class="t-centro"><b>' + esc(n.nombre || 'ATMEDIC EIRL') + '</b><br>' +
-      esc(n.ruc || 'RUC 20609532514') + '<br>' +
-      esc(n.direccion || 'Av. Joaquín de la Madrid 352') + '<br>' +
-      esc(n.distrito || 'San Borja') +
+    // si algún día cambia el local, se edita en Configuración → 🧾 Facturación.
+    '<div class="t-centro"><b>' + esc(n.nombre) + '</b><br>' +
+      esc(n.ruc) + '<br>' +
+      esc(n.direccion) + '<br>' +
+      esc(n.distrito) +
       (n.telefono ? '<br>Tel: ' + esc(n.telefono) : '') +
     '</div>' +
     '<hr>' +
@@ -4572,6 +4813,15 @@ function verTicket(id) {
       '<tr><td>Ticket N° ' + String(v.numero).padStart(6,'0') + '</td><td class="der">' + esc(v.usuarioNombre || '—') + '</td></tr>' +
     '</table>' +
     '<div>Paciente: ' + esc(nombreEnVenta(v)) + '</div>' +
+    // Si corresponde boleta o factura, en el papel va a nombre de quién. Es lo
+    // que recepción copia al portal de SUNAT sin tener que llamar al cliente
+    // de vuelta —que es exactamente lo que nunca pasa una vez que se fue.
+    (tipoComprobante(v) !== 'nota' && v.receptor
+      ? '<hr><div class="t-centro"><b>DATOS PARA ' + tipoComprobante(v).toUpperCase() + '</b></div>' +
+        '<div>' + esc(v.receptor.tipoDoc || '') + ': ' + esc(v.receptor.doc || '—') + '</div>' +
+        '<div>' + esc(v.receptor.nombre || '—') + '</div>' +
+        (v.receptor.direccion ? '<div>' + esc(v.receptor.direccion) + '</div>' : '')
+      : '') +
     (v.anulada ? '<div class="t-centro"><b>** ANULADO **</b></div>' : '') +
     // Queda impreso en el papel: al revisar tickets viejos se sabe con qué lista se cobró
     (v.lista === 'colega' ? '<div><b>** VENTA A DISTRIBUIDOR **</b></div>' : '') +
@@ -4597,6 +4847,17 @@ function verTicket(id) {
       '<tr class="t-total"><td><b>' + (v.credito ? 'SE LLEVA:' : 'TOTAL S/:') + '</b></td>' +
         '<td class="der"><b>' + totalVenta(v).toFixed(2) + '</b></td></tr>' +
     '</table>' +
+    // El desglose solo aparece cuando hay comprobante de por medio: en la nota
+    // interna del día a día ocuparía tres renglones de papel sin servir a nadie
+    (tipoComprobante(v) !== 'nota' ? (function () {
+      const g = desgloseIGV(v);
+      return '<hr><table class="t-tot">' +
+        (g.gravado   > 0 ? '<tr><td>Op. gravada:</td><td class="der">' + g.gravado.toFixed(2) + '</td></tr>' : '') +
+        (g.exonerado > 0 ? '<tr><td>Op. exonerada:</td><td class="der">' + g.exonerado.toFixed(2) + '</td></tr>' : '') +
+        (g.inafecto  > 0 ? '<tr><td>Op. inafecta:</td><td class="der">' + g.inafecto.toFixed(2) + '</td></tr>' : '') +
+        '<tr><td>IGV (18%):</td><td class="der">' + g.igv.toFixed(2) + '</td></tr>' +
+        '</table>';
+    })() : '') +
     '<hr>' +
     '<div class="t-centro">Forma de pago: ' + (v.credito ? 'A CRÉDITO' : esc(v.metodoPago || '')) + '</div>' +
     // En el papel del distribuidor tiene que quedar cuánto debe en total tras esta entrega
@@ -4607,7 +4868,14 @@ function verTicket(id) {
       : '') +
     (v.nota ? '<hr><div>Nota: ' + esc(v.nota) + '</div>' : '') +
     '<hr>' +
-    '<div class="t-centro">¡Gracias por su preferencia!<br><br>Documento interno.<br>No válido como comprobante de pago.</div>';
+    // Mientras el sistema no emita electrónicamente, ningún papel que salga de
+    // aquí es un comprobante válido —ni el que lleva los datos de la factura—.
+    // Decirlo en el papel evita que alguien lo entregue creyendo que sí lo es.
+    '<div class="t-centro">¡Gracias por su preferencia!<br><br>' +
+      (tipoComprobante(v) !== 'nota'
+        ? 'Documento interno.<br>La ' + tipoComprobante(v) + ' electrónica<br>se emite aparte.'
+        : 'Documento interno.<br>No válido como comprobante de pago.') +
+    '</div>';
   document.getElementById('modal-ticket').classList.remove('oculto');
 }
 
@@ -4899,14 +5167,83 @@ function exportarReporte() {
 let cfgVista = 'precios';
 function cambiarConfig(v) {
   cfgVista = v;
-  ['precios','promos','usuarios','datos'].forEach(x => {
+  ['precios','promos','usuarios','facturacion','datos'].forEach(x => {
     document.getElementById('btn-cfg-' + x).style.cssText = v===x ? '' : 'background:#fff;color:#333;border:1px solid var(--border)';
     document.getElementById('cfg-' + x).classList.toggle('oculto', v !== x);
   });
   if (v === 'precios') pintarCatalogo();
   if (v === 'promos') pintarPromos();
   if (v === 'usuarios') pintarUsuarios();
+  if (v === 'facturacion') pintarFacturacion();
   if (v === 'datos') pintarDatos();
+}
+
+/* ---------- Configuración · Facturación ----------
+   Esta pantalla no emite nada. Sirve para dos cosas: tener los datos de la
+   empresa en un solo sitio, y que quede escrito qué falta para emitir de
+   verdad, en vez de vivir en la cabeza de quien armó el sistema. */
+function datosNegocio() {
+  const n = db.config.negocioTicket || {};
+  return {
+    nombre:    n.nombre    || 'ATMEDIC EIRL',
+    ruc:       n.ruc       || 'RUC 20609532514',
+    direccion: n.direccion || 'Av. Joaquín de la Madrid 352',
+    distrito:  n.distrito  || 'San Borja',
+    telefono:  n.telefono  || ''
+  };
+}
+function pintarFacturacion() {
+  const n = datosNegocio();
+  document.getElementById('fx-nombre').value    = n.nombre;
+  document.getElementById('fx-ruc').value       = String(n.ruc).replace(/\D/g, '');
+  document.getElementById('fx-direccion').value = n.direccion;
+  document.getElementById('fx-distrito').value  = n.distrito;
+  document.getElementById('fx-telefono').value  = n.telefono;
+
+  // Cuántos comprobantes hay esperando: es el número que dice si conviene
+  // conectar el facturador ya o seguir emitiendo a mano desde SUNAT
+  const conCmp = db.ventas.filter(v => tipoComprobante(v) !== 'nota' && !v.anulada);
+  const mes = hoyStr().slice(0, 7);
+  const delMes = conCmp.filter(v => v.fecha.startsWith(mes));
+  document.getElementById('cfg-fact-estado').innerHTML =
+    '<div class="grid-datos">' +
+      '<div class="dato"><small>Boletas pedidas este mes</small><b style="font-size:19px">' +
+        delMes.filter(v => tipoComprobante(v) === 'boleta').length + '</b></div>' +
+      '<div class="dato"><small>Facturas pedidas este mes</small><b style="font-size:19px">' +
+        delMes.filter(v => tipoComprobante(v) === 'factura').length + '</b></div>' +
+      '<div class="dato"><small>En total</small><b style="font-size:19px">' + conCmp.length + '</b></div>' +
+    '</div>' +
+    '<div class="aviso aviso-amarillo" style="margin-bottom:12px">' +
+      '<b>El sistema todavía no emite ante SUNAT.</b>' +
+      '<div class="sub" style="margin-top:6px">Guarda a nombre de quién va cada boleta o factura para que no se pierda el dato, ' +
+      'pero la emisión se sigue haciendo desde el portal de SUNAT. Busca «boleta» o «factura» en <b>Ventas</b> para ver cuáles emitir.</div>' +
+    '</div>';
+
+  document.getElementById('cfg-fact-pasos').innerHTML =
+    '<div class="sub" style="margin-bottom:10px">Para que el sistema emita solo, hacen falta cuatro cosas. Las tres primeras son trámite, no programación:</div>' +
+    '<ol style="margin:0 0 10px 18px;padding:0;line-height:1.7">' +
+      '<li><b>Contratar un facturador autorizado</b> (PSE u OSE). Es quien firma y envía los comprobantes a SUNAT.</li>' +
+      '<li><b>Autorizarlo desde la Clave SOL</b> de la empresa. Sin esto, SUNAT rechaza todo.</li>' +
+      '<li><b>Certificado digital</b> de la empresa. Varios proveedores lo incluyen.</li>' +
+      '<li><b>Conectar el sistema</b> con ese proveedor. Esa parte es la única que toca el código.</li>' +
+    '</ol>' +
+    '<div class="sub"><b>Antes de eso, confirma con el contador qué lleva IGV.</b> ' +
+      'Cada ítem del catálogo tiene su propio tratamiento en <b>💲 Precios</b>, y de ahí sale el desglose que va impreso en el comprobante.</div>';
+}
+function guardarFacturacion() {
+  const ruc = document.getElementById('fx-ruc').value.replace(/\D/g, '');
+  if (ruc && ruc.length !== 11) { alert('El RUC debe tener 11 dígitos.'); return; }
+  db.config.negocioTicket = {
+    nombre:    document.getElementById('fx-nombre').value.trim(),
+    // Se guarda con el prefijo porque el ticket lo imprime tal cual viene
+    ruc:       ruc ? 'RUC ' + ruc : '',
+    direccion: document.getElementById('fx-direccion').value.trim(),
+    distrito:  document.getElementById('fx-distrito').value.trim(),
+    telefono:  document.getElementById('fx-telefono').value.trim()
+  };
+  guardar();
+  pintarFacturacion();
+  alert('Datos guardados. Ya salen en los tickets nuevos.');
 }
 
 /* ---------- Configuración · Promociones ---------- */
