@@ -1007,7 +1007,10 @@
     <div id="k-largo-ticket" class="sub"></div>
     <div class="fila-2">
       <div><label>Categoría</label>
-        <select id="k-categoria"></select>
+        <!-- Se escribe libre, pero sugiere las que ya se usaron para no terminar
+             con "Vitamina", "vitaminas" y "Vitamnia" como si fueran tres cosas -->
+        <input id="k-categoria" list="lista-categorias" placeholder="Escribe o elige" autocomplete="off">
+        <datalist id="lista-categorias"></datalist>
       </div>
       <div><label>Precio Venta</label><input id="k-precio" type="number" step="0.01" min="0" placeholder="Ej: 280" oninput="pintarMargenCatalogo()"></div>
     </div>
@@ -1023,7 +1026,11 @@
     <div id="campos-producto" class="oculto">
       <div class="fila-2">
         <div><label>Marca</label>
-          <select id="k-marca"><option>B&amp;N</option><option>Otra marca</option></select>
+          <!-- Antes eran dos opciones fijas y "Otra marca" no decía cuál era.
+               Ahora se escribe el nombre real; B&N sale de primera en la lista
+               porque es la marca propia y los reportes la separan del resto. -->
+          <input id="k-marca" list="lista-marcas" placeholder="Ej: B&amp;N, Ensure…" autocomplete="off">
+          <datalist id="lista-marcas"></datalist>
         </div>
         <div><label>Unidad</label><input id="k-unidad" placeholder="Ej: frasco, caja, unidad"></div>
       </div>
@@ -2955,8 +2962,23 @@ function pintarMargenCatalogo() {
     (costo >= precio ? '<div class="sub" style="color:var(--danger);margin-top:4px">⚠️ El costo es igual o mayor que el precio: estaría perdiendo.</div>' : '') +
   '</div>';
 }
+/* Las sugerencias son las categorías de siempre más las que se hayan inventado
+   en el catálogo. La categoría igual se puede escribir a mano: la lista solo
+   ahorra tipeo y evita que la misma categoría termine escrita de tres formas. */
 function llenarCategorias(tipo, sel) {
-  document.getElementById('k-categoria').innerHTML = CATEGORIAS[tipo].map(c => '<option' + (c===sel?' selected':'') + '>' + c + '</option>').join('');
+  const usadas = db.catalogo.filter(k => k.tipo === tipo).map(k => (k.categoria || '').trim());
+  const opciones = [...new Set([...CATEGORIAS[tipo], ...usadas])].filter(Boolean);
+  document.getElementById('lista-categorias').innerHTML = opciones.map(c => '<option value="' + esc(c) + '">').join('');
+  document.getElementById('k-categoria').value = sel || '';
+}
+/* Igual que las categorías: B&N primero por ser la marca propia, y detrás las
+   marcas de terceros que ya estén cargadas en el catálogo. */
+function llenarMarcas() {
+  const usadas = db.catalogo.filter(k => k.tipo === 'producto').map(k => (k.marca || '').trim());
+  // 'Otra marca' era el comodín del formulario viejo: no es una marca de
+  // verdad, así que no se vuelve a ofrecer como sugerencia.
+  const opciones = [...new Set(['B&N', ...usadas])].filter(m => m && m !== 'Otra marca');
+  document.getElementById('lista-marcas').innerHTML = opciones.map(m => '<option value="' + esc(m) + '">').join('');
 }
 /* Un suplemento es un bien y paga IGV; los servicios de salud normalmente van
    exonerados. Es solo el punto de partida del formulario: quien manda es el
@@ -2982,7 +3004,10 @@ function abrirModalCatalogo(id) {
   // Va después de alternarCamposCatalogo() a propósito: esa función deja el
   // IGV que le toca al tipo, y al editar hay que respetar lo que ya se eligió
   document.getElementById('k-igv').value = (k && k.igv) || igvPorDefecto(tipo);
-  document.getElementById('k-marca').value = k ? (k.marca||'B&N') : 'B&N';
+  llenarMarcas();
+  // Un producto nuevo arranca sin marca a propósito: antes salía B&N puesto de
+  // fábrica y un producto de otra marca se guardaba como si fuera propio.
+  document.getElementById('k-marca').value = k ? (k.marca||'') : '';
   document.getElementById('k-unidad').value = k ? (k.unidad||'') : '';
   document.getElementById('k-stock').value = k ? (k.stock||'') : '';
   document.getElementById('k-stockmin').value = k ? (k.stockMin||'') : '';
@@ -3015,13 +3040,17 @@ function guardarCatalogo() {
   const datos = {
     tipo, nombre,
     nombreTicket: document.getElementById('k-nombreticket').value.trim(),
-    categoria: document.getElementById('k-categoria').value,
+    categoria: document.getElementById('k-categoria').value.trim(),
     precio: document.getElementById('k-precio').value,
     igv: document.getElementById('k-igv').value,
     activo: true
   };
   if (tipo === 'producto') {
-    datos.marca = document.getElementById('k-marca').value;
+    // La marca se pide sí o sí en productos: los reportes separan lo que deja
+    // la marca propia de lo que deja el producto de terceros, y sin marca esa
+    // plata cae en un "Sin marca" que no le sirve a nadie.
+    datos.marca = document.getElementById('k-marca').value.trim();
+    if (!datos.marca) { alert('Escribe la marca del producto (por ejemplo B&N).'); document.getElementById('k-marca').focus(); return; }
     datos.unidad = document.getElementById('k-unidad').value.trim();
     datos.stock = document.getElementById('k-stock').value || 0;
     datos.stockMin = document.getElementById('k-stockmin').value || 0;
