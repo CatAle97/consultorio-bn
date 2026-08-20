@@ -754,6 +754,7 @@
   <section id="sec-config" class="oculto">
     <div class="barra">
       <button class="btn" id="btn-cfg-precios" onclick="cambiarConfig('precios')">💲 Precios</button>
+      <button class="btn btn-sec" id="btn-cfg-acuerdos" onclick="cambiarConfig('acuerdos')">🤝 Acuerdos</button>
       <button class="btn btn-sec" id="btn-cfg-promos" onclick="cambiarConfig('promos')">🏷 Promociones</button>
       <button class="btn btn-sec" id="btn-cfg-usuarios" onclick="cambiarConfig('usuarios')">👥 Usuarios</button>
       <button class="btn btn-sec" id="btn-cfg-facturacion" onclick="cambiarConfig('facturacion')">🧾 Facturación</button>
@@ -770,6 +771,24 @@
         <button class="btn" onclick="abrirModalCatalogo()">+ Nuevo</button>
       </div>
       <div id="lista-catalogo"></div>
+    </div>
+
+    <!-- ============ ACUERDOS DE REPARTO ============
+         Hay marcas que el consultorio no compra y revende a secas: el proveedor
+         se las deja y la ganancia se parte entre los dos. El costo ya está en el
+         catálogo; lo que faltaba era con quién se reparte lo que sobra y en qué
+         proporción. Sin esto, el reporte le muestra al Dr. una ganancia que no
+         es toda suya. -->
+    <div id="cfg-acuerdos" class="oculto">
+      <div class="sub" style="margin-bottom:10px">
+        Marcas cuya ganancia se reparte con el proveedor. El sistema calcula solo cuánto le toca a cada uno
+        <b>por cada frasco vendido</b>, y lleva la cuenta de lo que falta pagar.
+      </div>
+      <div class="barra">
+        <span style="flex:1"></span>
+        <button class="btn" onclick="abrirModalAcuerdo()">+ Nuevo acuerdo</button>
+      </div>
+      <div id="lista-acuerdos"></div>
     </div>
 
     <!-- Las promociones las define el dueño, no se improvisan en el mostrador:
@@ -1056,6 +1075,58 @@
     <div class="acciones">
       <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
       <button class="btn" onclick="guardarCatalogo()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL ACUERDO DE REPARTO ============ -->
+<div id="modal-acuerdo" class="fondo-modal oculto">
+  <div class="modal">
+    <h3 id="titulo-modal-acuerdo">Nuevo acuerdo</h3>
+    <div class="sub" style="margin-bottom:12px">
+      El reparto se calcula sobre lo que <b>sobra de cada venta</b>: precio cobrado menos lo que le costó el producto.
+      Vale para todos los productos de esta marca.
+    </div>
+    <label>Marca *</label>
+    <input id="ac-marca" list="lista-marcas-acuerdo" placeholder="Ej: Bariatric Fusion" autocomplete="off" oninput="pintarEjemploAcuerdo()">
+    <datalist id="lista-marcas-acuerdo"></datalist>
+    <label>¿Con quién se reparte? *</label>
+    <input id="ac-socio" placeholder="Ej: Zona Bariátrica" oninput="pintarEjemploAcuerdo()">
+    <div class="fila-2">
+      <div><label>Le toca al proveedor (%)</label>
+        <input id="ac-pct" type="number" min="0" max="100" step="1" placeholder="Ej: 40" oninput="pintarEjemploAcuerdo()"></div>
+      <div><label>Le queda al consultorio (%)</label>
+        <input id="ac-pct-dr" type="number" disabled></div>
+    </div>
+    <label>Nota <span class="sub" style="font-weight:400">— opcional</span></label>
+    <input id="ac-nota" placeholder="Ej: acuerdo de palabra, se liquida cada fin de mes">
+    <div id="ac-ejemplo"></div>
+    <div class="acciones">
+      <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
+      <button class="btn" onclick="guardarAcuerdo()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL PAGO AL PROVEEDOR ============ -->
+<div id="modal-liquidacion" class="fondo-modal oculto">
+  <div class="modal" style="max-width:420px">
+    <h3>Registrar pago al proveedor</h3>
+    <div id="liq-quien" class="sub" style="margin-bottom:12px"></div>
+    <div class="fila-2">
+      <div><label>Monto (S/) *</label>
+        <input id="liq-monto" type="number" min="0" step="0.5" placeholder="Ej: 364" oninput="pintarSaldoTrasPago()"></div>
+      <div><label>Cómo se pagó</label>
+        <select id="liq-pago"><option>Efectivo</option><option>Yape / Plin</option><option>Transferencia</option><option>Tarjeta</option></select></div>
+    </div>
+    <label>Fecha</label>
+    <input id="liq-fecha" type="date">
+    <label>Nota <span class="sub" style="font-weight:400">— opcional</span></label>
+    <input id="liq-nota" placeholder="Ej: liquidación de agosto">
+    <div id="liq-resultado"></div>
+    <div class="acciones">
+      <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
+      <button class="btn" onclick="guardarLiquidacion()">Guardar</button>
     </div>
   </div>
 </div>
@@ -1405,7 +1476,7 @@ const USUARIOS_INICIALES = [
   { id: 'u-recepcion', nombre: 'Recepción', rol: 'recepcion', pin: '1234' },
   { id: 'u-doctor', nombre: 'Dr. Arredondo', rol: 'doctor', pin: '4321' }
 ];
-let db = { pacientes: [], citas: [], catalogo: [], ventas: [], movimientos: [], atenciones: [], ordenes: [], controles: [], usuarios: [], promos: [], distribuidores: [], abonos: [], borrados: [], config: { correlativo: 1, negocio: NEGOCIO } };
+let db = { pacientes: [], citas: [], catalogo: [], ventas: [], movimientos: [], atenciones: [], ordenes: [], controles: [], usuarios: [], promos: [], distribuidores: [], abonos: [], acuerdos: [], liquidaciones: [], borrados: [], config: { correlativo: 1, negocio: NEGOCIO } };
 
 function cargar() {
   try {
@@ -1423,6 +1494,9 @@ function cargar() {
   db.promos = db.promos || [];
   db.distribuidores = db.distribuidores || [];
   db.abonos = db.abonos || [];
+  // Con quién reparte el Dr. la ganancia de cada marca, y lo que ya le pagó
+  db.acuerdos = db.acuerdos || [];
+  db.liquidaciones = db.liquidaciones || [];
   db.borrados = db.borrados || [];
   // Si nunca se crearon usuarios, se siembran los dos de fábrica (PIN 1234 / 4321 — cambiarlos)
   db.usuarios = (db.usuarios && db.usuarios.length) ? db.usuarios : USUARIOS_INICIALES.map(u => ({ ...u }));
@@ -1446,7 +1520,7 @@ function guardar() {
   // dejaría al consultorio sin poder cobrar.
   marcarPendienteDeSubir();
 }
-const COLECCIONES = ['pacientes','citas','catalogo','ventas','movimientos','atenciones','ordenes','controles','usuarios','promos','distribuidores','abonos'];
+const COLECCIONES = ['pacientes','citas','catalogo','ventas','movimientos','atenciones','ordenes','controles','usuarios','promos','distribuidores','abonos','acuerdos','liquidaciones'];
 
 /* Al fusionar dos copias, "lo que está en cualquiera de las dos" es la regla —
    por eso hay que anotar aparte lo que se borró. Si no, borrar un paciente en
@@ -3074,6 +3148,243 @@ function borrarCatalogo(id) {
   guardar(); pintarCatalogo();
 }
 
+
+/* ================== ACUERDOS DE REPARTO ==================
+   El caso real: el Dr. recibe Bariatric Fusion a S/199 y lo vende a S/290. Los
+   S/91 que sobran no son todos suyos —el acuerdo dice 60% para el consultorio y
+   40% para quien se lo surte—. El costo ya vivía en el catálogo; lo que no
+   existía era con quién se parte lo que sobra.
+
+   El acuerdo se guarda por MARCA, no por producto: así, cuando entren tres
+   presentaciones nuevas de la misma marca, el reparto ya está puesto y nadie
+   tiene que acordarse de configurarlas una por una.
+
+   Se reparte sobre el precio realmente cobrado: si el Dr. hace un descuento, el
+   descuento lo ponen los dos en la misma proporción del acuerdo. */
+function acuerdoDeMarca(marca) {
+  const m = normalizar(marca);
+  if (!m) return null;
+  return db.acuerdos.find(a => normalizar(a.marca) === m) || null;
+}
+/* Lo que se reparte de un ítem vendido. `monto` es lo cobrado por esa línea con
+   el descuento de la venta ya prorrateado; si no se pasa, se usa el precio tal cual.
+
+   Se lee primero lo que quedó grabado en la venta y solo si no hay nada se mira
+   el acuerdo de hoy: si mañana se renegocia el 40%, las ventas del mes pasado
+   tienen que seguir dando lo mismo. Las ventas anteriores a este cambio no
+   tienen la copia y por eso caen en el acuerdo vigente, que es lo correcto:
+   son ventas hechas bajo ese mismo trato. */
+function repartoDeItem(i, monto) {
+  if (i.tipo !== 'producto') return null;
+  const ac = i.socio ? { socio: i.socio, pctSocio: Number(i.pctSocio || 0) } : acuerdoDeMarca(i.marca);
+  if (!ac || !ac.socio) return null;
+  const costo = Number(i.costo || 0);
+  // Sin costo cargado no hay forma de saber qué sobra: la línea se cuenta aparte
+  if (!costo) return { socio: ac.socio, pct: Number(ac.pctSocio || 0), sinCosto: true, unidades: i.cant };
+  const venta = monto != null ? monto : Number(i.precio || 0) * i.cant;
+  const gastado = costo * i.cant;
+  const ganancia = redondeo(venta - gastado);
+  const pct = Number(ac.pctSocio || 0);
+  // Si se vendió por debajo del costo no se le cobra la pérdida al proveedor:
+  // el acuerdo reparte ganancia, y un mal precio es decisión de quien vendió
+  const delSocio = ganancia > 0 ? redondeo(ganancia * pct / 100) : 0;
+  return { socio: ac.socio, pct, marca: i.marca || '', unidades: i.cant,
+           venta: redondeo(venta), costo: redondeo(gastado), ganancia,
+           delSocio, delDr: redondeo(ganancia - delSocio) };
+}
+/* Junta el reparto de un puñado de ventas: por proveedor y, dentro, por producto */
+function repartoDeVentas(ventas) {
+  const porSocio = {};
+  ventas.forEach(v => {
+    // El descuento de la venta se reparte entre las líneas, igual que en el
+    // reporte de ganancia: si no, el proveedor cobraría sobre un precio que no se cobró
+    const bruto = v.items.reduce((s,i) => s + i.precio * i.cant, 0) || 1;
+    const ratio = totalVenta(v) / bruto;
+    v.items.forEach(i => {
+      const r = repartoDeItem(i, i.precio * i.cant * ratio);
+      if (!r) return;
+      const g = porSocio[r.socio] || (porSocio[r.socio] = { socio: r.socio, unidades: 0, venta: 0, costo: 0,
+                                                           ganancia: 0, delSocio: 0, delDr: 0, sinCosto: 0, items: {} });
+      if (r.sinCosto) { g.sinCosto += r.unidades; return; }
+      g.unidades += r.unidades; g.venta += r.venta; g.costo += r.costo;
+      g.ganancia += r.ganancia; g.delSocio += r.delSocio; g.delDr += r.delDr;
+      const it = g.items[i.nombre] || (g.items[i.nombre] = { nombre: i.nombre, marca: r.marca, pct: r.pct, unidades: 0, venta: 0, ganancia: 0, delSocio: 0, delDr: 0 });
+      it.unidades += r.unidades; it.venta += r.venta; it.ganancia += r.ganancia;
+      it.delSocio += r.delSocio; it.delDr += r.delDr;
+    });
+  });
+  return porSocio;
+}
+/* Cuenta corriente con el proveedor: se le debe todo lo que generaron las ventas
+   desde siempre, menos lo que ya se le pagó. No depende del rango del reporte —
+   una deuda no desaparece porque se mire otro mes. */
+function generadoParaSocio(socio) {
+  const g = repartoDeVentas(db.ventas.filter(v => !v.anulada))[socio];
+  return redondeo(g ? g.delSocio : 0);
+}
+function pagadoASocio(socio) {
+  return redondeo(db.liquidaciones.filter(l => l.socio === socio).reduce((s,l) => s + Number(l.monto || 0), 0));
+}
+function saldoSocio(socio) { return redondeo(generadoParaSocio(socio) - pagadoASocio(socio)); }
+/* Todos los proveedores con los que hay trato, aunque todavía no se les haya vendido nada */
+function sociosConAcuerdo() {
+  return [...new Set(db.acuerdos.map(a => (a.socio || '').trim()).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+}
+
+function pintarAcuerdos() {
+  const cont = document.getElementById('lista-acuerdos');
+  const lista = [...db.acuerdos].sort((a,b) => (a.marca||'').localeCompare(b.marca||''));
+  // Marcas que están en el catálogo y no tienen trato cargado: no siempre es un
+  // error (habrá marcas que el Dr. compra y son 100% suyas), pero conviene verlo
+  const conAcuerdo = new Set(db.acuerdos.map(a => normalizar(a.marca)));
+  const sueltas = [...new Set(db.catalogo.filter(k => k.tipo === 'producto' && k.marca)
+    .map(k => k.marca.trim()))].filter(m => !conAcuerdo.has(normalizar(m)));
+
+  if (!lista.length) {
+    cont.innerHTML = '<div class="vacio">Todavía no hay acuerdos cargados.<br><br>' +
+      'Si hay una marca que el consultorio no compra del todo —el proveedor la deja y la ganancia se parte— cárgala aquí ' +
+      'con <b>+ Nuevo acuerdo</b>. Mientras no exista, el sistema da por hecho que toda la ganancia es del consultorio.</div>';
+    return;
+  }
+  cont.innerHTML =
+    '<table class="tabla tarjetas"><thead><tr><th>Marca</th><th>Se reparte con</th><th>Reparto</th><th>Ejemplo por unidad</th><th>Le deben hoy</th><th></th></tr></thead><tbody>' +
+    lista.map(a => {
+      const k = db.catalogo.find(x => x.tipo === 'producto' && normalizar(x.marca) === normalizar(a.marca) && Number(x.costo) > 0 && Number(x.precio) > 0);
+      const pct = Number(a.pctSocio || 0);
+      const ej = k
+        ? esc(k.nombre) + '<br><span class="sub">' + money(k.costo) + ' → ' + money(k.precio) +
+          ' · sobran ' + money(Number(k.precio) - Number(k.costo)) +
+          '<br>consultorio ' + money((Number(k.precio) - Number(k.costo)) * (100-pct)/100) +
+          ' · ' + esc(a.socio) + ' ' + money((Number(k.precio) - Number(k.costo)) * pct/100) + '</span>'
+        : '<span class="sub">Ningún producto de esta marca tiene costo y precio cargados</span>';
+      const saldo = saldoSocio(a.socio);
+      return '<tr><td data-th="Marca"><b>' + esc(a.marca) + '</b>' + (a.nota ? '<br><span class="sub">' + esc(a.nota) + '</span>' : '') + '</td>' +
+        '<td data-th="Se reparte con">' + esc(a.socio) + '</td>' +
+        '<td data-th="Reparto"><b>' + (100 - pct) + '%</b> consultorio<br><b>' + pct + '%</b> ' + esc(a.socio) + '</td>' +
+        '<td data-th="Ejemplo">' + ej + '</td>' +
+        '<td data-th="Le deben hoy"><b style="color:' + (saldo > 0 ? 'var(--warning)' : 'var(--success)') + '">' + money(saldo) + '</b></td>' +
+        '<td data-th=""><button class="btn btn-sec btn-mini" onclick="abrirModalAcuerdo(\'' + a.id + '\')">Editar</button> ' +
+        '<button class="btn btn-sec btn-mini" onclick="borrarAcuerdo(\'' + a.id + '\')">Borrar</button></td></tr>';
+    }).join('') + '</tbody></table>' +
+    (sueltas.length ? '<div class="aviso" style="margin-top:10px">Sin acuerdo cargado: <b>' + sueltas.map(esc).join('</b>, <b>') +
+      '</b>. Si de alguna de esas también se reparte ganancia, agrégala; si no, el sistema la cuenta entera para el consultorio.</div>' : '');
+}
+function abrirModalAcuerdo(id) {
+  const a = id ? db.acuerdos.find(x => x.id === id) : null;
+  document.getElementById('titulo-modal-acuerdo').textContent = a ? 'Editar acuerdo' : 'Nuevo acuerdo';
+  document.getElementById('modal-acuerdo').dataset.editando = id || '';
+  // Las marcas se sugieren desde el catálogo para no terminar con el acuerdo a
+  // nombre de una marca que se escribe distinto que el producto
+  const marcas = [...new Set(db.catalogo.filter(k => k.tipo === 'producto' && k.marca).map(k => k.marca.trim()))].sort();
+  document.getElementById('lista-marcas-acuerdo').innerHTML = marcas.map(m => '<option value="' + esc(m) + '">').join('');
+  document.getElementById('ac-marca').value = a ? (a.marca || '') : '';
+  document.getElementById('ac-socio').value = a ? (a.socio || '') : '';
+  document.getElementById('ac-pct').value = a ? (a.pctSocio != null ? a.pctSocio : '') : '';
+  document.getElementById('ac-nota').value = a ? (a.nota || '') : '';
+  pintarEjemploAcuerdo();
+  document.getElementById('modal-acuerdo').classList.remove('oculto');
+  document.getElementById('ac-marca').focus();
+}
+/* Se ve el reparto con plata de verdad antes de guardar: un 40% suelto no dice
+   nada, "de los S/91 que sobran, S/36.40 son suyos" sí. */
+function pintarEjemploAcuerdo() {
+  const marca = document.getElementById('ac-marca').value.trim();
+  const socio = document.getElementById('ac-socio').value.trim() || 'el proveedor';
+  const pct = Number(document.getElementById('ac-pct').value || 0);
+  document.getElementById('ac-pct-dr').value = document.getElementById('ac-pct').value === '' ? '' : (100 - pct);
+  const cont = document.getElementById('ac-ejemplo');
+  const k = db.catalogo.find(x => x.tipo === 'producto' && normalizar(x.marca) === normalizar(marca) && Number(x.costo) > 0 && Number(x.precio) > 0);
+  if (!marca || !pct) { cont.innerHTML = ''; return; }
+  if (pct < 0 || pct > 100) { cont.innerHTML = '<div class="aviso aviso-amarillo" style="margin-top:12px">El porcentaje va de 0 a 100.</div>'; return; }
+  if (!k) {
+    cont.innerHTML = '<div class="aviso" style="margin-top:12px">Ningún producto de <b>' + esc(marca) +
+      '</b> tiene costo y precio cargados todavía. El acuerdo se guarda igual y empieza a calcular en cuanto los cargues en <b>💲 Precios</b>.</div>';
+    return;
+  }
+  const gan = Number(k.precio) - Number(k.costo);
+  const cuantos = db.catalogo.filter(x => x.tipo === 'producto' && normalizar(x.marca) === normalizar(marca)).length;
+  cont.innerHTML = '<div class="aviso" style="border-left-color:var(--success);background:var(--success-bg);margin-top:12px">' +
+    '<b>Cada ' + esc(k.unidad || 'unidad') + ' de ' + esc(k.nombre) + '</b>' +
+    '<div style="display:flex;justify-content:space-between"><span>Le cuesta</span><b>' + money(k.costo) + '</b></div>' +
+    '<div style="display:flex;justify-content:space-between"><span>Lo vende a</span><b>' + money(k.precio) + '</b></div>' +
+    '<div style="display:flex;justify-content:space-between"><span>Sobran</span><b>' + money(gan) + '</b></div>' +
+    '<hr style="border:none;border-top:1px solid var(--border);margin:6px 0">' +
+    '<div style="display:flex;justify-content:space-between"><span>Consultorio (' + (100-pct) + '%)</span><b style="color:var(--success)">' + money(gan*(100-pct)/100) + '</b></div>' +
+    '<div style="display:flex;justify-content:space-between"><span>' + esc(socio) + ' (' + pct + '%)</span><b>' + money(gan*pct/100) + '</b></div>' +
+    '<div class="sub" style="margin-top:6px">Aplica a ' + plural(cuantos, 'producto', 'productos') + ' de esta marca.</div>' +
+  '</div>';
+}
+function guardarAcuerdo() {
+  const marca = document.getElementById('ac-marca').value.trim();
+  const socio = document.getElementById('ac-socio').value.trim();
+  const pct = Number(document.getElementById('ac-pct').value || 0);
+  if (!marca) { alert('Escribe la marca.'); return; }
+  if (!socio) { alert('Escribe con quién se reparte la ganancia.'); return; }
+  if (pct < 0 || pct > 100) { alert('El porcentaje va de 0 a 100.'); return; }
+  const id = document.getElementById('modal-acuerdo').dataset.editando;
+  // Dos acuerdos para la misma marca darían dos repartos distintos del mismo
+  // frasco, así que se corta acá
+  const repetida = db.acuerdos.find(a => a.id !== id && normalizar(a.marca) === normalizar(marca));
+  if (repetida) { alert('Ya hay un acuerdo cargado para ' + repetida.marca + ' (con ' + repetida.socio + '). Edítalo en vez de crear otro.'); return; }
+  const datos = { marca, socio, pctSocio: pct, nota: document.getElementById('ac-nota').value.trim() };
+  if (id) Object.assign(db.acuerdos.find(x => x.id === id), datos);
+  else db.acuerdos.push({ id: nuevoId(), creado: hoyStr(), ...datos });
+  guardar(); cerrarModales(); pintarAcuerdos();
+}
+function borrarAcuerdo(id) {
+  const a = db.acuerdos.find(x => x.id === id);
+  if (!a) return;
+  const saldo = saldoSocio(a.socio);
+  if (!confirm('¿Borrar el acuerdo de ' + a.marca + ' con ' + a.socio + '?\n\n' +
+    (saldo > 0 ? 'Ojo: hoy figura una deuda de ' + money(saldo) + ' con ' + a.socio + '. Si borras el acuerdo, las ventas ya hechas dejan de repartirse y esa deuda desaparece del sistema.'
+               : 'Las ventas ya hechas de esa marca dejarán de repartirse.'))) return;
+  olvidar('acuerdos', id);
+  guardar(); pintarAcuerdos();
+}
+/* ---------- Pagarle al proveedor ---------- */
+function abrirModalLiquidacion(socio) {
+  document.getElementById('modal-liquidacion').dataset.socio = socio;
+  document.getElementById('liq-quien').innerHTML =
+    'Se le debe a <b>' + esc(socio) + '</b>: <b style="color:var(--warning)">' + money(saldoSocio(socio)) + '</b>' +
+    '<br><span class="sub">Generado por ventas ' + money(generadoParaSocio(socio)) + ' · ya pagado ' + money(pagadoASocio(socio)) + '</span>';
+  document.getElementById('liq-monto').value = '';
+  document.getElementById('liq-nota').value = '';
+  document.getElementById('liq-fecha').value = hoyStr();
+  document.getElementById('liq-pago').value = 'Efectivo';
+  document.getElementById('liq-resultado').innerHTML = '';
+  document.getElementById('modal-liquidacion').classList.remove('oculto');
+}
+function pintarSaldoTrasPago() {
+  const socio = document.getElementById('modal-liquidacion').dataset.socio;
+  const monto = Number(document.getElementById('liq-monto').value || 0);
+  const cont = document.getElementById('liq-resultado');
+  if (!monto) { cont.innerHTML = ''; return; }
+  const queda = redondeo(saldoSocio(socio) - monto);
+  cont.innerHTML = '<div class="aviso" style="margin-top:10px">Después de este pago ' +
+    (queda > 0 ? 'quedaría debiéndole <b>' + money(queda) + '</b>.'
+     : queda === 0 ? '<b style="color:var(--success)">queda al día.</b>'
+     : '<b>quedaría pagado de más ' + money(-queda) + '</b> — revisa el monto.') + '</div>';
+}
+function guardarLiquidacion() {
+  const socio = document.getElementById('modal-liquidacion').dataset.socio;
+  const monto = Number(document.getElementById('liq-monto').value || 0);
+  if (monto <= 0) { alert('El monto debe ser mayor que cero.'); return; }
+  db.liquidaciones.push({
+    id: nuevoId(), socio, monto,
+    fecha: document.getElementById('liq-fecha').value || hoyStr(), hora: horaAhora(),
+    metodoPago: document.getElementById('liq-pago').value,
+    nota: document.getElementById('liq-nota').value.trim(),
+    usuarioId: sesion ? sesion.id : '', usuarioNombre: sesion ? sesion.nombre : '—'
+  });
+  guardar(); cerrarModales();
+  repintarVistaActual();
+}
+function borrarLiquidacion(id) {
+  if (!confirm('¿Borrar este pago? La deuda con el proveedor volverá a subir.')) return;
+  olvidar('liquidaciones', id);
+  guardar(); repintarVistaActual();
+}
+
 /* --- Lista real del Dr. Arredondo (servicios sin precio aún + suplementos a precio de venta) --- */
 function cargarCatalogoDr() {
   const servicios = [
@@ -4273,10 +4584,16 @@ function agregarPorId(catalogoId) {
   // en el catálogo, lo que se entregó ese día no puede cambiar solo
   // El IGV se copia por el mismo motivo que el costo: si el contador reclasifica
   // un producto el mes que viene, los comprobantes ya emitidos no pueden moverse
-  else carrito.push({ catalogoId: k.id, nombre: k.nombre, nombreTicket: k.nombreTicket || '',
-                      tipo: k.tipo, categoria: k.categoria || '',
-                      marca: k.marca || '', precio: precioSegunLista(k), costo: Number(k.costo || 0),
-                      igv: k.igv || igvPorDefecto(k.tipo), cant: 1 });
+  else {
+    // El acuerdo de reparto se copia por el mismo motivo que el costo: si el
+    // porcentaje se renegocia, lo que ya se vendió no puede recalcularse solo
+    const ac = k.tipo === 'producto' ? acuerdoDeMarca(k.marca) : null;
+    carrito.push({ catalogoId: k.id, nombre: k.nombre, nombreTicket: k.nombreTicket || '',
+                   tipo: k.tipo, categoria: k.categoria || '',
+                   marca: k.marca || '', precio: precioSegunLista(k), costo: Number(k.costo || 0),
+                   socio: ac ? ac.socio : '', pctSocio: ac ? Number(ac.pctSocio || 0) : null,
+                   igv: k.igv || igvPorDefecto(k.tipo), cant: 1 });
+  }
   pintarCarrito();
 }
 
@@ -5012,6 +5329,87 @@ function htmlPatologias(f) {
     (sinClasificar ? '<div class="sub" style="margin-top:6px">' + plural(sinClasificar, 'atención', 'atenciones') + ' sin clasificar en este rango.</div>' : '');
 }
 
+/* Lo que el Dr. ve como ganancia de suplementos no siempre es suya entera: de
+   las marcas con acuerdo hay una parte que le pertenece a quien se las surte.
+   Este bloque separa una cosa de la otra y lleva la cuenta de lo que falta pagar. */
+function htmlReparto(ventas) {
+  const porSocio = repartoDeVentas(ventas);
+  const socios = Object.values(porSocio).sort((a,b) => b.delSocio - a.delSocio);
+  // Proveedores sin ventas en el rango pero con deuda viva: no pueden desaparecer
+  // de la pantalla solo porque este mes no se vendió nada de su marca
+  const conDeuda = sociosConAcuerdo().filter(n => !porSocio[n] && saldoSocio(n) !== 0);
+  if (!socios.length && !conDeuda.length) return '';
+
+  const tarjeta = (g) => {
+    const nombre = g.socio;
+    const saldo = saldoSocio(nombre);
+    const items = Object.values(g.items || {}).sort((a,b) => b.delSocio - a.delSocio);
+    return '<div class="tarjeta" style="margin-bottom:10px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">' +
+        '<b style="font-size:16px">🤝 ' + esc(nombre) + '</b>' +
+        '<button class="btn btn-sec btn-mini" onclick="abrirModalLiquidacion(decodeURIComponent(\'' + encodeURIComponent(nombre) + '\'))">Registrar pago</button>' +
+      '</div>' +
+      (g.unidades
+        ? '<div class="grid-datos" style="margin:10px 0">' +
+            '<div class="dato"><small>Unidades vendidas</small><b>' + g.unidades + '</b></div>' +
+            '<div class="dato"><small>Vendido</small><b>' + money(g.venta) + '</b></div>' +
+            '<div class="dato"><small>Sobró (venta − costo)</small><b>' + money(g.ganancia) + '</b></div>' +
+            '<div class="dato"><small>Le queda al consultorio</small><b style="color:var(--success)">' + money(g.delDr) + '</b></div>' +
+            '<div class="dato"><small>Le toca a ' + esc(nombre) + '</small><b style="color:var(--warning)">' + money(g.delSocio) + '</b></div>' +
+          '</div>' +
+          (items.length
+            ? '<table class="tabla tarjetas"><thead><tr><th>Producto</th><th>Reparto</th><th>Unid.</th><th>Vendido</th><th>Sobró</th><th>Consultorio</th><th>' + esc(nombre) + '</th></tr></thead><tbody>' +
+              items.map(i => '<tr><td data-th="Producto"><b>' + esc(i.nombre) + '</b>' + (i.marca ? '<br><span class="sub">' + esc(i.marca) + '</span>' : '') + '</td>' +
+                '<td data-th="Reparto"><span class="sub">' + (100 - i.pct) + '/' + i.pct + '</span></td>' +
+                '<td data-th="Unid."><b>' + i.unidades + '</b></td>' +
+                '<td data-th="Vendido">' + money(i.venta) + '</td>' +
+                '<td data-th="Sobró">' + money(i.ganancia) + '</td>' +
+                '<td data-th="Consultorio"><b style="color:var(--success)">' + money(i.delDr) + '</b></td>' +
+                '<td data-th="' + esc(nombre) + '"><b>' + money(i.delSocio) + '</b></td></tr>').join('') +
+              '</tbody></table>'
+            : '')
+        : '<div class="sub" style="margin:10px 0">Sin ventas de sus marcas en este rango.</div>') +
+      (g.sinCosto
+        ? '<div class="aviso aviso-amarillo" style="margin-top:10px">⚠️ <b>' + g.sinCosto + '</b> ' +
+          plural(g.sinCosto, 'unidad vendida de esta marca no tiene', 'unidades vendidas de esta marca no tienen') +
+          ' costo cargado, así que no entran en el reparto. Complétalo en <b>⚙️ Precios</b>.</div>'
+        : '') +
+      '<div class="aviso" style="margin-top:10px;border-left-color:' + (saldo > 0 ? 'var(--warning)' : 'var(--success)') + '">' +
+        '<div style="display:flex;justify-content:space-between"><span>Generado desde siempre</span><b>' + money(generadoParaSocio(nombre)) + '</b></div>' +
+        '<div style="display:flex;justify-content:space-between"><span>Ya se le pagó</span><b>' + money(pagadoASocio(nombre)) + '</b></div>' +
+        '<div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);margin-top:4px;padding-top:4px">' +
+          '<b>' + (saldo >= 0 ? 'Se le debe hoy' : 'Se le pagó de más') + '</b>' +
+          '<b style="color:' + (saldo > 0 ? 'var(--warning)' : 'var(--success)') + '">' + money(Math.abs(saldo)) + '</b></div>' +
+      '</div>' +
+    '</div>';
+  };
+
+  // Los pagos hechos dentro del rango, para que quede el rastro de la liquidación
+  const f = filtrosReporte();
+  const pagos = db.liquidaciones.filter(l => l.fecha >= f.desde && l.fecha <= f.hasta)
+    .sort((a,b) => (b.fecha + (b.hora||'')).localeCompare(a.fecha + (a.hora||'')));
+
+  return '<h2>Reparto con proveedores</h2>' +
+    '<div class="tarjeta" style="margin-bottom:10px"><div class="sub">' +
+      'De estas marcas el consultorio no se queda con toda la ganancia: se reparte con quien se las surte, ' +
+      'según lo cargado en <b>⚙️ Configuración → 🤝 Acuerdos</b>. El cálculo va sobre el precio realmente cobrado, ' +
+      'así que un descuento en caja lo asumen los dos.' +
+    '</div></div>' +
+    socios.map(tarjeta).join('') +
+    conDeuda.map(n => tarjeta({ socio: n, unidades: 0, venta: 0, costo: 0, ganancia: 0, delSocio: 0, delDr: 0, sinCosto: 0, items: {} })).join('') +
+    (pagos.length
+      ? '<h2>Pagos a proveedores en el rango</h2>' +
+        '<table class="tabla tarjetas"><thead><tr><th>Fecha</th><th>Proveedor</th><th>Monto</th><th>Cómo</th><th>Nota</th><th></th></tr></thead><tbody>' +
+        pagos.map(l => '<tr><td data-th="Fecha">' + fechaBonita(l.fecha) + '<br><span class="sub">' + esc(l.hora || '') + '</span></td>' +
+          '<td data-th="Proveedor"><b>' + esc(l.socio) + '</b></td>' +
+          '<td data-th="Monto"><b>' + money(l.monto) + '</b></td>' +
+          '<td data-th="Cómo">' + esc(l.metodoPago || '—') + '</td>' +
+          '<td data-th="Nota"><span class="sub">' + esc(l.nota || '—') + '</span></td>' +
+          '<td data-th=""><button class="btn btn-sec btn-mini" onclick="borrarLiquidacion(\'' + l.id + '\')">Borrar</button></td></tr>').join('') +
+        '</tbody></table>'
+      : '');
+}
+
 function pintarReportes() {
   // El selector de usuario se llena aquí para reflejar altas/bajas
   const selU = document.getElementById('r-usuario');
@@ -5060,6 +5458,9 @@ function pintarReportes() {
   });
   const ganancia = ventaConCosto - costoTotal;
   const margen = ventaConCosto ? Math.round(ganancia / ventaConCosto * 100) : 0;
+  // Cuánto de esa ganancia se va a los proveedores con acuerdo de reparto
+  const repartoRango = repartoDeVentas(ventas);
+  const paraSocios = redondeo(Object.values(repartoRango).reduce((s,g) => s + g.delSocio, 0));
 
   // Citas del rango (por eso el reporte no depende solo de las ventas)
   const citas = db.citas.filter(c => c.fecha >= f.desde && c.fecha <= f.hasta);
@@ -5139,7 +5540,7 @@ function pintarReportes() {
     // Vender no es ganar: esta es la cifra que le dice al Dr. si el negocio de
     // suplementos vale la pena, no el total facturado.
     (ventaConCosto || unidadesSinCosto
-      ? '<h2>Cuánto deja la marca B&amp;N</h2>' +
+      ? '<h2>Cuánto dejan los suplementos</h2>' +
         '<div class="tarjeta">' +
           (ventaConCosto
             ? '<div class="grid-datos" style="margin-bottom:10px">' +
@@ -5148,7 +5549,14 @@ function pintarReportes() {
                 '<div class="dato"><small>Ganancia</small><b style="color:var(--success)">' + money(ganancia) + '</b></div>' +
                 '<div class="dato"><small>Margen</small><b>' + margen + '%</b></div>' +
               '</div>' +
-              '<div class="sub">De cada S/ 100 que entran por suplementos, <b>S/ ' + margen + '</b> son ganancia.</div>'
+              '<div class="sub">De cada S/ 100 que entran por suplementos, <b>S/ ' + margen + '</b> son ganancia.</div>' +
+              // Esa ganancia no es toda del consultorio si hay marcas con acuerdo:
+              // decirlo acá evita que el Dr. cuente como suya plata que debe repartir
+              (paraSocios > 0
+                ? '<div class="aviso" style="margin-top:10px">De esa ganancia, <b>' + money(paraSocios) +
+                  '</b> le corresponden a ' + (Object.keys(repartoRango).length === 1 ? esc(Object.keys(repartoRango)[0]) : 'sus proveedores') +
+                  ' por los acuerdos de reparto. <b>Le queda al consultorio: ' + money(redondeo(ganancia - paraSocios)) + '</b>. El detalle está más abajo.</div>'
+                : '')
             : '') +
           (unidadesSinCosto
             ? '<div class="aviso aviso-amarillo" style="margin:' + (ventaConCosto ? '12px 0 0' : '0') + '">⚠️ <b>' +
@@ -5157,6 +5565,8 @@ function pintarReportes() {
             : '') +
         '</div>'
       : '') +
+
+    htmlReparto(ventas) +
 
     (listaPromos.length
       ? '<h2>Promociones</h2>' +
@@ -5222,14 +5632,28 @@ function pintarReportes() {
 }
 function exportarReporte() {
   const f = filtrosReporte();
-  const filas = [['Ticket','Fecha','Hora','Cliente','Item','Tipo','Categoria','Cantidad','Precio unit','Subtotal','Descuento venta','Total venta','Metodo pago','Registro']];
+  const filas = [['Ticket','Fecha','Hora','Cliente','Item','Tipo','Categoria','Cantidad','Precio unit','Subtotal','Descuento venta','Total venta','Metodo pago','Registro','Costo unit','Sobro','Proveedor','% proveedor','Le toca al proveedor','Le queda al consultorio']];
   ventasFiltradas().sort((a,b) => a.numero - b.numero).forEach(v => {
-    v.items.forEach((i,n) => filas.push([
-      v.numero, v.fecha, v.hora, nombreEnVenta(v),
-      i.nombre, i.tipo, i.categoria || '', i.cant, Number(i.precio).toFixed(2), (i.precio*i.cant).toFixed(2),
-      n === 0 ? Number(v.descuento||0).toFixed(2) : '', n === 0 ? totalVenta(v).toFixed(2) : '',
-      v.metodoPago || '', v.usuarioNombre || ''
-    ]));
+    // El descuento se prorratea igual que en pantalla, para que el Excel y el
+    // reporte den lo mismo cuando se use para liquidarle al proveedor
+    const bruto = v.items.reduce((s2,i) => s2 + i.precio * i.cant, 0) || 1;
+    const ratio = totalVenta(v) / bruto;
+    v.items.forEach((i,n) => {
+      const r = repartoDeItem(i, i.precio * i.cant * ratio);
+      const conReparto = r && !r.sinCosto;
+      filas.push([
+        v.numero, v.fecha, v.hora, nombreEnVenta(v),
+        i.nombre, i.tipo, i.categoria || '', i.cant, Number(i.precio).toFixed(2), (i.precio*i.cant).toFixed(2),
+        n === 0 ? Number(v.descuento||0).toFixed(2) : '', n === 0 ? totalVenta(v).toFixed(2) : '',
+        v.metodoPago || '', v.usuarioNombre || '',
+        Number(i.costo || 0).toFixed(2),
+        conReparto ? r.ganancia.toFixed(2) : '',
+        conReparto ? r.socio : '',
+        conReparto ? r.pct : '',
+        conReparto ? r.delSocio.toFixed(2) : '',
+        conReparto ? r.delDr.toFixed(2) : ''
+      ]);
+    });
   });
   if (filas.length === 1) { alert('No hay ventas en el rango elegido.'); return; }
   // sep=; y BOM para que Excel en español lo abra en columnas y respete las tildes
@@ -5246,11 +5670,12 @@ function exportarReporte() {
 let cfgVista = 'precios';
 function cambiarConfig(v) {
   cfgVista = v;
-  ['precios','promos','usuarios','facturacion','datos'].forEach(x => {
+  ['precios','acuerdos','promos','usuarios','facturacion','datos'].forEach(x => {
     document.getElementById('btn-cfg-' + x).style.cssText = v===x ? '' : 'background:#fff;color:#333;border:1px solid var(--border)';
     document.getElementById('cfg-' + x).classList.toggle('oculto', v !== x);
   });
   if (v === 'precios') pintarCatalogo();
+  if (v === 'acuerdos') pintarAcuerdos();
   if (v === 'promos') pintarPromos();
   if (v === 'usuarios') pintarUsuarios();
   if (v === 'facturacion') pintarFacturacion();
