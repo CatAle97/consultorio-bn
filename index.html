@@ -4237,6 +4237,11 @@ function guardarMov() {
 
 /* ================== MÓDULO 5 · CAJA ================== */
 let carrito = [];
+/* Cuando se está corrigiendo una venta ya registrada, acá vive su id. Cambia
+   tres cosas: el stock se calcula por diferencia (lo que la venta ya se llevó
+   está disponible para ella misma), no se saca número de ticket nuevo, y el
+   botón deja de decir "cobrar". */
+let ventaEditando = null;
 let ordenCobrando = null;      // si la venta viene de una orden del doctor, para marcarla cobrada
 let citaCobrando = null;       // si la venta salda la consulta de una cita
 let controlTrasCobrar = null;  // control que hay que agendar apenas termine el cobro
@@ -4480,6 +4485,8 @@ function abrirModalVenta(pacienteId) {
   const vendibles = db.catalogo.filter(k => Number(k.precio) > 0).sort((a,b) => a.nombre.localeCompare(b.nombre));
   if (!vendibles.length) { alert('No hay servicios ni productos con precio en el catálogo. Agrégalos primero.'); return; }
   carrito = [];
+  ventaEditando = null;
+  document.querySelector('#modal-venta h3').textContent = 'Nueva venta';
   ordenCobrando = null; citaCobrando = null; controlTrasCobrar = null;
   document.getElementById('v-quien').textContent = 'Registra: ' + (sesion ? sesion.nombre : '—') + ' · ' + fechaBonita(hoyStr()) + ' ' + horaAhora();
   llenarSelectPacientes('v-paciente', pacienteId);
@@ -4516,6 +4523,61 @@ function abrirModalVenta(pacienteId) {
   cambiarComprobante('nota');
   pintarCarrito();
   document.getElementById('modal-venta').classList.remove('oculto');
+}
+
+/* Corregir una venta ya registrada. Nace de algo real: se entrega mercadería a
+   crédito y a la media hora el distribuidor pide dos frascos más. Anular y
+   rehacer quema un número de ticket y borra la hora real de la entrega; acá el
+   ticket es el mismo y solo cambia lo que lleva. */
+function editarVenta(id) {
+  const v = db.ventas.find(x => x.id === id);
+  if (!v) return;
+  if (v.anulada) { alert('El ticket #' + v.numero + ' está anulado. Registra una venta nueva.'); return; }
+  // Un comprobante ya pedido lleva un monto: cambiarlo después no es lo mismo
+  // que corregir una nota interna, y quien edita tiene que saberlo.
+  if (tipoComprobante(v) !== 'nota' &&
+      !confirm('El ticket #' + v.numero + ' tiene ' + (tipoComprobante(v) === 'factura' ? 'una factura' : 'una boleta') +
+               ' pedida por ' + money(totalVenta(v)) + '.\n\n' +
+               'Si cambias lo que lleva, el monto del comprobante cambia. Si ya se emitió en SUNAT, hay que anularlo allá.\n\n¿Editar igual?')) return;
+
+  abrirModalVenta(v.pacienteId || '');
+  ventaEditando = v.id;
+
+  // Lo que llevaba, tal como quedó grabado: precios, costos y acuerdos incluidos
+  carrito = v.items.map(i => ({ ...i }));
+  document.getElementById('v-nota').value = v.nota || '';
+  document.getElementById('v-pago').value = v.metodoPago || 'Efectivo';
+
+  listaPrecio = v.lista === 'colega' ? 'colega' : 'paciente';
+  cambiarListaPrecio(listaPrecio);
+  // cambiarListaPrecio repone los precios desde el catálogo; los de la venta
+  // mandan, que para eso quedaron grabados el día que se cobró
+  carrito = v.items.map(i => ({ ...i }));
+  if (v.distribuidorId) document.getElementById('v-distribuidor').value = v.distribuidorId;
+  document.getElementById('v-pago').value = v.metodoPago || 'Efectivo';
+
+  cambiarComprobante(tipoComprobante(v));
+  if (v.receptor) {
+    if (tipoComprobante(v) === 'boleta') {
+      document.getElementById('v-b-doc').value = v.receptor.doc || '';
+      document.getElementById('v-b-nombre').value = v.receptor.nombre || '';
+    } else if (tipoComprobante(v) === 'factura') {
+      document.getElementById('v-f-ruc').value = v.receptor.doc || '';
+      document.getElementById('v-f-nombre').value = v.receptor.nombre || '';
+      document.getElementById('v-f-direccion').value = v.receptor.direccion || '';
+    }
+  }
+  // La promo se vuelve a elegir si sigue existiendo y sigue aplicando; si no,
+  // el descuento se recalcula solo y el total nuevo se ve antes de guardar
+  const selPromo = document.getElementById('v-promo');
+  if (v.promoId) { selPromo.value = v.promoId; }
+
+  document.querySelector('#modal-venta h3').textContent = 'Editar venta #' + v.numero;
+  document.getElementById('v-quien').innerHTML =
+    'Ticket <b>#' + v.numero + '</b> del ' + fechaBonita(v.fecha) + ' ' + v.hora +
+    ' · lo registró ' + esc(v.usuarioNombre || '—') +
+    '<br>La fecha y el número no cambian: se corrige lo que lleva.';
+  pintarCarrito();
 }
 
 /* ---------- Buscador de lo que se vende ----------
@@ -4792,10 +4854,21 @@ function faltaStock() {
   return carrito.reduce((out, i) => {
     if (i.tipo !== 'producto') return out;
     const k = db.catalogo.find(x => x.id === i.catalogoId);
-    const hay = k ? Number(k.stock || 0) : 0;
+    const hay = stockDisponible(i.catalogoId);
     if (!k || hay < i.cant) out.push({ nombre: i.nombre, pide: i.cant, hay, catalogoId: i.catalogoId });
     return out;
   }, []);
+}
+/* Lo que hay para esta venta. Editando, se le devuelve lo que ella misma
+   descontó: si no, corregir un ticket parecería imposible por falta de stock. */
+function stockDisponible(catalogoId) {
+  const k = db.catalogo.find(x => x.id === catalogoId);
+  let hay = k ? Number(k.stock || 0) : 0;
+  if (ventaEditando) {
+    const v = db.ventas.find(x => x.id === ventaEditando);
+    if (v) v.items.forEach(i => { if (i.tipo === 'producto' && i.catalogoId === catalogoId) hay += Number(i.cant || 0); });
+  }
+  return hay;
 }
 /* Rearma la lista de promociones cada vez que cambia el carrito: una oferta de
    proteína tiene que aparecer al agregar proteína y desaparecer al quitarla.
@@ -4845,7 +4918,7 @@ function pintarCarrito() {
   const { promo, desc } = refrescarPromosVenta();
   if (!carrito.length) {
     cont.innerHTML = '<div class="vacio" style="padding:16px">Aún no agregas nada a la venta.</div>';
-    btn.disabled = true; btn.textContent = 'Cobrar y guardar';
+    btn.disabled = true; btn.textContent = ventaEditando ? '✓ Guardar cambios' : 'Cobrar y guardar';
     pintarAvisoComprobante();
     return;
   }
@@ -4910,6 +4983,7 @@ function pintarCarrito() {
   btn.textContent = faltan.length ? '🚫 Sin stock'
     : faltaDistri ? 'Elige el distribuidor'
     : faltaFactura ? 'Faltan datos de la factura'
+    : ventaEditando ? '✓ Guardar cambios'
     : esVentaCredito() ? '📋 Entregar a crédito' : 'Cobrar y guardar';
 }
 function guardarVenta() {
@@ -4935,6 +5009,8 @@ function guardarVenta() {
   const faltaCmp = faltaComprobante();
   if (faltaCmp && comprobante === 'factura') { alert(faltaCmp); return; }
   if (faltaCmp && !confirm(faltaCmp + '\n\n¿Cobrar igual?')) return;
+
+  if (ventaEditando) { guardarEdicionVenta(promo, desc, aCredito, distriId); return; }
 
   const venta = registrarVenta({
     pacienteId: document.getElementById('v-paciente').value,
@@ -4970,6 +5046,69 @@ function guardarVenta() {
         '<button class="btn btn-mini" style="margin-top:6px;background:var(--morado)" onclick="agendarControl(\'' + c.id + '\')">Agendar control ahora</button>' +
       '</div>';
   }
+}
+/* Aplica los cambios sobre la venta que ya existe. El número, la fecha, la hora
+   y quién la registró no se tocan: eso es lo que pasó. El stock se mueve por la
+   diferencia, no de nuevo entero, y cada ajuste deja su movimiento para que el
+   inventario se pueda auditar después. */
+function guardarEdicionVenta(promo, desc, aCredito, distriId) {
+  const v = db.ventas.find(x => x.id === ventaEditando);
+  if (!v) { alert('La venta ya no existe.'); ventaEditando = null; cerrarModales(); return; }
+
+  const cuenta = items => items.reduce((m,i) => {
+    if (i.tipo === 'producto') m[i.catalogoId] = (m[i.catalogoId] || 0) + Number(i.cant || 0);
+    return m;
+  }, {});
+  const antes = cuenta(v.items), ahora = cuenta(carrito);
+
+  // Se confirma con el cambio a la vista: quien edita tiene que ver qué mueve
+  const totalAntes = totalVenta(v);
+  const totalAhora = redondeo(carrito.reduce((t,i) => t + i.precio * i.cant, 0) - desc);
+  const dif = redondeo(totalAhora - totalAntes);
+  const deuda = v.credito && distriId
+    ? '\n\nLa deuda de ' + nombreDistribuidor(distriId) + ' ' +
+      (dif > 0 ? 'sube ' + money(dif) : dif < 0 ? 'baja ' + money(-dif) : 'no cambia') + '.'
+    : '';
+  if (!confirm('Ticket #' + v.numero + '\n\n' +
+      'Antes: ' + money(totalAntes) + '\nAhora: ' + money(totalAhora) +
+      (dif ? '\nDiferencia: ' + (dif > 0 ? '+' : '') + money(dif) : '\nEl total no cambia') +
+      deuda + '\n\n¿Guardar los cambios?')) return;
+
+  // Stock: solo la diferencia. Lo que se agregó sale, lo que se quitó vuelve.
+  new Set([...Object.keys(antes), ...Object.keys(ahora)]).forEach(id => {
+    const delta = (ahora[id] || 0) - (antes[id] || 0);
+    if (!delta) return;
+    const k = db.catalogo.find(x => x.id === id);
+    if (!k) return;
+    k.stock = Number(k.stock || 0) - delta;
+    registrarMov(k.id, delta > 0 ? 'venta' : 'anulacion', Math.abs(delta),
+                 'Edición del ticket #' + v.numero, v.id);
+  });
+
+  v.items = carrito.map(i => ({ ...i }));
+  v.descuento = Number(desc) || 0;
+  v.promoId = promo ? promo.id : '';
+  v.promoNombre = promo ? promo.nombre : '';
+  v.metodoPago = document.getElementById('v-pago').value;
+  v.nota = document.getElementById('v-nota').value.trim();
+  v.pacienteId = document.getElementById('v-paciente').value;
+  v.lista = listaPrecio === 'colega' ? 'colega' : 'paciente';
+  v.credito = !!aCredito;
+  v.distribuidorId = distriId || '';
+  v.comprobante = comprobante || 'nota';
+  v.receptor = receptorDeVenta();
+  // Rastro de quién la tocó y cuándo: una venta corregida no puede parecer
+  // igual que una que salió así de la caja
+  v.ediciones = (v.ediciones || []).concat([{
+    fecha: hoyStr(), hora: horaAhora(),
+    usuarioNombre: sesion ? sesion.nombre : '—',
+    de: totalAntes, a: totalAhora
+  }]);
+
+  ventaEditando = null;
+  guardar(); cerrarModales();
+  irA('ventas'); refrescarBadges();
+  verTicket(v.id);
 }
 function anularVenta(id) {
   const v = db.ventas.find(x => x.id === id);
@@ -5148,7 +5287,11 @@ function pintarVentas() {
     ? '<div class="vacio">' + (db.ventas.length ? 'Ninguna venta coincide con la búsqueda.' : 'Aún no hay ventas registradas. Presiona <b>+ Nueva venta</b>.') + '</div>'
     : '<table class="tabla tarjetas"><thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Detalle</th><th>Total</th><th>Registró</th><th></th></tr></thead><tbody>' +
       lista.map(v => '<tr' + (v.anulada ? ' style="opacity:.55"' : '') + '>' +
-        '<td data-th="Ticket"><b>#' + v.numero + '</b>' + (v.anulada ? ' <span class="chip chip-rojo">Anulada</span>' : '') + '</td>' +
+        '<td data-th="Ticket"><b>#' + v.numero + '</b>' + (v.anulada ? ' <span class="chip chip-rojo">Anulada</span>' : '') +
+          (!v.anulada && (v.ediciones || []).length
+            ? '<br><span class="chip chip-amarillo" title="Editada el ' + esc(v.ediciones[v.ediciones.length-1].fecha) +
+              ' por ' + esc(v.ediciones[v.ediciones.length-1].usuarioNombre) + '">✏️ Editada</span>'
+            : '') + '</td>' +
         '<td data-th="Fecha">' + fechaBonita(v.fecha) + ' <span class="sub">' + v.hora + '</span></td>' +
         '<td data-th="Cliente">' + (v.credito ? esc(nombreDistribuidor(v.distribuidorId)) : esc(nombreEnVenta(v))) +
           (v.lista === 'colega' ? ' <span class="chip chip-morado">Distribuidor</span>' : '') +
@@ -5163,6 +5306,7 @@ function pintarVentas() {
         '<td data-th="Total"><b>' + money(totalVenta(v)) + '</b> <span class="sub">' + esc(v.metodoPago||'') + '</span></td>' +
         '<td data-th="Registró" class="sub">' + esc(v.usuarioNombre || '—') + '</td>' +
         '<td data-th=""><div class="acc-tabla"><button class="btn btn-sec btn-mini" onclick="verTicket(\'' + v.id + '\')">🖨 Ticket</button>' +
+        (!v.anulada ? '<button class="btn btn-sec btn-mini" onclick="editarVenta(\'' + v.id + '\')">✏️ Editar</button>' : '') +
         (!v.anulada ? '<button class="btn btn-peligro btn-mini" onclick="anularVenta(\'' + v.id + '\')">Anular</button>' : '') +
         '</div></td></tr>').join('') + '</tbody></table>';
 }
@@ -5203,6 +5347,9 @@ function verTicket(id) {
         (v.receptor.direccion ? '<div>' + esc(v.receptor.direccion) + '</div>' : '')
       : '') +
     (v.anulada ? '<div class="t-centro"><b>** ANULADO **</b></div>' : '') +
+    // Un ticket reimpreso despues de corregirlo tiene que decirlo: si no, el
+    // que tiene el papel viejo y el que mira la pantalla ven cosas distintas
+    (!v.anulada && (v.ediciones || []).length ? '<div class="t-centro">** CORREGIDO el ' + fechaBonita(v.ediciones[v.ediciones.length-1].fecha) + ' **</div>' : '') +
     // Queda impreso en el papel: al revisar tickets viejos se sabe con qué lista se cobró
     (v.lista === 'colega' ? '<div><b>** VENTA A DISTRIBUIDOR **</b></div>' : '') +
     (v.credito ? '<div>Entregado a: ' + esc(nombreDistribuidor(v.distribuidorId)) + '</div>' : '') +
@@ -6244,6 +6391,9 @@ setInterval(() => {
 
 /* ================== MODALES / INICIO ================== */
 function cerrarModales() {
+  // Si se estaba editando y se cierra sin guardar, no pasó nada: la edición no
+  // toca el stock hasta que se confirma
+  ventaEditando = null;
   document.querySelectorAll('.fondo-modal').forEach(m => m.classList.add('oculto'));
   // Si otra pestaña guardó algo mientras había un modal abierto, ahora sí se aplica
   if (recargaPendiente) sincronizarDesdeOtraPestana();
