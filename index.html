@@ -59,6 +59,15 @@
   header h1 { font-size:17px; font-weight:700; line-height:1.2; letter-spacing:-.01em; }
   header small { font-size:12px; color:var(--text-muted); }
   nav { display:flex; gap:4px; flex-wrap:wrap; }
+  /* Orden del doctor: lo médico primero, lo de dueño después. Recepción se
+     queda con el orden natural del HTML, que arranca en Caja. */
+  body:not(.rol-recepcion) #tab-atenciones     { order:1; }
+  body:not(.rol-recepcion) #tab-pacientes      { order:2; }
+  body:not(.rol-recepcion) #tab-agenda         { order:3; }
+  body:not(.rol-recepcion) #tab-reportes       { order:4; }
+  body:not(.rol-recepcion) #tab-stock          { order:5; }
+  body:not(.rol-recepcion) #tab-distribuidores { order:6; }
+  body:not(.rol-recepcion) #tab-config         { order:7; }
   nav button { background:transparent; border:none; color:var(--text-muted); padding:9px 14px;
                border-radius:8px; cursor:pointer; font-size:14px; font-weight:500;
                font-family:inherit; position:relative; transition:background .15s, color .15s; }
@@ -532,13 +541,13 @@
          se consulta de vez en cuando. -->
     <button id="tab-ventas" onclick="irA('ventas')">💰 Caja<span id="badge-ventas" class="badge oculto"></span></button>
     <button id="tab-atenciones" onclick="irA('atenciones')">🩺 Atenciones<span id="badge-atenciones" class="badge oculto"></span></button>
-    <button id="tab-pacientes" onclick="irA('pacientes')" class="activo">Pacientes</button>
-    <button id="tab-agenda" onclick="irA('agenda')">Agenda<span id="badge-agenda" class="badge oculto"></span><span id="badge-controles" class="badge oculto" style="background:var(--morado);right:auto;left:-6px"></span></button>
-    <button id="tab-distribuidores" onclick="irA('distribuidores')">Distribuidores<span id="badge-deuda" class="badge oculto" style="background:var(--warning)"></span></button>
-    <button id="tab-stock" onclick="irA('stock')">Stock<span id="badge-stock" class="badge oculto"></span></button>
-    <button id="tab-movimientos" onclick="irA('movimientos')">Movimientos</button>
-    <button id="tab-reportes" onclick="irA('reportes')">Reportes</button>
-    <button id="tab-config" onclick="irA('config')">⚙️</button>
+    <button id="tab-pacientes" onclick="irA('pacientes')" class="activo">👤 Pacientes</button>
+    <button id="tab-agenda" onclick="irA('agenda')">📅 Agenda<span id="badge-agenda" class="badge oculto"></span><span id="badge-controles" class="badge oculto" style="background:var(--morado);right:auto;left:-6px"></span></button>
+    <button id="tab-distribuidores" onclick="irA('distribuidores')">🚚 Distribuidores<span id="badge-deuda" class="badge oculto" style="background:var(--warning)"></span></button>
+    <button id="tab-stock" onclick="irA('stock')">📦 Stock<span id="badge-stock" class="badge oculto"></span></button>
+    <button id="tab-movimientos" onclick="irA('movimientos')">🔄 Movimientos</button>
+    <button id="tab-reportes" onclick="irA('reportes')">📊 Reportes</button>
+    <button id="tab-config" onclick="irA('config')">⚙️ Configuración</button>
   </nav>
   <div class="usuario-actual">
     <!-- Estado de la nube siempre a la vista: si algo no se está sincronizando,
@@ -631,6 +640,7 @@
 
   <!-- ============ PACIENTES (lista) ============ -->
   <section id="sec-pacientes">
+    <h2 style="margin-top:0">Pacientes</h2>
     <div class="barra">
       <input type="search" id="buscador" placeholder="Buscar por nombre o documento…" oninput="pintarListaPacientes()">
       <button class="btn btn-sec" id="btn-ver-archivados" onclick="alternarArchivados()">🗄 Ver archivados</button>
@@ -675,6 +685,9 @@
        Quien se lleva mercadería a crédito, la vende por su cuenta y va abonando.
        Lo que importa no es cada venta suelta, sino cuánto debe hoy. -->
   <section id="sec-distribuidores" class="oculto">
+    <h2 style="margin-top:0">Distribuidores</h2>
+    <div class="sub" style="margin-bottom:10px">Se llevan suplementos para revenderlos: <b>ellos le deben a usted</b>.
+      Quien le surte a usted está en ⚙️ Configuración → 🤝 Acuerdos.</div>
     <div id="resumen-deuda"></div>
     <div class="barra">
       <input type="search" id="buscador-distri" placeholder="Buscar distribuidor…" oninput="pintarDistribuidores()">
@@ -693,6 +706,7 @@
 
   <!-- ============ MÓDULO 4 · STOCK ============ -->
   <section id="sec-stock" class="oculto">
+    <h2 style="margin-top:0">Stock de suplementos</h2>
     <div class="barra">
       <input type="search" id="buscador-stock" placeholder="Buscar producto…" oninput="pintarStock()">
       <button class="btn" id="btn-nueva-entrada" onclick="abrirModalMov()">+ Registrar entrada</button>
@@ -762,6 +776,7 @@
     </div>
 
     <div id="cfg-precios">
+      <h2 style="margin-top:0">Precios y catálogo</h2>
       <div class="sub" style="margin-bottom:10px">Lo que cobra el consultorio. De aquí salen los precios de las ventas y los suplementos que puedes prescribir.</div>
       <div class="barra">
         <button class="btn" id="btn-cat-servicios" onclick="cambiarCatalogo('servicio')">Servicios</button>
@@ -780,9 +795,10 @@
          proporción. Sin esto, el reporte le muestra al Dr. una ganancia que no
          es toda suya. -->
     <div id="cfg-acuerdos" class="oculto">
+      <h2 style="margin-top:0">Acuerdos con proveedores</h2>
       <div class="sub" style="margin-bottom:10px">
-        Marcas cuya ganancia se reparte con el proveedor. El sistema calcula solo cuánto le toca a cada uno
-        <b>por cada frasco vendido</b>, y lleva la cuenta de lo que falta pagar.
+        Marcas que le surten y cuya ganancia se reparte: <b>usted les debe a ellos</b>.
+        El sistema calcula solo cuánto le toca a cada uno por frasco vendido y lleva la cuenta de lo que falta pagar.
       </div>
       <div class="barra">
         <span style="flex:1"></span>
@@ -794,6 +810,7 @@
     <!-- Las promociones las define el dueño, no se improvisan en el mostrador:
          recepción solo puede aplicar lo que esté cargado y vigente aquí. -->
     <div id="cfg-promos" class="oculto">
+      <h2 style="margin-top:0">Promociones</h2>
       <div class="sub" style="margin-bottom:10px">Los descuentos que recepción puede aplicar en caja. <b>Si no hay ninguna cargada, recepción no puede descontar nada.</b></div>
       <div class="barra">
         <span style="flex:1"></span>
@@ -803,6 +820,7 @@
     </div>
 
     <div id="cfg-usuarios" class="oculto">
+      <h2 style="margin-top:0">Usuarios</h2>
       <div class="sub" style="margin-bottom:10px">Cada persona entra con su PIN. Las ventas y atenciones quedan a nombre de quien las hizo.</div>
       <div id="lista-usuarios"></div>
       <div class="barra" style="margin-top:10px"><button class="btn" onclick="abrirModalUsuario()">+ Nuevo usuario</button></div>
@@ -831,10 +849,10 @@
         <div class="barra" style="margin:12px 0 0"><button class="btn" onclick="guardarFacturacion()">Guardar datos</button></div>
       </div>
 
-      <h2>Emisión electrónica</h2>
-      <div class="tarjeta">
-        <div id="cfg-fact-pasos"></div>
-      </div>
+      <details class="tarjeta" style="margin-top:14px">
+        <summary style="cursor:pointer;font-weight:600">Qué falta para que el sistema emita solo ante SUNAT</summary>
+        <div id="cfg-fact-pasos" style="margin-top:10px"></div>
+      </details>
     </div>
 
     <div id="cfg-datos" class="oculto">
@@ -857,7 +875,7 @@
       <h2>Datos de ejemplo</h2>
       <div class="tarjeta">
         <div class="sub" style="margin-bottom:10px">Pacientes y ventas inventados, para probar o hacer una demostración. <b>Reemplaza todo lo que haya.</b></div>
-        <button class="btn btn-sec" onclick="cargarDemo()">📋 Cargar datos de ejemplo</button>
+        <button class="btn btn-sec" onclick="cargarDemo()">🧪 Cargar datos de ejemplo</button>
       </div>
 
       <h2>Empezar de cero</h2>
@@ -1483,21 +1501,16 @@ function cargar() {
     const crudo = localStorage.getItem(CLAVE);
     if (crudo) { db = JSON.parse(crudo); selloDisco = crudo; }
   } catch (e) { console.error('Error al leer datos', e); }
-  db.pacientes = db.pacientes || [];
-  db.citas = db.citas || [];
-  db.catalogo = db.catalogo || [];
-  db.ventas = db.ventas || [];
-  db.movimientos = db.movimientos || [];
-  db.atenciones = db.atenciones || [];
-  db.ordenes = db.ordenes || [];
-  db.controles = db.controles || [];
-  db.promos = db.promos || [];
-  db.distribuidores = db.distribuidores || [];
-  db.abonos = db.abonos || [];
-  // Con quién reparte el Dr. la ganancia de cada marca, y lo que ya le pagó
-  db.acuerdos = db.acuerdos || [];
-  db.liquidaciones = db.liquidaciones || [];
-  db.borrados = db.borrados || [];
+  completarDb();
+}
+/* Deja el `db` entero: cualquier lista que falte entra vacía. Lo usan tanto la
+   apertura del sistema como los datos de ejemplo, que arman un `db` desde cero.
+   Antes cada uno tenía su propia lista escrita a mano y la de la demo se quedó
+   corta: faltaban distribuidores y abonos, y el sistema reventaba al pintar el
+   badge de deuda. Con una sola lista, agregar un módulo no puede repetir eso. */
+function completarDb() {
+  COLECCIONES.forEach(c => { if (!Array.isArray(db[c])) db[c] = []; });
+  if (!Array.isArray(db.borrados)) db.borrados = [];
   // Si nunca se crearon usuarios, se siembran los dos de fábrica (PIN 1234 / 4321 — cambiarlos)
   db.usuarios = (db.usuarios && db.usuarios.length) ? db.usuarios : USUARIOS_INICIALES.map(u => ({ ...u }));
   db.config = db.config || { correlativo: 1, negocio: NEGOCIO };
@@ -1894,7 +1907,7 @@ const PESTANAS = ['ventas','atenciones','pacientes','agenda','distribuidores','s
 const VISTA_ROL = {
   // El doctor ve el stock pero no lo mueve: le sirve para saber qué pedir, no
   // para registrar entradas y salidas. Eso es trabajo del mostrador.
-  doctor:    ['atenciones','pacientes','distribuidores','stock','reportes','config'],
+  doctor:    ['atenciones','pacientes','agenda','distribuidores','stock','reportes','config'],
   recepcion: ['ventas','pacientes','agenda','distribuidores','stock','movimientos']
 };
 // Secciones que no son pestaña pero cuelgan de una que sí lo es
@@ -3446,7 +3459,7 @@ function cargarCatalogoDr() {
     ? 'Se agregaron ' + nuevos + (nuevos===1?' ítem':' ítems') + ' al catálogo.\n\n' +
       '• Los 8 servicios quedaron SIN precio — edítalos cuando el Dr. te los pase.\n' +
       '• Los 9 suplementos entraron con su precio venta y su precio distribuidor.\n' +
-      '• Falta el STOCK (entró en 0): regístralo desde Stock → Registrar entrada.\n' +
+      '• Falta el STOCK (entró en 0): lo registra recepción desde 📦 Stock → + Registrar entrada.\n' +
       '• Falta el COSTO de cada uno: sin eso el sistema sabe cuánto se vendió, pero no cuánto se ganó.'
     : 'La lista ya estaba cargada. No se agregó nada nuevo.');
 }
@@ -4117,7 +4130,9 @@ function pintarStock() {
 
   const lista = productos().filter(k => k.nombre.toLowerCase().includes(filtro)).sort((a,b) => a.nombre.localeCompare(b.nombre));
   document.getElementById('lista-stock').innerHTML = !lista.length
-    ? '<div class="vacio">No hay productos. Agrégalos en la pestaña <b>Catálogo</b>.</div>'
+    ? '<div class="vacio">No hay productos cargados.' +
+      (soloVer ? ' Agrégalos en <b>⚙️ Configuración → 💲 Precios</b>.'
+               : ' Los carga el doctor desde <b>⚙️ Configuración</b>.') + '</div>'
     // Sin la columna de Valor: en Stock se cuentan unidades. Lo que vale el
     // inventario es cosa del dueño y se ve en Reportes, no en el mostrador.
     : '<table class="tabla tarjetas"><thead><tr><th>Producto</th><th>Stock</th><th>Mínimo</th>' +
@@ -5405,11 +5420,7 @@ function htmlReparto(ventas) {
     .sort((a,b) => (b.fecha + (b.hora||'')).localeCompare(a.fecha + (a.hora||'')));
 
   return '<h2>Reparto con proveedores</h2>' +
-    '<div class="tarjeta" style="margin-bottom:10px"><div class="sub">' +
-      'De estas marcas el consultorio no se queda con toda la ganancia: se reparte con quien se las surte, ' +
-      'según lo cargado en <b>⚙️ Configuración → 🤝 Acuerdos</b>. El cálculo va sobre el precio realmente cobrado, ' +
-      'así que un descuento en caja lo asumen los dos.' +
-    '</div></div>' +
+    '<div class="sub" style="margin-bottom:10px">Se calcula sobre el precio realmente cobrado: un descuento en caja lo asumen los dos.</div>' +
     socios.map(tarjeta).join('') +
     conDeuda.map(n => tarjeta({ socio: n, unidades: 0, venta: 0, costo: 0, ganancia: 0, delSocio: 0, delDr: 0, sinCosto: 0, items: {} })).join('') +
     (pagos.length
@@ -5570,7 +5581,7 @@ function pintarReportes() {
               (paraSocios > 0
                 ? '<div class="aviso" style="margin-top:10px">De esa ganancia, <b>' + money(paraSocios) +
                   '</b> le corresponden a ' + (Object.keys(repartoRango).length === 1 ? esc(Object.keys(repartoRango)[0]) : 'sus proveedores') +
-                  ' por los acuerdos de reparto. <b>Le queda al consultorio: ' + money(redondeo(ganancia - paraSocios)) + '</b>. El detalle está más abajo.</div>'
+                  ' por los acuerdos de reparto. <b>Le queda al consultorio: ' + money(redondeo(ganancia - paraSocios)) + '</b>.</div>'
                 : '')
             : '') +
           (unidadesSinCosto
@@ -5582,29 +5593,6 @@ function pintarReportes() {
       : '') +
 
     htmlReparto(ventas) +
-
-    (listaPromos.length
-      ? '<h2>Promociones</h2>' +
-        '<div class="tarjeta" style="margin-bottom:10px"><div class="sub">En este rango se dejaron de cobrar <b style="color:var(--danger)">' +
-          money(descuentoTotal) + '</b> por promociones — un <b>' +
-          (total + descuentoTotal ? Math.round(descuentoTotal / (total + descuentoTotal) * 100) : 0) +
-          '%</b> de lo que se habría facturado a precio de lista.</div></div>' +
-        '<table class="tabla tarjetas"><thead><tr><th>Promoción</th><th>Ventas</th><th>Descontado</th><th>Facturado igual</th></tr></thead><tbody>' +
-        listaPromos.map(([nom,p]) =>
-          '<tr><td data-th="Promoción"><b>🏷 ' + esc(nom) + '</b></td>' +
-          '<td data-th="Ventas"><b>' + p.n + '</b></td>' +
-          '<td data-th="Descontado"><b style="color:var(--danger)">' + money(p.descontado) + '</b></td>' +
-          '<td data-th="Facturado igual">' + money(p.vendido) + '</td></tr>').join('') +
-        '</tbody></table>'
-      : '') +
-
-    '<h2>Ingresos por categoría</h2>' +
-    (Object.keys(porCategoria).length
-      ? '<table class="tabla tarjetas"><thead><tr><th>Categoría</th><th>Ingresos</th><th>%</th></tr></thead><tbody>' +
-        Object.entries(porCategoria).sort((a,b) => b[1]-a[1]).map(([c,m]) =>
-          '<tr><td data-th="Categoría">' + esc(c) + '</td><td data-th="Ingresos"><b>' + money(m) + '</b></td><td data-th="%">' + (total ? Math.round(m/total*100) : 0) + '%</td></tr>').join('') +
-        '</tbody></table>'
-      : '<div class="vacio">Sin datos en este rango.</div>') +
 
     '<h2>Más vendidos</h2>' +
     (topItems.length
@@ -5628,6 +5616,29 @@ function pintarReportes() {
       '<div class="dato"><small>Tasa de asistencia</small><b>' + tasa + '%</b></div>' +
     '</div>' +
     '<div class="sub">La tasa compara atendidas contra canceladas. Las citas pendientes o confirmadas no cuentan todavía.</div>' +
+
+    (listaPromos.length
+      ? '<h2>Promociones</h2>' +
+        '<div class="tarjeta" style="margin-bottom:10px"><div class="sub">En este rango se dejaron de cobrar <b style="color:var(--danger)">' +
+          money(descuentoTotal) + '</b> por promociones — un <b>' +
+          (total + descuentoTotal ? Math.round(descuentoTotal / (total + descuentoTotal) * 100) : 0) +
+          '%</b> de lo que se habría facturado a precio de lista.</div></div>' +
+        '<table class="tabla tarjetas"><thead><tr><th>Promoción</th><th>Ventas</th><th>Descontado</th><th>Facturado igual</th></tr></thead><tbody>' +
+        listaPromos.map(([nom,p]) =>
+          '<tr><td data-th="Promoción"><b>🏷 ' + esc(nom) + '</b></td>' +
+          '<td data-th="Ventas"><b>' + p.n + '</b></td>' +
+          '<td data-th="Descontado"><b style="color:var(--danger)">' + money(p.descontado) + '</b></td>' +
+          '<td data-th="Facturado igual">' + money(p.vendido) + '</td></tr>').join('') +
+        '</tbody></table>'
+      : '') +
+
+    '<h2>Ingresos por categoría</h2>' +
+    (Object.keys(porCategoria).length
+      ? '<table class="tabla tarjetas"><thead><tr><th>Categoría</th><th>Ingresos</th><th>%</th></tr></thead><tbody>' +
+        Object.entries(porCategoria).sort((a,b) => b[1]-a[1]).map(([c,m]) =>
+          '<tr><td data-th="Categoría">' + esc(c) + '</td><td data-th="Ingresos"><b>' + money(m) + '</b></td><td data-th="%">' + (total ? Math.round(m/total*100) : 0) + '%</td></tr>').join('') +
+        '</tbody></table>'
+      : '<div class="vacio">Sin datos en este rango.</div>') +
 
     '<h2>Ventas por usuario</h2>' +
     (Object.keys(porUsuario).length
@@ -5734,9 +5745,21 @@ function pintarFacturacion() {
     '</div>' +
     '<div class="aviso aviso-amarillo" style="margin-bottom:12px">' +
       '<b>El sistema todavía no emite ante SUNAT.</b>' +
-      '<div class="sub" style="margin-top:6px">Guarda a nombre de quién va cada boleta o factura para que no se pierda el dato, ' +
-      'pero la emisión se sigue haciendo desde el portal de SUNAT. Busca «boleta» o «factura» en <b>Ventas</b> para ver cuáles emitir.</div>' +
-    '</div>';
+      '<div class="sub" style="margin-top:6px">El sistema guarda a nombre de quién va cada comprobante; ' +
+      'emitirlo se sigue haciendo desde el portal de SUNAT. Estos son los que están pedidos:</div>' +
+    '</div>' +
+    (conCmp.length
+      ? '<table class="tabla tarjetas" style="margin-bottom:12px"><thead><tr><th>Fecha</th><th>Comprobante</th><th>A nombre de</th><th>Monto</th></tr></thead><tbody>' +
+        [...conCmp].sort((a,b) => (b.fecha + b.hora).localeCompare(a.fecha + a.hora)).slice(0, 15).map(v =>
+          '<tr><td data-th="Fecha">' + fechaBonita(v.fecha) + '</td>' +
+          '<td data-th="Comprobante"><b>' + (tipoComprobante(v) === 'factura' ? 'Factura' : 'Boleta') + '</b>' +
+            '<span class="sub"> · ticket #' + v.numero + '</span></td>' +
+          '<td data-th="A nombre de">' + esc((v.receptor && v.receptor.nombre) || nombreEnVenta(v)) +
+            (v.receptor && v.receptor.doc ? '<br><span class="sub">' + esc(v.receptor.tipoDoc || '') + ' ' + esc(v.receptor.doc) + '</span>' : '') + '</td>' +
+          '<td data-th="Monto"><b>' + money(totalVenta(v)) + '</b></td></tr>').join('') +
+        '</tbody></table>' +
+        (conCmp.length > 15 ? '<div class="sub" style="margin-bottom:12px">Se muestran los 15 más recientes de ' + conCmp.length + '.</div>' : '')
+      : '<div class="vacio" style="margin-bottom:12px">Todavía nadie pidió boleta ni factura. Cuando alguien la pida en caja, aparece acá.</div>');
 
   document.getElementById('cfg-fact-pasos').innerHTML =
     '<div class="sub" style="margin-bottom:10px">Para que el sistema emita solo, hacen falta cuatro cosas. Las tres primeras son trámite, no programación:</div>' +
@@ -6153,6 +6176,7 @@ function cargarDemo() {
   db.config.correlativo = 1;
   db.ventas.forEach(v => v.numero = db.config.correlativo++);
   // El stock de la demo ya refleja lo vendido, así que no se descuenta otra vez
+  completarDb();   // la demo arma el db a mano: que no falte ninguna lista
   guardar(); refrescarBadges(); irA('atenciones');
   alert('Datos de ejemplo cargados: 13 pacientes, agenda, catálogo con las 8 cirugías, ventas y la historia de María con su curva de peso.\n\n' +
     'OJO: los precios de las cirugías son inventados. Cámbialos en ⚙️ Precios cuando el Dr. te los pase.');
