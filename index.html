@@ -1052,7 +1052,7 @@
           <!-- Antes eran dos opciones fijas y "Otra marca" no decía cuál era.
                Ahora se escribe el nombre real; B&N sale de primera en la lista
                porque es la marca propia y los reportes la separan del resto. -->
-          <input id="k-marca" list="lista-marcas" placeholder="Ej: B&amp;N, Ensure…" autocomplete="off">
+          <input id="k-marca" list="lista-marcas" placeholder="Ej: B&amp;N, Ensure…" autocomplete="off" oninput="pintarMargenCatalogo()">
           <datalist id="lista-marcas"></datalist>
         </div>
         <div><label>Unidad</label><input id="k-unidad" placeholder="Ej: frasco, caja, unidad"></div>
@@ -3030,6 +3030,7 @@ function pintarMargenCatalogo() {
   const precio = Number(document.getElementById('k-precio').value || 0);
   const costo  = Number(document.getElementById('k-costo').value || 0);
   const mayor  = Number(document.getElementById('k-mayor').value || 0);
+  const ac = acuerdoDeMarca(document.getElementById('k-marca').value);
   if (!costo || !precio) { cont.innerHTML = ''; return; }
   const k = { precio, costo };
   const linea = (etiqueta, p) => '<div style="display:flex;justify-content:space-between;gap:10px">' +
@@ -3038,6 +3039,16 @@ function pintarMargenCatalogo() {
     '<b>Le queda por unidad</b>' + linea('Vendiendo al paciente', precio) +
     (mayor ? linea('Vendiendo a un colega', mayor) : '') +
     (costo >= precio ? '<div class="sub" style="color:var(--danger);margin-top:4px">⚠️ El costo es igual o mayor que el precio: estaría perdiendo.</div>' : '') +
+    // Si la marca tiene acuerdo, "le queda por unidad" no es todo suyo: se dice
+    // acá mismo, mientras se carga el producto, y no dos pantallas más allá
+    (ac && costo < precio
+      ? '<div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px">' +
+        '<b>De eso se reparte con ' + esc(ac.socio) + '</b>' +
+        '<div style="display:flex;justify-content:space-between"><span>Consultorio (' + (100 - Number(ac.pctSocio||0)) + '%)</span><b>' +
+          money((precio - costo) * (100 - Number(ac.pctSocio||0)) / 100) + '</b></div>' +
+        '<div style="display:flex;justify-content:space-between"><span>' + esc(ac.socio) + ' (' + Number(ac.pctSocio||0) + '%)</span><b>' +
+          money((precio - costo) * Number(ac.pctSocio||0) / 100) + '</b></div></div>'
+      : '') +
   '</div>';
 }
 /* Las sugerencias son las categorías de siempre más las que se hayan inventado
@@ -3053,9 +3064,13 @@ function llenarCategorias(tipo, sel) {
    marcas de terceros que ya estén cargadas en el catálogo. */
 function llenarMarcas() {
   const usadas = db.catalogo.filter(k => k.tipo === 'producto').map(k => (k.marca || '').trim());
+  // Las marcas con acuerdo de reparto entran aunque todavía no tengan ningún
+  // producto: se carga primero el trato y después el suplemento, y si la marca
+  // no se sugiere se termina escribiendo distinto y el reparto no la reconoce.
+  const conAcuerdo = db.acuerdos.map(a => (a.marca || '').trim());
   // 'Otra marca' era el comodín del formulario viejo: no es una marca de
   // verdad, así que no se vuelve a ofrecer como sugerencia.
-  const opciones = [...new Set(['B&N', ...usadas])].filter(m => m && m !== 'Otra marca');
+  const opciones = [...new Set(['B&N', ...conAcuerdo, ...usadas])].filter(m => m && m !== 'Otra marca');
   document.getElementById('lista-marcas').innerHTML = opciones.map(m => '<option value="' + esc(m) + '">').join('');
 }
 /* Un suplemento es un bien y paga IGV; los servicios de salud normalmente van
