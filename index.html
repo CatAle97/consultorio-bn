@@ -76,6 +76,20 @@
   th.orden .flecha { opacity:.35; font-size:10px; margin-left:2px; }
   th.orden.activa { color:var(--rol); }
   th.orden.activa .flecha { opacity:1; }
+  /* La tarjeta del recién agregado: verde de confirmación, y el número grande
+     porque es lo único que hay que tocar ahí. */
+  .recien { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+            background:var(--success-bg); border:1px solid var(--success);
+            border-radius:10px; padding:10px 12px; margin-top:10px; }
+  .recien .nom { flex:1 1 130px; min-width:0; font-size:14px; line-height:1.3; }
+  .recien .pasos { display:flex; align-items:center; gap:6px; }
+  .recien .pasos button { width:40px; height:40px; border-radius:9px; border:1px solid var(--success);
+                          background:var(--surface); color:var(--success); font-size:20px; font-weight:700;
+                          line-height:1; cursor:pointer; font-family:inherit; }
+  .recien .pasos button:active { background:var(--success); color:#fff; }
+  .recien .pasos input { width:58px; text-align:center; font-size:17px; font-weight:700;
+                         padding:8px 4px; margin:0; }
+  .recien .quitar { background:none; border:none; color:var(--danger); font-size:18px; cursor:pointer; padding:6px; }
   /* Marca y código en la caja: se leen de un vistazo pero no le ganan al nombre */
   .sello-item { display:block; font-size:11px; color:var(--rol); font-weight:600; letter-spacing:.2px; }
   /* El código se lee como código: monoespaciado y sin competir con el nombre */
@@ -1258,6 +1272,10 @@
              oninput="buscarItemVenta()" onfocus="buscarItemVenta()">
       <div id="v-item-lista" class="sugerencias oculto"></div>
     </div>
+    <!-- Lo último que se agregó, con su cantidad, pegado al buscador: se elige
+         el producto, se pone cuántos y se sigue buscando el siguiente sin
+         moverse del sitio. -->
+    <div id="v-ultimo"></div>
     <div id="v-carrito" style="margin-top:10px"></div>
 
     <div class="fila-2" style="margin-top:12px">
@@ -4858,6 +4876,7 @@ function abrirModalVenta(pacienteId) {
     return;
   }
   carrito = [];
+  ultimoAgregado = null;
   ventaEditando = null;
   document.querySelector('#modal-venta h3').textContent = 'Nueva venta';
   ordenCobrando = null; citaCobrando = null; controlTrasCobrar = null;
@@ -5038,6 +5057,9 @@ function elegirItemVenta(id) {
 /* A quién se le vende decide el precio: el paciente paga la lista normal, un
    distribuidor que revende paga la suya. Son dos listas reales del negocio,
    no un descuento a ojo. */
+/* El último producto que se tocó. No es parte de la venta —el carrito sigue
+   siendo la verdad— es solo lo que hay que tener a mano para ponerle cantidad. */
+let ultimoAgregado = null;
 let listaPrecio = 'paciente';
 function precioSegunLista(k) {
   const mayor = Number(k.precioMayor || 0);
@@ -5065,6 +5087,7 @@ function cambiarListaPrecio(cual) {
 function agregarPorId(catalogoId) {
   const k = db.catalogo.find(x => x.id === catalogoId);
   if (!k) return;
+  ultimoAgregado = catalogoId;
   const ya = carrito.find(i => i.catalogoId === k.id);
   if (ya) ya.cant++;
   // El costo se copia en la venta: si mañana sube, la ganancia de esta venta
@@ -5244,7 +5267,11 @@ function cambiarCant(catalogoId, cant) {
   i.cant = Math.max(1, Number(cant) || 1);
   pintarCarrito();
 }
-function quitarDelCarrito(catalogoId) { carrito = carrito.filter(i => i.catalogoId !== catalogoId); pintarCarrito(); }
+function quitarDelCarrito(catalogoId) {
+  carrito = carrito.filter(i => i.catalogoId !== catalogoId);
+  if (ultimoAgregado === catalogoId) ultimoAgregado = null;
+  pintarCarrito();
+}
 
 /* Qué productos del carrito no alcanzan. Se cobra solo lo que se puede entregar. */
 function faltaStock() {
@@ -5309,9 +5336,45 @@ function avisoCredito(monto) {
     '<div class="sub" style="margin-top:6px">Debía ' + money(antes) + ' → pasará a deber <b>' + money(antes + monto) + '</b>.' +
     ' El stock sí sale. Los abonos se registran en <b>Distribuidores</b>.</div></div>';
 }
+/* La tarjeta del recién agregado. Se apoya en el carrito, no lleva estado
+   propio: si el producto se quita desde abajo, esta desaparece sola. */
+function pintarUltimoAgregado() {
+  const cont = document.getElementById('v-ultimo');
+  if (!cont) return;
+  const i = ultimoAgregado ? carrito.find(x => x.catalogoId === ultimoAgregado) : null;
+  if (!i) { cont.innerHTML = ''; return; }
+  const k = db.catalogo.find(x => x.id === i.catalogoId);
+  const sello = [i.codigo || (k && k.codigo) || '', i.marca || (k && k.marca) || ''].filter(Boolean).map(esc).join(' · ');
+  const hay = i.tipo === 'producto' ? stockDisponible(i.catalogoId) : null;
+  const pasado = hay !== null && i.cant > hay;
+  cont.innerHTML =
+    '<div class="recien"' + (pasado ? ' style="background:#fdf1ef;border-color:var(--danger)"' : '') + '>' +
+      '<span class="nom">✓ <b>' + esc(i.nombre) + '</b>' +
+        (sello ? '<br><span class="sello-item">' + sello + '</span>' : '') +
+        (pasado ? '<br><span class="chip chip-rojo">Solo quedan ' + hay + '</span>'
+                : hay !== null ? '<br><span class="sub">quedan ' + hay + ' ' + esc(k && k.unidad || '') + '</span>' : '') +
+      '</span>' +
+      '<span class="pasos">' +
+        '<button type="button" onclick="pasoCantidad(-1)" aria-label="Uno menos">−</button>' +
+        '<input type="number" min="1" step="1" inputmode="numeric" value="' + i.cant + '"' +
+          ' onfocus="this.select()" oninput="cambiarCant(\'' + i.catalogoId + '\', this.value || 1)">' +
+        '<button type="button" onclick="pasoCantidad(1)" aria-label="Uno más">+</button>' +
+      '</span>' +
+      '<b style="min-width:74px;text-align:right">' + money(i.precio * i.cant) + '</b>' +
+      '<button type="button" class="quitar" onclick="quitarDelCarrito(\'' + i.catalogoId + '\')" aria-label="Quitar">✕</button>' +
+    '</div>';
+}
+/* Los botones − y + trabajan sobre el recién agregado, que es el único que la
+   tarjeta muestra. Nunca baja de 1: para sacarlo está la ✕. */
+function pasoCantidad(delta) {
+  const i = carrito.find(x => x.catalogoId === ultimoAgregado);
+  if (!i) return;
+  cambiarCant(i.catalogoId, Math.max(1, Number(i.cant || 1) + delta));
+}
 function pintarCarrito() {
   const cont = document.getElementById('v-carrito');
   const btn = document.getElementById('btn-cobrar');
+  pintarUltimoAgregado();
   const { promo, desc } = refrescarPromosVenta();
   if (!carrito.length) {
     cont.innerHTML = '<div class="vacio" style="padding:16px">Aún no agregas nada a la venta.</div>';
