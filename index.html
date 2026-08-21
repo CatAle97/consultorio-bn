@@ -61,6 +61,17 @@
   nav { display:flex; gap:4px; flex-wrap:wrap; }
   /* Cabecera de tabla que ordena al tocarla. La flecha dice por dónde va. */
   th.orden { cursor:pointer; user-select:none; white-space:nowrap; }
+  /* Se muestra solo cuando la tabla ya no tiene cabeceras (ver el corte de 900px) */
+  .orden-movil { display:none; }
+  @media (max-width:900px) {
+    .orden-movil { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin:0 0 10px; }
+    .orden-movil .etiqueta { font-size:12px; color:var(--text-muted); font-weight:700;
+                             text-transform:uppercase; letter-spacing:.03em; }
+    .orden-movil button { border:1px solid var(--border); background:var(--surface); color:#444;
+                          border-radius:999px; padding:8px 14px; min-height:38px; font-size:13px;
+                          font-family:inherit; cursor:pointer; }
+    .orden-movil button.activo { border-color:var(--rol); color:var(--rol); font-weight:700; background:var(--rol-suave); }
+  }
   th.orden:hover { color:var(--rol); }
   th.orden .flecha { opacity:.35; font-size:10px; margin-left:2px; }
   th.orden.activa { color:var(--rol); }
@@ -3052,6 +3063,16 @@ function catalogoOrdenado(lista) {
     return cmp !== 0 ? cmp * dir : normalizar(a.nombre).localeCompare(normalizar(b.nombre));
   });
 }
+/* Los mismos criterios de la cabecera, en botones. `fn` es la función que
+   ordena (catálogo o stock) porque cada pantalla lleva su propio estado. */
+function barraOrdenMovil(campos, estado, fn) {
+  return '<div class="orden-movil"><span class="etiqueta">Ordenar por</span>' +
+    campos.map(([campo, titulo]) => {
+      const activa = estado.campo === campo;
+      return '<button type="button" class="' + (activa ? 'activo' : '') + '" onclick="' + fn + '(\'' + campo + '\')">' +
+        titulo + (activa ? ' ' + (estado.dir === 1 ? '▲' : '▼') : '') + '</button>';
+    }).join('') + '</div>';
+}
 function thOrden(campo, titulo) {
   const o = catOrden[catTipo];
   const activa = o.campo === campo;
@@ -3095,6 +3116,7 @@ function pintarCatalogo() {
 
   if (catTipo === 'servicio') {
     cont.innerHTML = avisoPrecios + avisoCodigos +
+      barraOrdenMovil([['nombre','Servicio'],['categoria','Categoría'],['codigo','Código'],['precio','Precio']], catOrden[catTipo], 'ordenarCatalogo') +
       '<table class="tabla tarjetas"><thead><tr>' +
         thOrden('nombre','Servicio') + thOrden('categoria','Categoría') +
         thOrden('codigo','Cód. ticket') + thOrden('precio','Precio') + '<th></th></tr></thead><tbody>' +
@@ -3111,6 +3133,7 @@ function pintarCatalogo() {
       (faltanCostos ? '<div class="aviso aviso-amarillo">💡 <b>' + plural(faltanCostos,'producto','productos') +
         '</b> sin costo cargado. Sin ese dato el sistema sabe cuánto vendió, pero no cuánto ganó.</div>' : '') +
       avisoCodigos +
+      barraOrdenMovil([['nombre','Producto'],['marca','Marca'],['codigo','Código'],['precio','Precio'],['stock','Stock']], catOrden[catTipo], 'ordenarCatalogo') +
       '<table class="tabla tarjetas"><thead><tr>' +
         thOrden('nombre','Producto') + thOrden('marca','Marca') + thOrden('codigo','Cód. ticket') +
         thOrden('precio','Precio') + thOrden('stock','Stock') + '<th></th></tr></thead><tbody>' +
@@ -3121,7 +3144,8 @@ function pintarCatalogo() {
           '<td data-th="Marca">' + (k.marca==='B&N' ? '<span class="chip chip-azul">B&amp;N</span>' : esc(k.marca||'—')) + '</td>' +
           '<td data-th="Cód. ticket">' + celdaCodigo(k) + '</td>' +
           '<td data-th="Precio">' + (Number(k.precio) > 0 ? money(k.precio) : '<span class="chip chip-rojo">Sin precio</span>') +
-            (Number(k.costo) ? '<br><span class="sub">gana ' + money(gananciaUnidad(k)) + ' · ' + margenPct(k) + '%</span>' : '') +
+            (Number(k.costo) && Number(k.precio) > 0 ? '<br><span class="sub">gana ' + money(gananciaUnidad(k)) + ' · ' + margenPct(k) + '%</span>' : '') +
+            (Number(k.costo) && !(Number(k.precio) > 0) ? '<br><span class="sub">le cuesta ' + money(k.costo) + '</span>' : '') +
             (Number(k.precioMayor) ? '<br><span class="sub">distribuidor ' + money(k.precioMayor) + '</span>' : '') + '</td>' +
           '<td data-th="Stock">' + stockCell + '</td>' + acciones(k) + '</tr>';
       }).join('') + '</tbody></table>';
@@ -4444,7 +4468,8 @@ function pintarStock() {
     ? '<div class="vacio">Ningún producto coincide con la búsqueda.</div>'
     // Sin la columna de Valor: en Stock se cuentan unidades. Lo que vale el
     // inventario es cosa del dueño y se ve en Reportes, no en el mostrador.
-    : '<table class="tabla tarjetas"><thead><tr>' +
+    : barraOrdenMovil([['nombre','Producto'],['marca','Marca'],['codigo','Código'],['stock','Stock']], stockOrden, 'ordenarStock') +
+      '<table class="tabla tarjetas"><thead><tr>' +
       thOrdenStock('nombre','Producto') + thOrdenStock('marca','Marca') + thOrdenStock('codigo','Cód. ticket') +
       thOrdenStock('stock','Stock') + thOrdenStock('stockMin','Mínimo') +
       (soloVer ? '' : '<th></th>') + '</tr></thead><tbody>' +
