@@ -65,6 +65,8 @@
   th.orden .flecha { opacity:.35; font-size:10px; margin-left:2px; }
   th.orden.activa { color:var(--rol); }
   th.orden.activa .flecha { opacity:1; }
+  /* Marca y código en la caja: se leen de un vistazo pero no le ganan al nombre */
+  .sello-item { display:block; font-size:11px; color:var(--rol); font-weight:600; letter-spacing:.2px; }
   /* El código se lee como código: monoespaciado y sin competir con el nombre */
   .cod { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; letter-spacing:.3px;
          background:var(--border-light); color:#444; padding:2px 6px; border-radius:5px; white-space:nowrap; }
@@ -718,7 +720,7 @@
   <section id="sec-stock" class="oculto">
     <h2 style="margin-top:0">Stock de suplementos</h2>
     <div class="barra">
-      <input type="search" id="buscador-stock" placeholder="Buscar producto…" oninput="pintarStock()">
+      <input type="search" id="buscador-stock" placeholder="Buscar por producto, marca o código…" oninput="pintarStock()">
       <button class="btn" id="btn-nueva-entrada" onclick="abrirModalMov()">+ Registrar entrada</button>
     </div>
     <div id="alertas-stock"></div>
@@ -3075,6 +3077,14 @@ function pintarCatalogo() {
   if (!todos.length) { cont.innerHTML = '<div class="vacio">No hay ' + (catTipo==='servicio'?'servicios':'productos') + ' registrados. Presiona <b>+ Nuevo</b>.</div>'; return; }
   if (!lista.length) { cont.innerHTML = '<div class="vacio">Nada coincide con «' + esc(bus.value.trim()) + '».</div>'; return; }
 
+  // Sin precio no se puede cobrar. Es lo primero que hay que ver al entrar,
+  // antes que los códigos o los costos.
+  const sinPrecio = todos.filter(k => !(Number(k.precio) > 0));
+  const avisoPrecios = sinPrecio.length
+    ? '<div class="aviso aviso-rojo">🚫 <b>' + plural(sinPrecio.length, 'ítem', 'ítems') + ' sin precio</b>: ' +
+      sinPrecio.slice(0, 5).map(k => esc(k.nombre)).join(', ') + (sinPrecio.length > 5 ? ' y ' + (sinPrecio.length - 5) + ' más' : '') +
+      '.<div class="sub" style="margin-top:4px">No aparecen para cobrar en la caja. Ponles precio con <b>Editar</b>.</div></div>'
+    : '';
   const sinCodigo = todos.filter(k => !k.codigo).length;
   const avisoCodigos = sinCodigo
     ? '<div class="aviso">🏷 <b>' + plural(sinCodigo, 'ítem', 'ítems') + '</b> sin código. El código sale impreso en el ticket y sirve para pedir sin deletrear. ' +
@@ -3084,18 +3094,20 @@ function pintarCatalogo() {
     '<button class="btn btn-peligro btn-mini" onclick="borrarCatalogo(\'' + k.id + '\')">Borrar</button></div></td>';
 
   if (catTipo === 'servicio') {
-    cont.innerHTML = avisoCodigos +
+    cont.innerHTML = avisoPrecios + avisoCodigos +
       '<table class="tabla tarjetas"><thead><tr>' +
         thOrden('nombre','Servicio') + thOrden('categoria','Categoría') +
         thOrden('codigo','Cód. ticket') + thOrden('precio','Precio') + '<th></th></tr></thead><tbody>' +
       lista.map(k => '<tr><td data-th="Servicio"><b>' + esc(k.nombre) + '</b></td>' +
         '<td data-th="Categoría">' + esc(k.categoria||'—') + '</td>' +
         '<td data-th="Cód. ticket">' + celdaCodigo(k) + '</td>' +
-        '<td data-th="Precio">' + money(k.precio) + '</td>' + acciones(k) + '</tr>').join('') +
+        '<td data-th="Precio">' + (Number(k.precio) > 0 ? money(k.precio)
+          : '<span class="chip chip-rojo">Sin precio</span>') + '</td>' + acciones(k) + '</tr>').join('') +
       '</tbody></table>';
   } else {
     const faltanCostos = todos.filter(k => !Number(k.costo)).length;
     cont.innerHTML =
+      avisoPrecios +
       (faltanCostos ? '<div class="aviso aviso-amarillo">💡 <b>' + plural(faltanCostos,'producto','productos') +
         '</b> sin costo cargado. Sin ese dato el sistema sabe cuánto vendió, pero no cuánto ganó.</div>' : '') +
       avisoCodigos +
@@ -3108,7 +3120,7 @@ function pintarCatalogo() {
         return '<tr><td data-th="Producto"><b>' + esc(k.nombre) + '</b> <span class="sub">' + esc(k.categoria||'') + '</span></td>' +
           '<td data-th="Marca">' + (k.marca==='B&N' ? '<span class="chip chip-azul">B&amp;N</span>' : esc(k.marca||'—')) + '</td>' +
           '<td data-th="Cód. ticket">' + celdaCodigo(k) + '</td>' +
-          '<td data-th="Precio">' + money(k.precio) +
+          '<td data-th="Precio">' + (Number(k.precio) > 0 ? money(k.precio) : '<span class="chip chip-rojo">Sin precio</span>') +
             (Number(k.costo) ? '<br><span class="sub">gana ' + money(gananciaUnidad(k)) + ' · ' + margenPct(k) + '%</span>' : '') +
             (Number(k.precioMayor) ? '<br><span class="sub">distribuidor ' + money(k.precioMayor) + '</span>' : '') + '</td>' +
           '<td data-th="Stock">' + stockCell + '</td>' + acciones(k) + '</tr>';
@@ -4329,8 +4341,31 @@ function registrarMov(productoId, tipo, cantidad, motivo, ventaId) {
     usuarioId: sesion ? sesion.id : '', usuarioNombre: sesion ? sesion.nombre : '—'
   });
 }
+/* Stock arranca ordenado por marca: es como se pide la mercadería —un pedido
+   por proveedor— y así el Dr. ve de un vistazo qué le falta a cada uno. */
+let stockOrden = { campo:'marca', dir:1 };
+function ordenarStock(campo) {
+  stockOrden = { campo, dir: stockOrden.campo === campo ? -stockOrden.dir : 1 };
+  pintarStock();
+}
+function stockOrdenado(lista) {
+  const { campo, dir } = stockOrden;
+  const valor = k => (campo === 'stock' || campo === 'stockMin') ? Number(k[campo] || 0) : normalizar(k[campo] || '');
+  return [...lista].sort((a,b) => {
+    const va = valor(a), vb = valor(b);
+    if (va === '' && vb !== '') return 1;
+    if (vb === '' && va !== '') return -1;
+    const cmp = typeof va === 'number' ? va - vb : va.localeCompare(vb);
+    return cmp !== 0 ? cmp * dir : normalizar(a.nombre).localeCompare(normalizar(b.nombre));
+  });
+}
+function thOrdenStock(campo, titulo) {
+  const activa = stockOrden.campo === campo;
+  return '<th class="orden' + (activa ? ' activa' : '') + '" onclick="ordenarStock(\'' + campo + '\')" title="Ordenar por ' + titulo.toLowerCase() + '">' +
+    titulo + '<span class="flecha">' + (activa ? (stockOrden.dir === 1 ? '▲' : '▼') : '▲') + '</span></th>';
+}
 function pintarStock() {
-  const filtro = (document.getElementById('buscador-stock').value || '').toLowerCase().trim();
+  const filtro = normalizar(document.getElementById('buscador-stock').value || '');
   const bajos = productosBajos();
   // Para el doctor esta pantalla es de consulta: mira qué hay y qué falta pedir.
   // Quien recibe la mercadería y anota entradas y salidas es recepción.
@@ -4338,19 +4373,29 @@ function pintarStock() {
   document.getElementById('btn-nueva-entrada').classList.toggle('oculto', soloVer);
   document.getElementById('alertas-stock').innerHTML = bajos.length
     ? '<div class="aviso aviso-rojo"><b>⚠️ ' + plural(bajos.length,'producto','productos') + ' en stock bajo:</b> ' +
-      bajos.map(k => esc(k.nombre) + ' (' + (k.stock||0) + ')').join(' · ') + '</div>'
+      bajos.map(k => esc(k.nombre) + (k.marca ? ' <span class="sub">(' + esc(k.marca) + ')</span>' : '') + ' <b>' + (k.stock||0) + '</b>').join(' · ') + '</div>'
     : '<div class="aviso aviso-amarillo" style="border-color:var(--success);background:#f2f9f4">✅ Todos los productos están por encima del stock mínimo.</div>';
 
-  const lista = productos().filter(k => k.nombre.toLowerCase().includes(filtro)).sort((a,b) => a.nombre.localeCompare(b.nombre));
-  document.getElementById('lista-stock').innerHTML = !lista.length
+  // Se busca igual que en el catálogo: por nombre, marca o código. El que
+  // atiende tiene el código del ticket a mano, no el nombre exacto.
+  const lista = stockOrdenado(productos().filter(k => !filtro ||
+    normalizar(k.nombre).includes(filtro) || normalizar(k.marca || '').includes(filtro) ||
+    normalizar(k.codigo || '').includes(filtro) || normalizar(k.categoria || '').includes(filtro)));
+  document.getElementById('lista-stock').innerHTML = !productos().length
     ? '<div class="vacio">No hay productos cargados.' +
       (soloVer ? ' Agrégalos en <b>⚙️ Configuración → 💲 Precios</b>.'
                : ' Los carga el doctor desde <b>⚙️ Configuración</b>.') + '</div>'
+    : !lista.length
+    ? '<div class="vacio">Ningún producto coincide con la búsqueda.</div>'
     // Sin la columna de Valor: en Stock se cuentan unidades. Lo que vale el
     // inventario es cosa del dueño y se ve en Reportes, no en el mostrador.
-    : '<table class="tabla tarjetas"><thead><tr><th>Producto</th><th>Stock</th><th>Mínimo</th>' +
+    : '<table class="tabla tarjetas"><thead><tr>' +
+      thOrdenStock('nombre','Producto') + thOrdenStock('marca','Marca') + thOrdenStock('codigo','Cód. ticket') +
+      thOrdenStock('stock','Stock') + thOrdenStock('stockMin','Mínimo') +
       (soloVer ? '' : '<th></th>') + '</tr></thead><tbody>' +
       lista.map(k => '<tr><td data-th="Producto"><b>' + esc(k.nombre) + '</b> <span class="sub">' + esc(k.categoria||'') + '</span></td>' +
+        '<td data-th="Marca">' + (k.marca==='B&N' ? '<span class="chip chip-azul">B&amp;N</span>' : esc(k.marca||'—')) + '</td>' +
+        '<td data-th="Cód. ticket">' + celdaCodigo(k) + '</td>' +
         '<td data-th="Stock"><b>' + (k.stock||0) + '</b> ' + esc(k.unidad||'') + (stockBajo(k) ? ' <span class="chip chip-rojo">Bajo</span>' : '') + '</td>' +
         '<td data-th="Mínimo">' + (k.stockMin||0) + '</td>' +
         (soloVer ? '' : '<td data-th=""><button class="btn btn-sec btn-mini" onclick="abrirModalMov(\'' + k.id + '\')">Mover</button></td>') +
@@ -4695,8 +4740,14 @@ function registrarVenta({ pacienteId, items, metodoPago, nota, descuento, ordenI
 }
 
 function abrirModalVenta(pacienteId) {
-  const vendibles = db.catalogo.filter(k => Number(k.precio) > 0).sort((a,b) => a.nombre.localeCompare(b.nombre));
-  if (!vendibles.length) { alert('No hay servicios ni productos con precio en el catálogo. Agrégalos primero.'); return; }
+  const vendibles = db.catalogo.filter(k => Number(k.precio) > 0);
+  if (!vendibles.length) {
+    alert(db.catalogo.length
+      ? 'Hay ' + plural(db.catalogo.length, 'ítem', 'ítems') + ' en el catálogo pero ninguno tiene precio, así que no se puede cobrar nada.\n\n' +
+        'El doctor les pone precio en ⚙️ Configuración → 💲 Precios.'
+      : 'El catálogo está vacío. El doctor carga los servicios y suplementos en ⚙️ Configuración → 💲 Precios.');
+    return;
+  }
   carrito = [];
   ventaEditando = null;
   document.querySelector('#modal-venta h3').textContent = 'Nueva venta';
@@ -4807,15 +4858,33 @@ function itemsParaVender(texto) {
   const t = normalizar(texto);
   const ranking = masVendidos();
   return db.catalogo
-    .filter(k => Number(k.precio) > 0 && k.activo !== false)
+    .filter(k => k.activo !== false)
     .filter(k => !t || normalizar(k.nombre).includes(t) || normalizar(k.categoria || '').includes(t) ||
                   normalizar(k.marca || '').includes(t) || normalizar(k.codigo || '').includes(t))
     .sort((a,b) => {
+      // Lo que no se puede cobrar va al fondo, pero se ve: la caja tiene que
+      // poder decir "existe, pero le falta el precio"
+      const va = sePuedeVender(a), vb = sePuedeVender(b);
+      if (va !== vb) return va ? -1 : 1;
       // primero los productos (es lo que se vende a diario), luego por ranking
       if ((a.tipo === 'producto') !== (b.tipo === 'producto')) return a.tipo === 'producto' ? -1 : 1;
       const d = (ranking[b.id] || 0) - (ranking[a.id] || 0);
       return d !== 0 ? d : a.nombre.localeCompare(b.nombre);
     });
+}
+/* Por qué un ítem no se puede cobrar hoy. Devuelve el motivo en texto o '' si
+   está listo: así el mismo dato sirve para la caja y para el catálogo. */
+function motivoNoVendible(k) {
+  if (!(Number(k.precio) > 0)) return 'sin precio';
+  if (k.tipo === 'producto' && stockDisponible(k.id) <= 0) return 'sin stock';
+  return '';
+}
+function sePuedeVender(k) { return !motivoNoVendible(k); }
+/* La marca y el código, juntos, en el orden en que se leen. Es lo que evita
+   cobrar la proteína de una marca y descontarle el stock a la otra. */
+function selloItem(k) {
+  return [k.codigo || '', k.tipo === 'producto' ? (k.marca || '') : (k.categoria || '')]
+    .filter(Boolean).map(esc).join(' · ');
 }
 function buscarItemVenta() {
   const cont = document.getElementById('v-item-lista');
@@ -4824,26 +4893,31 @@ function buscarItemVenta() {
   const lista = itemsParaVender(txt);
   if (!lista.length) {
     cont.innerHTML = '<div class="sugerencia sub">' +
-      (txt.trim() ? 'Nada coincide con «' + esc(txt.trim()) + '».'
-                  : 'No hay productos con precio en el catálogo. Cárgalos en ⚙️ Precios.') + '</div>';
+      (txt.trim() ? 'Nada coincide con «' + esc(txt.trim()) + '». Prueba con la marca o el código.'
+                  : 'No hay nada cargado en el catálogo. Se carga en ⚙️ Precios.') + '</div>';
     cont.classList.remove('oculto');
     return;
   }
   cont.innerHTML = lista.map(k => {
     const esProd = k.tipo === 'producto';
-    const hay = Number(k.stock || 0);
-    // Un servicio no tiene stock: se puede cobrar siempre. Un producto agotado no.
-    const agotado = esProd && hay <= 0;
-    const detalle = esProd
-      ? (hay > 0 ? 'quedan ' + hay + ' ' + esc(k.unidad || '') : 'sin stock')
-      : esc(k.categoria || 'Servicio');
-    return '<div class="sugerencia' + (agotado ? ' agotada' : '') + '"' +
-      (agotado ? '' : ' onclick="elegirItemVenta(\'' + k.id + '\')"') + '>' +
+    const motivo = motivoNoVendible(k);
+    const hay = esProd ? stockDisponible(k.id) : 0;
+    // La marca va SIEMPRE a la vista: dos proteínas de marcas distintas se
+    // llaman casi igual, y equivocarse descuenta el stock de la que no era
+    const sello = selloItem(k);
+    const detalle = motivo === 'sin precio'
+      ? 'falta ponerle precio en ⚙️ Precios para poder cobrarlo'
+      : esProd
+        ? (hay > 0 ? 'quedan ' + hay + ' ' + esc(k.unidad || '') : 'sin stock — registra la entrada primero')
+        : 'servicio';
+    return '<div class="sugerencia' + (motivo ? ' agotada' : '') + '"' +
+      (motivo ? '' : ' onclick="elegirItemVenta(\'' + k.id + '\')"') + '>' +
       '<div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline">' +
         '<b>' + esc(k.nombre) + '</b>' +
-        '<b style="white-space:nowrap">' + money(precioSegunLista(k)) + '</b>' +
+        '<b style="white-space:nowrap">' + (Number(k.precio) > 0 ? money(precioSegunLista(k)) : '—') + '</b>' +
       '</div>' +
-      '<small>' + detalle + (agotado ? ' — no se puede cobrar' : '') + '</small></div>';
+      (sello ? '<small class="sello-item">' + sello + '</small>' : '') +
+      '<small>' + detalle + '</small></div>';
   }).join('');
   cont.classList.remove('oculto');
 }
@@ -5151,9 +5225,13 @@ function pintarCarrito() {
   cont.innerHTML = carrito.map(i => {
     const k = db.catalogo.find(x => x.id === i.catalogoId);
     const f = faltan.find(x => x.catalogoId === i.catalogoId);
+    // La marca se lee de la línea del carrito, no del catálogo: es la última
+    // oportunidad de ver que se agregó la proteína equivocada antes de cobrar
+    const sello = [i.codigo || (k && k.codigo) || '', i.marca || (k && k.marca) || ''].filter(Boolean).map(esc).join(' · ');
     return '<div class="carrito-item"' + (f ? ' style="background:#fdf1ef;border-radius:6px"' : '') + '>' +
       '<span class="nom">' + esc(i.nombre) +
       (f ? ' <span class="chip chip-rojo">' + (f.hay > 0 ? 'Solo quedan ' + f.hay : 'Sin stock') + '</span>' : '') +
+      (sello ? '<br><span class="sello-item">' + sello + '</span>' : '') +
       '<br><span class="sub">' + money(i.precio) + ' c/u</span></span>' +
       '<input type="number" min="1" step="1" value="' + i.cant + '" onchange="cambiarCant(\'' + i.catalogoId + '\',this.value)">' +
       '<b style="min-width:80px;text-align:right">' + money(i.precio * i.cant) + '</b>' +
