@@ -349,7 +349,6 @@
   #ticket .t-nom { padding-top:4px; }
   #ticket .t-tot td:first-child { width:55%; }
   #ticket .t-total td { padding-top:3px; font-size:1.1em; }
-  #ticket .t-datos td { width:50%; }
 
   /* --- Dos listas de precio --- */
   .canales { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
@@ -5795,11 +5794,11 @@ function verTicket(id) {
       (n.telefono ? '<br>Tel: ' + esc(n.telefono) : '') +
     '</div>' +
     '<hr>' +
-    // Fecha y hora en un renglón, como en cualquier ticket de caja
-    '<table class="t-datos">' +
-      '<tr><td>Fecha: ' + fechaCorta + '</td><td class="der">' + v.hora + '</td></tr>' +
-      '<tr><td>Ticket N° ' + String(v.numero).padStart(6,'0') + '</td><td class="der">' + esc(v.usuarioNombre || '—') + '</td></tr>' +
-    '</table>' +
+    // Un dato por renglón. Se probó en dos columnas y no entra: el papel da 28
+    // caracteres y "Fecha: 20/08/2026 20:30" ya son 23.
+    '<div>Fecha: ' + fechaCorta + ' ' + v.hora + '</div>' +
+    '<div>Ticket N° ' + String(v.numero).padStart(6,'0') + '</div>' +
+    '<div>Atendió: ' + esc(v.usuarioNombre || '—') + '</div>' +
     '<div>Paciente: ' + esc(nombreEnVenta(v)) + '</div>' +
     // Si corresponde boleta o factura, en el papel va a nombre de quién. Es lo
     // que recepción copia al portal de SUNAT sin tener que llamar al cliente
@@ -5813,7 +5812,9 @@ function verTicket(id) {
     (v.anulada ? '<div class="t-centro"><b>** ANULADO **</b></div>' : '') +
     // Un ticket reimpreso despues de corregirlo tiene que decirlo: si no, el
     // que tiene el papel viejo y el que mira la pantalla ven cosas distintas
-    (!v.anulada && (v.ediciones || []).length ? '<div class="t-centro">** CORREGIDO el ' + fechaBonita(v.ediciones[v.ediciones.length-1].fecha) + ' **</div>' : '') +
+    (!v.anulada && (v.ediciones || []).length
+      ? '<div class="t-centro">** CORREGIDO ' + v.ediciones[v.ediciones.length-1].fecha.split('-').reverse().join('/') + ' **</div>'
+      : '') +
     // Queda impreso en el papel: al revisar tickets viejos se sabe con qué lista se cobró
     (v.lista === 'colega' ? '<div><b>** VENTA A DISTRIBUIDOR **</b></div>' : '') +
     (v.credito ? '<div>Entregado a: ' + esc(nombreDistribuidor(v.distribuidorId)) + '</div>' : '') +
