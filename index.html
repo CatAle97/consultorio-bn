@@ -59,6 +59,16 @@
   header h1 { font-size:17px; font-weight:700; line-height:1.2; letter-spacing:-.01em; }
   header small { font-size:12px; color:var(--text-muted); }
   nav { display:flex; gap:4px; flex-wrap:wrap; }
+  /* Cabecera de tabla que ordena al tocarla. La flecha dice por dónde va. */
+  th.orden { cursor:pointer; user-select:none; white-space:nowrap; }
+  th.orden:hover { color:var(--rol); }
+  th.orden .flecha { opacity:.35; font-size:10px; margin-left:2px; }
+  th.orden.activa { color:var(--rol); }
+  th.orden.activa .flecha { opacity:1; }
+  /* El código se lee como código: monoespaciado y sin competir con el nombre */
+  .cod { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; letter-spacing:.3px;
+         background:var(--border-light); color:#444; padding:2px 6px; border-radius:5px; white-space:nowrap; }
+  .cod.vacio-cod { background:transparent; color:var(--texto-sub, #999); font-style:italic; }
   /* Orden del doctor: lo médico primero, lo de dueño después. Recepción se
      queda con el orden natural del HTML, que arranca en Caja. */
   body:not(.rol-recepcion) #tab-atenciones     { order:1; }
@@ -785,6 +795,10 @@
         <button class="btn btn-sec" onclick="cargarCatalogoDr()">📋 Cargar lista del Dr.</button>
         <button class="btn" onclick="abrirModalCatalogo()">+ Nuevo</button>
       </div>
+      <div class="barra" style="margin-top:8px">
+        <input type="search" id="buscador-catalogo" placeholder="Buscar por nombre, marca, categoría o código…" oninput="pintarCatalogo()">
+        <button class="btn btn-sec" onclick="generarCodigosFaltantes()">🏷 Generar códigos</button>
+      </div>
       <div id="lista-catalogo"></div>
     </div>
 
@@ -1045,6 +1059,15 @@
          versión corta solo para imprimir, sin tocar el nombre real. -->
     <label>Nombre en el ticket <span class="sub" style="font-weight:400">— opcional, si el de arriba es muy largo</span></label>
     <input id="k-nombreticket" maxlength="28" placeholder="Se usa el nombre completo si lo dejas vacío" oninput="pintarLargoTicket()">
+    <!-- El código sale impreso en el ticket y sirve para pedir sin deletrear.
+         Se sugiere solo desde la marca y el nombre, pero se puede escribir a
+         mano: si el proveedor ya maneja un código, ese manda. -->
+    <label>Código <span class="sub" style="font-weight:400">— sale en el ticket</span></label>
+    <div style="display:flex;gap:6px;align-items:center">
+      <input id="k-codigo" maxlength="10" placeholder="Se sugiere solo" autocomplete="off"
+             style="text-transform:uppercase;font-family:ui-monospace,Menlo,Consolas,monospace" oninput="pintarLargoTicket()">
+      <button type="button" class="btn btn-sec btn-mini" style="white-space:nowrap" onclick="sugerirCodigoModal()">✨ Sugerir</button>
+    </div>
     <div id="k-largo-ticket" class="sub"></div>
     <div class="fila-2">
       <div><label>Categoría</label>
@@ -2991,41 +3014,199 @@ const CATEGORIAS = {
 };
 function cambiarCatalogo(t) {
   catTipo = t;
+  const bus = document.getElementById('buscador-catalogo');
+  if (bus) bus.value = '';
   document.getElementById('btn-cat-servicios').style.cssText = t==='servicio' ? '' : 'background:#fff;color:#333;border:1px solid var(--border)';
   document.getElementById('btn-cat-productos').style.cssText = t==='producto' ? '' : 'background:#fff;color:#333;border:1px solid var(--border)';
   pintarCatalogo();
 }
+/* Por dónde está ordenado el catálogo. Se guarda por tipo: el orden que sirve
+   para suplementos (por marca) no es el que sirve para servicios. */
+let catOrden = { servicio: { campo:'nombre', dir:1 }, producto: { campo:'nombre', dir:1 } };
+/* Tocar la misma cabecera dos veces da vuelta el orden; tocar otra empieza de
+   nuevo hacia arriba, que es lo que uno espera de una tabla. */
+function ordenarCatalogo(campo) {
+  const o = catOrden[catTipo];
+  catOrden[catTipo] = { campo, dir: o.campo === campo ? -o.dir : 1 };
+  pintarCatalogo();
+}
+/* El valor por el que se compara cada columna. El truco está en el desempate:
+   ordenar por marca sin desempatar por nombre deja los productos de la misma
+   marca en cualquier orden, y entonces la lista no sirve para leerla. */
+function valorOrdenCatalogo(k, campo) {
+  if (campo === 'precio') return Number(k.precio || 0);
+  if (campo === 'stock')  return Number(k.stock || 0);
+  return normalizar(k[campo] || '');
+}
+function catalogoOrdenado(lista) {
+  const { campo, dir } = catOrden[catTipo];
+  return [...lista].sort((a,b) => {
+    const va = valorOrdenCatalogo(a, campo), vb = valorOrdenCatalogo(b, campo);
+    // Lo que no tiene dato va al final, ordene como ordene: un producto sin
+    // código no debe encabezar la lista solo porque el vacío gana alfabéticamente
+    if (va === '' && vb !== '') return 1;
+    if (vb === '' && va !== '') return -1;
+    const cmp = typeof va === 'number' ? va - vb : va.localeCompare(vb);
+    return cmp !== 0 ? cmp * dir : normalizar(a.nombre).localeCompare(normalizar(b.nombre));
+  });
+}
+function thOrden(campo, titulo) {
+  const o = catOrden[catTipo];
+  const activa = o.campo === campo;
+  return '<th class="orden' + (activa ? ' activa' : '') + '" onclick="ordenarCatalogo(\'' + campo + '\')" title="Ordenar por ' + titulo.toLowerCase() + '">' +
+    titulo + '<span class="flecha">' + (activa ? (o.dir === 1 ? '▲' : '▼') : '▲') + '</span></th>';
+}
+function celdaCodigo(k) {
+  return k.codigo
+    ? '<span class="cod">' + esc(k.codigo) + '</span>'
+    : '<span class="cod vacio-cod">sin código</span>';
+}
 function pintarCatalogo() {
   const cont = document.getElementById('lista-catalogo');
-  const lista = db.catalogo.filter(k => k.tipo === catTipo).sort((a,b) => a.nombre.localeCompare(b.nombre));
-  if (!lista.length) { cont.innerHTML = '<div class="vacio">No hay ' + (catTipo==='servicio'?'servicios':'productos') + ' registrados. Presiona <b>+ Nuevo</b>.</div>'; return; }
+  const bus = document.getElementById('buscador-catalogo');
+  const filtro = normalizar(bus ? bus.value : '');
+  const todos = db.catalogo.filter(k => k.tipo === catTipo);
+  // Se busca por lo que uno tiene en la cabeza: el nombre, la marca, la
+  // categoría o el código que vio en un ticket
+  const lista = catalogoOrdenado(todos.filter(k => !filtro ||
+    normalizar(k.nombre).includes(filtro) || normalizar(k.marca || '').includes(filtro) ||
+    normalizar(k.categoria || '').includes(filtro) || normalizar(k.codigo || '').includes(filtro)));
+
+  if (!todos.length) { cont.innerHTML = '<div class="vacio">No hay ' + (catTipo==='servicio'?'servicios':'productos') + ' registrados. Presiona <b>+ Nuevo</b>.</div>'; return; }
+  if (!lista.length) { cont.innerHTML = '<div class="vacio">Nada coincide con «' + esc(bus.value.trim()) + '».</div>'; return; }
+
+  const sinCodigo = todos.filter(k => !k.codigo).length;
+  const avisoCodigos = sinCodigo
+    ? '<div class="aviso">🏷 <b>' + plural(sinCodigo, 'ítem', 'ítems') + '</b> sin código. El código sale impreso en el ticket y sirve para pedir sin deletrear. ' +
+      '<button class="btn btn-mini" style="margin-left:6px" onclick="generarCodigosFaltantes()">Generarlos</button></div>'
+    : '';
+  const acciones = k => '<td data-th=""><div class="acc-tabla"><button class="btn btn-sec btn-mini" onclick="abrirModalCatalogo(\'' + k.id + '\')">Editar</button>' +
+    '<button class="btn btn-peligro btn-mini" onclick="borrarCatalogo(\'' + k.id + '\')">Borrar</button></div></td>';
 
   if (catTipo === 'servicio') {
-    cont.innerHTML = '<table class="tabla tarjetas"><thead><tr><th>Servicio</th><th>Categoría</th><th>Precio</th><th></th></tr></thead><tbody>' +
-      lista.map(k => '<tr><td data-th="Servicio"><b>' + esc(k.nombre) + '</b></td><td data-th="Categoría">' + esc(k.categoria||'—') + '</td><td data-th="Precio">' + money(k.precio) + '</td>' +
-        '<td data-th=""><div class="acc-tabla"><button class="btn btn-sec btn-mini" onclick="abrirModalCatalogo(\'' + k.id + '\')">Editar</button>' +
-        '<button class="btn btn-peligro btn-mini" onclick="borrarCatalogo(\'' + k.id + '\')">Borrar</button></div></td></tr>').join('') +
+    cont.innerHTML = avisoCodigos +
+      '<table class="tabla tarjetas"><thead><tr>' +
+        thOrden('nombre','Servicio') + thOrden('categoria','Categoría') +
+        thOrden('codigo','Cód. ticket') + thOrden('precio','Precio') + '<th></th></tr></thead><tbody>' +
+      lista.map(k => '<tr><td data-th="Servicio"><b>' + esc(k.nombre) + '</b></td>' +
+        '<td data-th="Categoría">' + esc(k.categoria||'—') + '</td>' +
+        '<td data-th="Cód. ticket">' + celdaCodigo(k) + '</td>' +
+        '<td data-th="Precio">' + money(k.precio) + '</td>' + acciones(k) + '</tr>').join('') +
       '</tbody></table>';
   } else {
-    const faltanCostos = lista.filter(k => !Number(k.costo)).length;
+    const faltanCostos = todos.filter(k => !Number(k.costo)).length;
     cont.innerHTML =
       (faltanCostos ? '<div class="aviso aviso-amarillo">💡 <b>' + plural(faltanCostos,'producto','productos') +
         '</b> sin costo cargado. Sin ese dato el sistema sabe cuánto vendió, pero no cuánto ganó.</div>' : '') +
-      '<table class="tabla tarjetas"><thead><tr><th>Producto</th><th>Marca</th><th>Precio</th><th>Stock</th><th></th></tr></thead><tbody>' +
+      avisoCodigos +
+      '<table class="tabla tarjetas"><thead><tr>' +
+        thOrden('nombre','Producto') + thOrden('marca','Marca') + thOrden('codigo','Cód. ticket') +
+        thOrden('precio','Precio') + thOrden('stock','Stock') + '<th></th></tr></thead><tbody>' +
       lista.map(k => {
         const bajo = Number(k.stock||0) <= Number(k.stockMin||0);
         const stockCell = (k.stock||0) + ' ' + esc(k.unidad||'') + (bajo ? ' <span class="chip chip-rojo">Bajo</span>' : '');
         return '<tr><td data-th="Producto"><b>' + esc(k.nombre) + '</b> <span class="sub">' + esc(k.categoria||'') + '</span></td>' +
           '<td data-th="Marca">' + (k.marca==='B&N' ? '<span class="chip chip-azul">B&amp;N</span>' : esc(k.marca||'—')) + '</td>' +
+          '<td data-th="Cód. ticket">' + celdaCodigo(k) + '</td>' +
           '<td data-th="Precio">' + money(k.precio) +
             (Number(k.costo) ? '<br><span class="sub">gana ' + money(gananciaUnidad(k)) + ' · ' + margenPct(k) + '%</span>' : '') +
             (Number(k.precioMayor) ? '<br><span class="sub">distribuidor ' + money(k.precioMayor) + '</span>' : '') + '</td>' +
-          '<td data-th="Stock">' + stockCell + '</td>' +
-          '<td data-th=""><div class="acc-tabla"><button class="btn btn-sec btn-mini" onclick="abrirModalCatalogo(\'' + k.id + '\')">Editar</button>' +
-          '<button class="btn btn-peligro btn-mini" onclick="borrarCatalogo(\'' + k.id + '\')">Borrar</button></div></td></tr>';
+          '<td data-th="Stock">' + stockCell + '</td>' + acciones(k) + '</tr>';
       }).join('') + '</tbody></table>';
   }
 }
+
+/* ================== CÓDIGOS DE CATÁLOGO ==================
+   Un código corto que sale impreso en el ticket y sirve para pedir sin
+   deletrear: "mándame dos BL-MUL60" en vez de "el multivitamínico de Bariatric
+   Life, el de 60 cápsulas, no el de 120".
+
+   No es un número correlativo: se arma del propio producto, así que se puede
+   leer. Tres piezas:
+
+     BL - MUL 60      B&N - PRO V        CIR - BYP
+     │    │   │       │     │   │        │     │
+     │    │   └ el número que trae el    │     └ las 3 primeras letras
+     │    │     nombre (60 caps)         │
+     │    └ 3 letras de la primera       └ categoría del servicio
+     │      palabra del nombre
+     └ la marca comprimida
+
+   La marca va adelante a propósito: en el ticket y en el catálogo los productos
+   quedan agrupados por proveedor sin tener que mirar otra columna. Si dos
+   códigos chocan, el segundo lleva un número al final. */
+const PALABRAS_VACIAS = ['de','del','la','el','los','las','y','con','para','en','a','al','x','por'];
+
+function soloLetras(t) {
+  return normalizar(t).toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+/* La marca en 2 o 3 letras: "Bariatric Life" → BL, "B&N" → BN, "Ensure" → ENS.
+   Varias palabras dan sus iniciales; una sola palabra da sus 3 primeras letras. */
+function siglaMarca(marca) {
+  const limpio = soloLetras(marca);
+  if (!limpio) return '';
+  const palabras = limpio.split(' ').filter(p => !PALABRAS_VACIAS.includes(p.toLowerCase()));
+  if (!palabras.length) return '';
+  if (palabras.length === 1) {
+    // "B&N" pierde el & al limpiar y queda "BN": ya son dos letras, se respeta
+    return palabras[0].slice(0, 3);
+  }
+  return palabras.map(p => p[0]).join('').slice(0, 3);
+}
+/* La parte del nombre, sin repetir lo que ya dice la marca. Un número en el
+   nombre (60 caps, 500 ml) es lo que de verdad distingue una presentación de
+   otra, así que gana sobre la inicial de la segunda palabra. */
+function siglaNombre(nombre, marca) {
+  const limpio = soloLetras(nombre);
+  const marcaLimpia = soloLetras(marca);
+  const partesMarca = marcaLimpia ? marcaLimpia.split(' ') : [];
+  const palabras = limpio.split(' ')
+    .filter(p => p && !PALABRAS_VACIAS.includes(p.toLowerCase()))
+    // lo que ya está en la marca no se repite: "Proteína B&N vainilla" → PRO + V
+    .filter(p => !partesMarca.includes(p) && p !== siglaMarca(marca));
+  const texto = palabras.filter(p => !/^\d+$/.test(p));
+  const numero = (limpio.match(/\d+/) || [''])[0].slice(0, 3);
+  if (!texto.length) return numero || 'ITM';
+  const base = texto[0].slice(0, 3);
+  if (numero) return base + numero;
+  return texto[1] ? base + texto[1][0] : base;
+}
+/* El código completo, ya sin chocar con ninguno que exista. `exceptoId` es el
+   ítem que se está editando: su propio código no cuenta como choque. */
+function generarCodigo(k, exceptoId) {
+  const cabeza = k.tipo === 'servicio'
+    ? (siglaMarca(k.categoria) || 'SRV')
+    : (siglaMarca(k.marca) || 'GEN');
+  // Al servicio se le pasa su categoria por el mismo motivo que al producto la
+  // marca: si no, "Consulta de nutricion" en categoria Consulta daba CON-CON.
+  const cola = siglaNombre(k.nombre, k.tipo === 'servicio' ? k.categoria : k.marca);
+  const base = (cabeza + '-' + cola).slice(0, 10);
+  const usados = new Set(db.catalogo.filter(x => x.id !== exceptoId && x.codigo).map(x => x.codigo.toUpperCase()));
+  if (!usados.has(base)) return base;
+  for (let n = 2; n < 100; n++) if (!usados.has(base + n)) return base + n;
+  return base + Date.now().toString(36).slice(-2).toUpperCase();
+}
+/* Lo que sale impreso. La venta guarda su copia, igual que el costo: si el
+   código cambia el año que viene, el ticket de hoy sigue diciendo lo que dijo. */
+function codigoEnTicket(i) {
+  if (i.codigo) return i.codigo;
+  const k = db.catalogo.find(x => x.id === i.catalogoId);
+  return (k && k.codigo) || '';
+}
+/* Le pone código a todo lo que no tenga. Se usa desde el botón del catálogo:
+   con 30 ítems cargados nadie va a entrar uno por uno. */
+function generarCodigosFaltantes() {
+  const sin = db.catalogo.filter(k => !k.codigo);
+  if (!sin.length) { alert('Todos los ítems del catálogo ya tienen código.'); return; }
+  const muestra = sin.slice(0, 6).map(k => '  ' + generarCodigo(k) + '  ←  ' + k.nombre).join('\n');
+  if (!confirm('Se le va a poner código a ' + plural(sin.length, 'ítem', 'ítems') + ' que no tienen.\n\n' +
+      'Por ejemplo:\n' + muestra + (sin.length > 6 ? '\n  …y ' + (sin.length - 6) + ' más' : '') +
+      '\n\nLos que ya tienen código no se tocan. ¿Generarlos?')) return;
+  sin.forEach(k => { k.codigo = generarCodigo(k, k.id); });
+  guardar(); pintarCatalogo();
+  alert('Listo: ' + plural(sin.length, 'código generado', 'códigos generados') + '.');
+}
+
 /* Lo que deja cada unidad. El margen se calcula sobre la venta (no sobre el
    costo): es como se lee en cualquier negocio —"de cada S/100 que entran,
    S/46 son ganancia"— y evita los porcentajes infladísimos del otro cálculo. */
@@ -3105,6 +3286,7 @@ function abrirModalCatalogo(id) {
   llenarCategorias(tipo, k ? k.categoria : '');
   document.getElementById('k-nombre').value = k ? k.nombre : '';
   document.getElementById('k-nombreticket').value = k ? (k.nombreTicket||'') : '';
+  document.getElementById('k-codigo').value = k ? (k.codigo||'') : '';
   pintarLargoTicket();
   document.getElementById('k-precio').value = k ? (k.precio||'') : '';
   // Va después de alternarCamposCatalogo() a propósito: esa función deja el
@@ -3131,18 +3313,43 @@ function pintarLargoTicket() {
   const cont = document.getElementById('k-largo-ticket');
   if (!cont) return;
   const corto = document.getElementById('k-nombreticket').value.trim();
-  const usado = corto || document.getElementById('k-nombre').value.trim();
-  if (!usado) { cont.innerHTML = ''; return; }
-  const sobra = usado.length - ANCHO_TICKET;
-  cont.innerHTML = sobra > 0
-    ? '<span style="color:var(--warning)">⚠️ En el ticket sale en dos renglones (' + usado.length +
-      ' de ' + ANCHO_TICKET + ' caracteres). Escribe arriba una versión corta si lo quieres en uno solo.</span>'
-    : '<span style="color:var(--success)">✅ Entra en un renglón del ticket (' + usado.length + ' de ' + ANCHO_TICKET + ').</span>';
+  const nombre = corto || document.getElementById('k-nombre').value.trim();
+  if (!nombre) { cont.innerHTML = ''; return; }
+  const cod = document.getElementById('k-codigo').value.trim().toUpperCase();
+  const linea = (cod ? cod + ' ' : '') + nombre;
+  const sobra = linea.length - ANCHO_TICKET;
+  cont.innerHTML =
+    '<div style="font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--border-light);padding:6px 8px;border-radius:6px;margin-top:6px;font-size:12px">' +
+      esc(linea.slice(0, ANCHO_TICKET)) + (sobra > 0 ? '<br>' + esc(linea.slice(ANCHO_TICKET)) : '') +
+    '</div>' +
+    (sobra > 0
+      ? '<span style="color:var(--warning)">⚠️ Así sale en el ticket: dos renglones (' + linea.length +
+        ' de ' + ANCHO_TICKET + ' caracteres). Acorta el nombre del ticket si lo quieres en uno solo.</span>'
+      : '<span style="color:var(--success)">✅ Así sale en el ticket, en un solo renglón (' + linea.length + ' de ' + ANCHO_TICKET + ').</span>');
+}
+/* Arma el código con lo que hay escrito en el formulario, sin haber guardado
+   todavía. Si el ítem ya existe, su propio código no cuenta como choque. */
+function sugerirCodigoModal() {
+  const nombre = document.getElementById('k-nombre').value.trim();
+  if (!nombre) { alert('Escribe primero el nombre.'); document.getElementById('k-nombre').focus(); return; }
+  const borrador = {
+    tipo: document.getElementById('k-tipo').value,
+    nombre,
+    marca: document.getElementById('k-marca').value.trim(),
+    categoria: document.getElementById('k-categoria').value.trim()
+  };
+  document.getElementById('k-codigo').value = generarCodigo(borrador, document.getElementById('modal-catalogo').dataset.editando);
+  pintarLargoTicket();
 }
 function guardarCatalogo() {
   const nombre = document.getElementById('k-nombre').value.trim();
   if (!nombre) { alert('El nombre es obligatorio.'); return; }
   const tipo = document.getElementById('k-tipo').value;
+  const idEditando = document.getElementById('modal-catalogo').dataset.editando;
+  const codigoEscrito = document.getElementById('k-codigo').value.trim().toUpperCase();
+  // Dos ítems con el mismo código romperían justo para lo que sirve el código
+  const chocaCon = codigoEscrito && db.catalogo.find(k => k.id !== idEditando && (k.codigo || '').toUpperCase() === codigoEscrito);
+  if (chocaCon) { alert('El código ' + codigoEscrito + ' ya lo usa «' + chocaCon.nombre + '».\n\nCámbialo o presiona ✨ Sugerir.'); return; }
   const datos = {
     tipo, nombre,
     nombreTicket: document.getElementById('k-nombreticket').value.trim(),
@@ -3163,8 +3370,10 @@ function guardarCatalogo() {
     datos.costo = document.getElementById('k-costo').value || 0;
     datos.precioMayor = document.getElementById('k-mayor').value || 0;
   }
-  const idEdit = document.getElementById('modal-catalogo').dataset.editando;
-  if (idEdit) Object.assign(db.catalogo.find(x => x.id === idEdit), datos);
+  // Sin código escrito se genera solo: es lo que hace que el catálogo entero
+  // termine con código sin que nadie tenga que acordarse de ponerlo
+  datos.codigo = codigoEscrito || generarCodigo(datos, idEditando);
+  if (idEditando) Object.assign(db.catalogo.find(x => x.id === idEditando), datos);
   else db.catalogo.push({ id: nuevoId(), ...datos });
   catTipo = tipo;
   cambiarCatalogo(tipo);
@@ -3444,13 +3653,17 @@ function cargarCatalogoDr() {
   let nuevos = 0;
   servicios.forEach(s => {
     if (existe('servicio', s.nombre)) return;
-    db.catalogo.push({ id:nuevoId(), tipo:'servicio', nombre:s.nombre, categoria:s.categoria, precio:'', activo:true });
+    const item = { id:nuevoId(), tipo:'servicio', nombre:s.nombre, categoria:s.categoria, precio:'', activo:true };
+    item.codigo = generarCodigo(item, item.id);
+    db.catalogo.push(item);
     nuevos++;
   });
   productos.forEach(p => {
     if (existe('producto', p.nombre)) return;
-    db.catalogo.push({ id:nuevoId(), tipo:'producto', nombre:p.nombre, categoria:p.categoria, marca:'B&N',
-      unidad:p.unidad, precio:p.precio, precioMayor:p.mayor, costo:0, stock:0, stockMin:5, activo:true });
+    const item = { id:nuevoId(), tipo:'producto', nombre:p.nombre, categoria:p.categoria, marca:'B&N',
+      unidad:p.unidad, precio:p.precio, precioMayor:p.mayor, costo:0, stock:0, stockMin:5, activo:true };
+    item.codigo = generarCodigo(item, item.id);
+    db.catalogo.push(item);
     nuevos++;
   });
   guardar();
@@ -4595,7 +4808,8 @@ function itemsParaVender(texto) {
   const ranking = masVendidos();
   return db.catalogo
     .filter(k => Number(k.precio) > 0 && k.activo !== false)
-    .filter(k => !t || normalizar(k.nombre).includes(t) || normalizar(k.categoria || '').includes(t))
+    .filter(k => !t || normalizar(k.nombre).includes(t) || normalizar(k.categoria || '').includes(t) ||
+                  normalizar(k.marca || '').includes(t) || normalizar(k.codigo || '').includes(t))
     .sort((a,b) => {
       // primero los productos (es lo que se vende a diario), luego por ranking
       if ((a.tipo === 'producto') !== (b.tipo === 'producto')) return a.tipo === 'producto' ? -1 : 1;
@@ -4682,7 +4896,7 @@ function agregarPorId(catalogoId) {
     const ac = k.tipo === 'producto' ? acuerdoDeMarca(k.marca) : null;
     carrito.push({ catalogoId: k.id, nombre: k.nombre, nombreTicket: k.nombreTicket || '',
                    tipo: k.tipo, categoria: k.categoria || '',
-                   marca: k.marca || '', precio: precioSegunLista(k), costo: Number(k.costo || 0),
+                   marca: k.marca || '', codigo: k.codigo || '', precio: precioSegunLista(k), costo: Number(k.costo || 0),
                    socio: ac ? ac.socio : '', pctSocio: ac ? Number(ac.pctSocio || 0) : null,
                    igv: k.igv || igvPorDefecto(k.tipo), cant: 1 });
   }
@@ -5361,7 +5575,8 @@ function verTicket(id) {
       '<tr class="t-cab"><td>Cant</td><td class="der">P.Unit</td><td class="der">Total</td></tr>' +
       v.items.map(i =>
         // La versión corta si la hay; si no, el nombre completo (se parte solo)
-        '<tr><td colspan="3" class="t-nom">' + esc(nombreEnTicket(i)) + '</td></tr>' +
+        '<tr><td colspan="3" class="t-nom">' +
+          (codigoEnTicket(i) ? esc(codigoEnTicket(i)) + ' ' : '') + esc(nombreEnTicket(i)) + '</td></tr>' +
         '<tr><td>' + i.cant + '</td>' +
           '<td class="der">' + Number(i.precio).toFixed(2) + '</td>' +
           '<td class="der">' + (i.precio * i.cant).toFixed(2) + '</td></tr>'
