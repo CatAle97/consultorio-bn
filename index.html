@@ -351,7 +351,99 @@
   #ticket .t-total td { padding-top:3px; font-size:1.1em; }
 
   /* --- Dos listas de precio --- */
+  /* ---- Caja: la venta en pasos, separados por aire y no por cajas ---- */
+  .modal.pos { padding:20px 22px 22px; max-width:960px; }
+  .pos-cab { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .pos-cerrar { background:none; border:none; font-size:20px; line-height:1; color:var(--text-muted);
+                cursor:pointer; padding:4px 6px; border-radius:8px; }
+  .pos-cerrar:hover { background:var(--border-light); color:var(--texto); }
+  /* Dos columnas donde hay ancho: en el mostrador el total tiene que verse sin
+     bajar, y apilado se iba tres pantallas abajo. */
+  .pos-grid { display:grid; grid-template-columns:1fr; gap:0 26px; }
+  @media (min-width:820px) { .pos-grid { grid-template-columns:1fr 1fr; } }
+  .pos-col > .pos-paso:first-child { margin-top:18px; }
+  @media (min-width:820px) { .pos-col > .pos-paso:first-child { border-top:1px solid var(--border-light); } }
+  .pos-paso { margin-top:18px; padding-top:16px; border-top:1px solid var(--border-light); }
+  .pos-paso:first-of-type { margin-top:14px; padding-top:0; border-top:none; }
+  .pos-titulo { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em;
+                color:var(--text-muted); margin-bottom:9px; }
+  /* El paso ya está titulado: repetir la pregunta en un <label> es ruido */
+  .pos-paso > label:first-of-type { margin-top:0; }
+  .pos-nota { margin-top:16px; font-size:13px; background:var(--bg); }
+  .pos-nota::placeholder { font-size:13px; }
+
+  /* Botones de método de pago: se toca, no se despliega */
+  .chips { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .chips button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+                  min-height:66px; padding:8px 4px; border:1px solid var(--border); border-radius:10px;
+                  background:var(--surface); color:#555; font-family:inherit; font-size:12px;
+                  line-height:1.2; cursor:pointer; text-align:center; }
+  .chips button .ico { font-size:19px; line-height:1; }
+  .chips button:hover { border-color:var(--rol); background:var(--rol-suave); }
+  .chips button.sel { border-color:var(--rol); border-width:2px; background:var(--rol-suave);
+                      color:var(--rol); font-weight:700; }
+
+  /* Mini carrito: cada línea dice qué es, a cuánto y cuántos, en dos renglones */
+  .ci { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border-light); }
+  .ci.nueva { background:var(--success-bg); border-radius:8px; padding:9px 10px; border-bottom-color:transparent; }
+  .ci-info { flex:1 1 auto; min-width:0; }
+  .ci-nom { font-size:14px; font-weight:600; line-height:1.25; }
+  .ci-stock { font-size:12px; color:var(--success); font-weight:600; margin-top:2px; }
+  .ci-precio { font-size:14px; color:var(--text-muted); white-space:nowrap; }
+  /* En pantalla chica el precio unitario y el paso de cantidad bajan a su
+     propia fila: en 390px no entran cuatro columnas legibles */
+  @media (max-width:640px) {
+    .ci { flex-wrap:wrap; row-gap:6px; }
+    .ci-info { flex:1 0 100%; }
+    .ci-precio { order:1; }
+    .paso-cant { order:2; }
+    .ci-total { order:3; flex:1 1 auto; text-align:right; font-size:14px; }
+    .ci-quitar { order:4; padding:6px 0 6px 4px; font-size:15px; }
+    .ci-precio { font-size:13px; }
+    .ci { gap:6px; }
+    /* La resaltada se marca con una barra al costado, no con relleno lateral:
+       ese relleno era justo el ancho que le faltaba a la papelera */
+    .ci.nueva { padding:9px 0 9px 8px; border-left:3px solid var(--success); border-radius:0 8px 8px 0; }
+    .paso-cant button { width:34px; height:34px; }
+    .paso-cant input { width:42px; }
+  }
+  .ci-total { font-weight:700; font-size:15px; white-space:nowrap; }
+  .ci-quitar { background:none; border:none; color:var(--text-muted); font-size:17px; line-height:1;
+               padding:8px; cursor:pointer; }
+  .ci-quitar:hover { color:var(--danger); }
+  /* El paso de cantidad: 40px porque un dedo no acierta lo que un puntero sí */
+  .paso-cant { display:inline-flex; align-items:center; gap:5px; }
+  .paso-cant button { width:36px; height:36px; border-radius:8px; border:1px solid var(--border);
+                      background:var(--surface); color:var(--rol); font-size:18px; font-weight:700;
+                      line-height:1; cursor:pointer; font-family:inherit; }
+  .paso-cant button:hover { border-color:var(--rol); background:var(--rol-suave); }
+  .paso-cant input { width:48px; text-align:center; font-size:15px; font-weight:700; padding:7px 2px; margin:0; }
+
+  .pos-subtotal { display:flex; justify-content:flex-end; align-items:baseline; gap:16px;
+                  padding:12px 2px 0; font-size:15px; }
+  .pos-subtotal b { font-size:17px; }
+  /* Estado vacío: una línea, no un cajón */
+  .pos-vacio { padding:12px 0 2px; font-size:13px; color:var(--text-muted); }
+
+  /* El desglose del descuento: solo aparece si hay promoción aplicada */
+  .pos-desglose { margin-top:10px; padding:12px 14px; background:var(--bg);
+                  border:1px solid var(--border); border-radius:10px; }
+  .pos-fila { display:flex; justify-content:space-between; align-items:baseline; font-size:14px; padding:3px 0; }
+  .pos-fila.desc { color:var(--success); font-weight:600; }
+  /* El total: lo único que crece de tamaño en toda la pantalla */
+  .pos-total { margin-top:12px; padding:16px; border-radius:12px; text-align:center;
+               background:var(--success-bg); border:1px solid var(--success); }
+  .pos-total small { display:block; font-size:11px; font-weight:800; text-transform:uppercase;
+                     letter-spacing:.08em; color:var(--text-muted); margin-bottom:4px; }
+  .pos-monto { display:block; font-size:34px; font-weight:800; line-height:1.1;
+               letter-spacing:-.02em; color:var(--success); }
+  .pos-total .chips-estado { margin-top:8px; display:flex; gap:6px; justify-content:center; flex-wrap:wrap; }
+  .btn.btn-cobrar { flex:1 1 auto; min-height:54px; font-size:17px; font-weight:800; letter-spacing:.01em; }
+  .pos-acciones { gap:10px; }
+  .pos-acciones .btn-sec { flex:0 0 auto; }
+
   .canales { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .canales.tres { grid-template-columns:repeat(3,1fr); }
   .canal { padding:12px 8px; border:1px solid var(--border); border-radius:10px; background:var(--surface);
            cursor:pointer; font-family:inherit; font-size:14px; color:var(--text); text-align:center; transition:all .15s; }
   .canal:hover { border-color:var(--rol); background:var(--rol-suave); }
@@ -473,6 +565,12 @@
     .carrito-item input { width:72px; }
     .acciones { flex-direction:column-reverse; }
     .acciones .btn { width:100%; }
+    .modal.pos { padding:16px; }
+    .pos-monto { font-size:30px; }
+    /* Tres comprobantes en una fila de 320px dan botones de media palabra */
+    .canales.tres { grid-template-columns:1fr 1fr; }
+    .canales.tres button:first-child { grid-column:1 / -1; }
+    .chips { grid-template-columns:repeat(2,1fr); }
 
     /* Barras de botones dentro de las secciones (Servicios/Suplementos, filtros,
        + Nuevo…): en pantalla chica se apilan a lo ancho en vez de partirse en
@@ -1237,122 +1335,140 @@
 
 <!-- ============ MODAL VENTA ============ -->
 <div id="modal-venta" class="fondo-modal oculto">
-  <div class="modal" style="max-width:560px">
-    <h3>Nueva venta</h3>
+  <div class="modal pos">
+    <div class="pos-cab">
+      <h3 style="margin:0">Nueva venta</h3>
+      <button type="button" class="pos-cerrar" onclick="cerrarModales()" aria-label="Cerrar">✕</button>
+    </div>
     <div class="sub" id="v-quien"></div>
 
-    <!-- ORDEN A PROPÓSITO: primero lo que se lleva y cuánto es. El paciente va
-         al final y es opcional — si registrar cuesta más que anotar en un papel,
-         se vuelve al papel. -->
-    <!-- Dos listas de precio reales: el paciente paga una, el distribuidor que
-         revende paga otra. Siempre visible: aunque el precio se ajuste a mano,
-         la venta tiene que quedar marcada con el tipo que fue. -->
-    <div id="v-listas">
-      <label style="margin-top:0">¿A quién le vendes?</label>
+    <!-- ============ 1 · A QUIÉN ============
+         Dos listas de precio reales: el consumidor paga una, el distribuidor
+         que revende paga otra. Se elige primero porque decide el precio de
+         todo lo que venga después. -->
+    <div class="pos-paso" id="v-listas">
+      <div class="pos-titulo">Venta</div>
       <div class="canales">
-        <button type="button" class="canal sel" id="lista-paciente" onclick="cambiarListaPrecio('paciente')">Paciente</button>
-        <button type="button" class="canal" id="lista-colega" onclick="cambiarListaPrecio('colega')">Distribuidor</button>
+        <button type="button" class="canal sel" id="lista-paciente" onclick="cambiarListaPrecio('paciente')">👤 Venta directa</button>
+        <button type="button" class="canal" id="lista-colega" onclick="cambiarListaPrecio('colega')">🚚 Distribuidor</button>
       </div>
-      <!-- Vendiendo a distribuidor hay que saber a CUÁL: es lo que permite llevar
-           su cuenta si se lo lleva a crédito -->
+      <!-- Vendiendo a distribuidor hay que saber a CUÁL: es lo que permite
+           llevar su cuenta si se lo lleva a crédito -->
       <div id="v-distri-bloque" class="oculto" style="margin-top:10px">
         <label style="margin-top:0">¿Cuál distribuidor?</label>
         <select id="v-distribuidor" onchange="pintarCarrito()"></select>
       </div>
-    </div>
-
-    <label>¿Qué se lleva?</label>
-    <!-- Un solo campo en vez de una parrilla de botones: al tocarlo muestra
-         todo el catálogo ordenado por lo que más se vende, así con 10 productos
-         no hay que escribir nada, y si algún día son 40 tampoco estorba. -->
-    <div class="buscar-item">
-      <input id="v-item-buscar" type="search" autocomplete="off"
-             placeholder="Toca aquí para ver los suplementos…"
-             oninput="buscarItemVenta()" onfocus="buscarItemVenta()">
-      <div id="v-item-lista" class="sugerencias oculto"></div>
-    </div>
-    <!-- Lo último que se agregó, con su cantidad, pegado al buscador: se elige
-         el producto, se pone cuántos y se sigue buscando el siguiente sin
-         moverse del sitio. -->
-    <div id="v-ultimo"></div>
-    <div id="v-carrito" style="margin-top:10px"></div>
-
-    <div class="fila-2" style="margin-top:12px">
-      <div><label>Método de pago</label>
-        <select id="v-pago" onchange="pintarCarrito()"><option>Efectivo</option><option>Yape / Plin</option><option>Tarjeta</option><option>Transferencia</option><option value="Crédito">📋 A crédito (no paga ahora)</option></select>
-      </div>
-      <!-- El descuento no se escribe a mano: se elige entre las promociones que
-           el doctor dejó cargadas y vigentes. Así nadie regala plata en el mostrador. -->
-      <div><label>Promoción</label>
-        <select id="v-promo" onchange="pintarCarrito()"><option value="">Sin descuento</option></select>
-      </div>
-    </div>
-    <div id="v-promo-ayuda" class="sub"></div>
-
-    <div class="bloque-opcional">
-      <label style="margin-top:0">¿Es paciente del consultorio? <span class="sub" style="font-weight:400">— opcional</span></label>
-      <!-- Se escribe el nombre en vez de buscarlo en una lista: con cientos de
-           pacientes un desplegable es inservible, y más en un celular.
-           El <select> sigue existiendo oculto porque es donde vive el valor real. -->
-      <div class="buscar-pac">
-        <input id="v-pac-buscar" type="search" autocomplete="off"
-               placeholder="Escribe el nombre o el DNI…"
-               oninput="buscarPacienteVenta()" onfocus="buscarPacienteVenta()">
-        <div id="v-pac-lista" class="sugerencias oculto"></div>
-        <div id="v-pac-elegido" class="oculto"></div>
-        <div class="sub" id="v-pac-ayuda">Anotarlo permite saber quién vuelve a comprar. Si no lo sabes, sigue de largo.</div>
+      <!-- Vincular al paciente es opcional y por eso está plegado: obligar a
+           buscarlo antes de cobrar es lo que hace que se vuelva al papel.
+           El <select> vive oculto porque ahí está el valor real que lee el resto. -->
+      <div id="v-pac-bloque" style="margin-top:12px">
+        <label style="margin-top:0">Vincular a paciente del consultorio <span class="sub" style="font-weight:400">(opcional)</span></label>
+        <div id="v-pac-campo">
+          <div class="buscar-pac">
+            <input id="v-pac-buscar" type="search" autocomplete="off"
+                   placeholder="🔍 Buscar por nombre o DNI…"
+                   oninput="buscarPacienteVenta()" onfocus="buscarPacienteVenta()">
+            <div id="v-pac-lista" class="sugerencias oculto"></div>
+            <div id="v-pac-elegido" class="oculto"></div>
+          </div>
+        </div>
       </div>
       <select id="v-paciente" class="oculto"><option value="">— Venta sin paciente (mostrador) —</option></select>
-
-      <label>Nota <span class="sub" style="font-weight:400">— opcional</span></label>
-      <input id="v-nota" placeholder="Ej: pago parcial, promoción…">
     </div>
 
-    <!-- ============ COMPROBANTE ============
-         El sistema todavía NO emite ante SUNAT: lo que hace es capturar los
-         datos que la boleta o la factura van a necesitar. Si no se piden en el
-         mostrador, después no hay de dónde sacarlos —el paciente ya se fue— y
-         el día que se conecte el facturador electrónico habría que llamar uno
-         por uno. Por eso se pregunta ahora aunque todavía no sirva. -->
-    <div class="bloque-opcional">
-      <label style="margin-top:0">¿Qué comprobante lleva?</label>
-      <div class="canales">
-        <button type="button" class="canal sel" id="cmp-nota" onclick="cambiarComprobante('nota')">Nota interna</button>
-        <button type="button" class="canal" id="cmp-boleta" onclick="cambiarComprobante('boleta')">Boleta</button>
-        <button type="button" class="canal" id="cmp-factura" onclick="cambiarComprobante('factura')">Factura</button>
+    <!-- ============ 2 · QUÉ SE LLEVA ============ -->
+    <div class="pos-paso">
+      <div class="pos-titulo">Productos</div>
+      <!-- Un solo campo en vez de una parrilla de botones: al tocarlo muestra
+           todo el catálogo ordenado por lo que más se vende, así con 10
+           productos no hay que escribir nada, y si son 40 tampoco estorba. -->
+      <div class="buscar-item">
+        <input id="v-item-buscar" type="search" autocomplete="off"
+               placeholder="🔍 Buscar suplemento…"
+               oninput="buscarItemVenta()" onfocus="buscarItemVenta()">
+        <div id="v-item-lista" class="sugerencias oculto"></div>
       </div>
+      <div id="v-carrito"></div>
+    </div>
 
-      <!-- Boleta: SUNAT solo exige identificar al comprador cuando pasa de
-           S/700. Debajo de eso el campo queda opcional para no frenar la caja. -->
-      <div id="v-bloque-boleta" class="oculto" style="margin-top:10px">
-        <div class="fila-2">
-          <div><label style="margin-top:0">DNI</label>
-            <input id="v-b-doc" inputmode="numeric" maxlength="8" placeholder="8 dígitos" oninput="pintarCarrito()"></div>
-          <div><label style="margin-top:0">Nombre</label>
-            <input id="v-b-nombre" placeholder="Nombre del comprador" oninput="pintarCarrito()"></div>
+    <!-- ============ 3 A 5 · PAGO, COMPROBANTE Y TOTAL ============
+         En la compu van en dos columnas —hay ancho de sobra y así el total
+         entra en la misma pantalla que los productos—; en el celular se
+         apilan en el mismo orden. -->
+    <div class="pos-grid">
+      <div class="pos-col">
+        <div class="pos-paso">
+          <div class="pos-titulo">Método de pago</div>
+          <!-- Los botones salen de las opciones del propio <select>, que sigue
+               siendo el valor que lee guardarVenta. Así no hay dos listas de
+               métodos de pago que se puedan desincronizar. -->
+          <div id="v-pagos" class="chips"></div>
+          <select id="v-pago" class="oculto" onchange="pintarCarrito()"><option>Efectivo</option><option>Yape / Plin</option><option>Tarjeta</option><option>Transferencia</option><option value="Crédito">📋 A crédito (no paga ahora)</option></select>
+        </div>
+
+        <!-- ============ COMPROBANTE ============
+             El sistema todavía NO emite ante SUNAT: lo que hace es capturar los
+             datos que la boleta o la factura van a necesitar. Si no se piden en
+             el mostrador, después no hay de dónde sacarlos —el paciente ya se fue. -->
+        <div class="pos-paso">
+          <div class="pos-titulo">Comprobante</div>
+          <div class="canales tres">
+            <button type="button" class="canal sel" id="cmp-nota" onclick="cambiarComprobante('nota')">Nota interna</button>
+            <button type="button" class="canal" id="cmp-boleta" onclick="cambiarComprobante('boleta')">Boleta</button>
+            <button type="button" class="canal" id="cmp-factura" onclick="cambiarComprobante('factura')">Factura</button>
+          </div>
+
+          <!-- Boleta: SUNAT solo exige identificar al comprador cuando pasa de
+               S/700. Debajo de eso el campo queda opcional para no frenar la caja. -->
+          <div id="v-bloque-boleta" class="oculto" style="margin-top:10px">
+            <div class="fila-2">
+              <div><label style="margin-top:0">DNI</label>
+                <input id="v-b-doc" inputmode="numeric" maxlength="8" placeholder="8 dígitos" oninput="pintarCarrito()"></div>
+              <div><label style="margin-top:0">Nombre</label>
+                <input id="v-b-nombre" placeholder="Nombre del comprador" oninput="pintarCarrito()"></div>
+            </div>
+          </div>
+
+          <!-- Factura: aquí no hay opcional que valga. Sin RUC y razón social la
+               factura no existe, y es justo el comprobante que el cliente reclama
+               para descargarlo como gasto. -->
+          <div id="v-bloque-factura" class="oculto" style="margin-top:10px">
+            <div class="fila-2">
+              <div><label style="margin-top:0">RUC *</label>
+                <input id="v-f-ruc" inputmode="numeric" maxlength="11" placeholder="11 dígitos" oninput="pintarCarrito()"></div>
+              <div><label style="margin-top:0">Razón social *</label>
+                <input id="v-f-nombre" placeholder="Nombre de la empresa" oninput="pintarCarrito()"></div>
+            </div>
+            <label>Dirección fiscal</label>
+            <input id="v-f-direccion" placeholder="La que figura en su ficha RUC">
+          </div>
+
+          <div id="v-aviso-comprobante" class="sub"></div>
         </div>
       </div>
 
-      <!-- Factura: aquí no hay opcional que valga. Sin RUC y razón social la
-           factura no existe, y es justo el comprobante que el cliente reclama
-           para descargarlo como gasto. -->
-      <div id="v-bloque-factura" class="oculto" style="margin-top:10px">
-        <div class="fila-2">
-          <div><label style="margin-top:0">RUC *</label>
-            <input id="v-f-ruc" inputmode="numeric" maxlength="11" placeholder="11 dígitos" oninput="pintarCarrito()"></div>
-          <div><label style="margin-top:0">Razón social *</label>
-            <input id="v-f-nombre" placeholder="Nombre de la empresa" oninput="pintarCarrito()"></div>
+      <div class="pos-col">
+        <!-- El bloque entero desaparece si no hay promoción que aplique: en
+             plena venta, un aviso que dice dónde crearlas no le sirve a quien cobra. -->
+        <div class="pos-paso" id="v-promo-bloque">
+          <div class="pos-titulo">Promoción <span class="sub" style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></div>
+          <select id="v-promo" onchange="pintarCarrito()"><option value="">Sin descuento</option></select>
         </div>
-        <label>Dirección fiscal</label>
-        <input id="v-f-direccion" placeholder="La que figura en su ficha RUC">
-      </div>
 
-      <div id="v-aviso-comprobante" class="sub"></div>
+        <div class="pos-paso">
+          <div class="pos-titulo">Nota <span class="sub" style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></div>
+          <input id="v-nota" class="pos-nota" placeholder="Ej: pago parcial, observación, indicación interna…">
+        </div>
+
+        <!-- El total es lo que se dice en voz alta y lo que el cliente
+             pregunta: va grande y pegado al botón que lo cobra. -->
+        <div id="v-resumen"></div>
+      </div>
     </div>
 
-    <div class="acciones">
+    <div class="acciones pos-acciones">
       <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
-      <button class="btn" id="btn-cobrar" onclick="guardarVenta()">Cobrar y guardar</button>
+      <button class="btn btn-cobrar" id="btn-cobrar" onclick="guardarVenta()">Cobrar</button>
     </div>
   </div>
 </div>
@@ -4914,9 +5030,18 @@ function abrirModalVenta(pacienteId) {
   cambiarComprobante('nota');
   pintarCarrito();
   document.getElementById('modal-venta').classList.remove('oculto');
+  // En la compu se puede empezar a escribir el producto de una. En pantalla
+  // chica no: abrir el teclado tapa media caja antes de que se vea nada.
+  if (window.innerWidth > 1024) document.getElementById('v-item-buscar').focus();
 }
 
-/* Corregir una venta ya registrada. Nace de algo real: se entrega mercadería a
+/* NO HAY BOTÓN QUE LLAME A ESTO (decisión de Roberto, 20-08-2026): la caja no
+   edita ventas, para que un ticket ya cobrado no se pueda cambiar desde el
+   mostrador. Se conserva entero y probado —volver a activarlo es agregar un
+   botón en la lista de ventas— y las ventas editadas antes siguen mostrando su
+   chip "Editada" y su sello CORREGIDO en el ticket.
+
+   Corregir una venta ya registrada. Nace de algo real: se entrega mercadería a
    crédito y a la media hora el distribuidor pide dos frascos más. Anular y
    rehacer quema un número de ticket y borra la hora real de la entrega; acá el
    ticket es el mismo y solo cambia lo que lleva. */
@@ -5068,6 +5193,15 @@ function cambiarListaPrecio(cual) {
   listaPrecio = cual;
   document.getElementById('lista-paciente').classList.toggle('sel', cual === 'paciente');
   document.getElementById('lista-colega').classList.toggle('sel', cual === 'colega');
+  // Vendiéndole a un distribuidor, el comprador es él: vincular un paciente ahí
+  // no significa nada y se limpia para que no quede pegado de la venta anterior
+  document.getElementById('v-pac-bloque').classList.toggle('oculto', cual === 'colega');
+  if (cual === 'colega') {
+    document.getElementById('v-paciente').value = '';
+    document.getElementById('v-pac-buscar').value = '';
+    document.getElementById('v-pac-lista').classList.add('oculto');
+    pintarPacienteElegido();
+  }
   // El crédito es solo para distribuidores: a un paciente de mostrador no se le fía
   document.getElementById('v-distri-bloque').classList.toggle('oculto', cual !== 'colega');
   const pago = document.getElementById('v-pago');
@@ -5159,10 +5293,8 @@ function pintarPacienteElegido() {
   const p = db.pacientes.find(x => x.id === id);
   const caja = document.getElementById('v-pac-elegido');
   const buscador = document.getElementById('v-pac-buscar');
-  const ayuda = document.getElementById('v-pac-ayuda');
   caja.classList.toggle('oculto', !p);
   buscador.classList.toggle('oculto', !!p);
-  ayuda.classList.toggle('oculto', !!p);
   if (!p) { caja.innerHTML = ''; return; }
   caja.innerHTML = '<div class="pac-elegido"><span><b>' + esc(p.nombre) + '</b>' +
     '<small>' + esc(p.docTipo || 'DNI') + ' ' + esc(p.documento || '—') + '</small></span>' +
@@ -5240,11 +5372,10 @@ function pintarAvisoComprobante() {
   if (!cont) return;
   const falta = faltaComprobante();
   cont.innerHTML = comprobante === 'nota'
-    ? 'Ticket interno del consultorio, sin valor ante SUNAT. Es lo que se viene entregando hasta hoy.'
+    ? 'ⓘ No se genera comprobante ante SUNAT.'
     : falta
       ? '<span style="color:var(--warning)">⚠️ ' + esc(falta) + '</span>'
-      : '<span style="color:var(--success)">✅ Los datos quedan guardados en la venta.</span> ' +
-        'Emite la ' + comprobante + ' desde SUNAT; el ticket sale con todo listo para copiarlo.';
+      : '<span style="color:var(--success)">✅ Datos guardados.</span> La ' + comprobante + ' se emite desde SUNAT.';
 }
 /* Cuánto se está cobrando ahora mismo. No repinta el select de promociones
    —de eso se encarga refrescarPromosVenta()—, solo lee lo que ya está elegido. */
@@ -5298,7 +5429,6 @@ function stockDisponible(catalogoId) {
    Devuelve la promoción elegida y cuánto descuenta. */
 function refrescarPromosVenta() {
   const sel = document.getElementById('v-promo');
-  const ayuda = document.getElementById('v-promo-ayuda');
   const elegida = sel.value;
   const disponibles = promosParaCarrito(carrito);
   sel.innerHTML = '<option value="">Sin descuento</option>' +
@@ -5306,15 +5436,8 @@ function refrescarPromosVenta() {
       ' · ' + esc(textoPromo(pr)) + '</option>').join('');
   // Si la que estaba elegida dejó de aplicar (quitaron el producto), se cae sola
   sel.value = disponibles.some(pr => pr.id === elegida) ? elegida : '';
-  sel.disabled = !disponibles.length;
-
-  const hayCargadas = db.promos.some(pr => promoVigente(pr));
-  ayuda.innerHTML = disponibles.length ? ''
-    : (!db.promos.length
-        ? 'No hay promociones cargadas. Las define el Dr. en <b>Configuración → 🏷 Promociones</b>.'
-        : hayCargadas
-          ? 'Ninguna promoción vigente aplica a lo que hay en esta venta.'
-          : 'Las promociones cargadas están vencidas o desactivadas.');
+  // Sin promociones aplicables el bloque entero desaparece
+  document.getElementById('v-promo-bloque').classList.toggle('oculto', !disponibles.length);
 
   const promo = disponibles.find(pr => pr.id === sel.value) || null;
   return { promo, desc: promo ? descuentoDePromo(promo, carrito) : 0 };
@@ -5335,54 +5458,37 @@ function avisoCredito(monto) {
     '<div class="sub" style="margin-top:6px">Debía ' + money(antes) + ' → pasará a deber <b>' + money(antes + monto) + '</b>.' +
     ' El stock sí sale. Los abonos se registran en <b>Distribuidores</b>.</div></div>';
 }
-/* La tarjeta del recién agregado. Se apoya en el carrito, no lleva estado
-   propio: si el producto se quita desde abajo, esta desaparece sola. */
-function pintarUltimoAgregado() {
-  const cont = document.getElementById('v-ultimo');
-  if (!cont) return;
-  const i = ultimoAgregado ? carrito.find(x => x.catalogoId === ultimoAgregado) : null;
-  if (!i) { cont.innerHTML = ''; return; }
-  const k = db.catalogo.find(x => x.id === i.catalogoId);
-  const sello = [i.codigo || (k && k.codigo) || '', i.marca || (k && k.marca) || ''].filter(Boolean).map(esc).join(' · ');
-  const hay = i.tipo === 'producto' ? stockDisponible(i.catalogoId) : null;
-  const pasado = hay !== null && i.cant > hay;
-  cont.innerHTML =
-    '<div class="recien"' + (pasado ? ' style="background:#fdf1ef;border-color:var(--danger)"' : '') + '>' +
-      '<span class="nom">✓ <b>' + esc(i.nombre) + '</b>' +
-        (sello ? '<br><span class="sello-item">' + sello + '</span>' : '') +
-        (pasado ? '<br><span class="chip chip-rojo">Solo quedan ' + hay + '</span>'
-                : hay !== null ? '<br><span class="sub">quedan ' + hay + ' ' + esc(k && k.unidad || '') + '</span>' : '') +
-      '</span>' +
-      '<span class="pasos">' +
-        '<button type="button" onclick="pasoCantidad(-1)" aria-label="Uno menos">−</button>' +
-        '<input type="number" min="1" step="1" inputmode="numeric" value="' + i.cant + '"' +
-          ' onfocus="this.select()" oninput="cambiarCant(\'' + i.catalogoId + '\', this.value || 1)">' +
-        '<button type="button" onclick="pasoCantidad(1)" aria-label="Uno más">+</button>' +
-      '</span>' +
-      '<b style="min-width:74px;text-align:right">' + money(i.precio * i.cant) + '</b>' +
-      '<button type="button" class="quitar" onclick="quitarDelCarrito(\'' + i.catalogoId + '\')" aria-label="Quitar">✕</button>' +
-    '</div>';
-}
-/* Los botones − y + trabajan sobre el recién agregado, que es el único que la
-   tarjeta muestra. Nunca baja de 1: para sacarlo está la ✕. */
-function pasoCantidad(delta) {
-  const i = carrito.find(x => x.catalogoId === ultimoAgregado);
+/* Sube o baja de a uno la cantidad de una línea del carrito. Nunca baja de 1:
+   para sacar el producto está la ✕. */
+function pasoCantidad(delta, catalogoId) {
+  const id = catalogoId || ultimoAgregado;
+  const i = carrito.find(x => x.catalogoId === id);
   if (!i) return;
-  cambiarCant(i.catalogoId, Math.max(1, Number(i.cant || 1) + delta));
+  // Tocar el − o el + de una línea la vuelve la línea en la que se está
+  // trabajando: si no, seguiría resaltada otra y el orden bailaría solo
+  ultimoAgregado = id;
+  cambiarCant(id, Math.max(1, Number(i.cant || 1) + delta));
 }
 function pintarCarrito() {
   const cont = document.getElementById('v-carrito');
+  const resumen = document.getElementById('v-resumen');
   const btn = document.getElementById('btn-cobrar');
-  pintarUltimoAgregado();
   const { promo, desc } = refrescarPromosVenta();
+  pintarMetodosPago();
+
+  const bruto = carrito.reduce((t,i) => t + i.precio * i.cant, 0);
+  const total = redondeo(bruto - desc);
+  const faltan = faltaStock();
+
   if (!carrito.length) {
-    cont.innerHTML = '<div class="vacio" style="padding:16px">Aún no agregas nada a la venta.</div>';
-    btn.disabled = true; btn.textContent = ventaEditando ? '✓ Guardar cambios' : 'Cobrar y guardar';
+    cont.innerHTML = '<div class="pos-vacio">Busca arriba lo que se lleva.</div>';
+    resumen.innerHTML = '';
+    btn.disabled = true;
+    btn.textContent = ventaEditando ? 'Guardar cambios' : 'Cobrar';
     pintarAvisoComprobante();
     return;
   }
-  const bruto = carrito.reduce((s,i) => s + i.precio * i.cant, 0);
-  const faltan = faltaStock();
+
   // Vendiendo a distribuidor, lo que no tenga precio distribuidor se está
   // cobrando al precio de venta normal. Se avisa antes de cobrar, no después.
   const sinMayor = listaPrecio === 'colega'
@@ -5393,48 +5499,76 @@ function pintarCarrito() {
       })
     : [];
 
-  cont.innerHTML = carrito.map(i => {
+  // El último agregado va primero y resaltado: así se le pone la cantidad sin
+  // buscarlo entre los demás ni bajar la pantalla.
+  const orden = [...carrito].sort((a,b) =>
+    (b.catalogoId === ultimoAgregado ? 1 : 0) - (a.catalogoId === ultimoAgregado ? 1 : 0));
+
+  cont.innerHTML = orden.map(i => {
     const k = db.catalogo.find(x => x.id === i.catalogoId);
     const f = faltan.find(x => x.catalogoId === i.catalogoId);
     // La marca se lee de la línea del carrito, no del catálogo: es la última
     // oportunidad de ver que se agregó la proteína equivocada antes de cobrar
     const sello = [i.codigo || (k && k.codigo) || '', i.marca || (k && k.marca) || ''].filter(Boolean).map(esc).join(' · ');
-    return '<div class="carrito-item"' + (f ? ' style="background:#fdf1ef;border-radius:6px"' : '') + '>' +
-      '<span class="nom">' + esc(i.nombre) +
-      (f ? ' <span class="chip chip-rojo">' + (f.hay > 0 ? 'Solo quedan ' + f.hay : 'Sin stock') + '</span>' : '') +
-      (sello ? '<br><span class="sello-item">' + sello + '</span>' : '') +
-      '<br><span class="sub">' + money(i.precio) + ' c/u</span></span>' +
-      '<input type="number" min="1" step="1" value="' + i.cant + '" onchange="cambiarCant(\'' + i.catalogoId + '\',this.value)">' +
-      '<b style="min-width:80px;text-align:right">' + money(i.precio * i.cant) + '</b>' +
-      '<button class="btn btn-peligro btn-mini" onclick="quitarDelCarrito(\'' + i.catalogoId + '\')">✕</button></div>';
+    // El stock que queda se dice en la propia línea: es el dato que evita
+    // prometer algo que no se puede entregar, y se lee sin ir a otra pantalla
+    const hay = i.tipo === 'producto' ? stockDisponible(i.catalogoId) : null;
+    return '<div class="ci' + (i.catalogoId === ultimoAgregado ? ' nueva' : '') + (f ? ' falta' : '') + '"' +
+      (f ? ' style="background:#fdf1ef;border-radius:8px;padding:9px 10px"' : '') + '>' +
+      '<div class="ci-info">' +
+        '<div class="ci-nom">' + esc(i.nombre) + '</div>' +
+        (sello ? '<span class="sello-item">' + sello + '</span>' : '') +
+        (f ? '<div><span class="chip chip-rojo">' + (f.hay > 0 ? 'Solo quedan ' + f.hay : 'Sin stock') + '</span></div>'
+           : hay !== null ? '<div class="ci-stock">Stock: ' + hay + ' ' + esc((k && k.unidad) || 'unidades') + '</div>' : '') +
+      '</div>' +
+      '<span class="ci-precio">' + money(i.precio) + '</span>' +
+      '<span class="paso-cant">' +
+        '<button type="button" onclick="pasoCantidad(-1, \'' + i.catalogoId + '\')" aria-label="Uno menos">−</button>' +
+        '<input type="number" min="1" step="1" inputmode="numeric" value="' + i.cant + '"' +
+          ' onfocus="this.select()" oninput="cambiarCant(\'' + i.catalogoId + '\', this.value || 1)">' +
+        '<button type="button" onclick="pasoCantidad(1, \'' + i.catalogoId + '\')" aria-label="Uno más">+</button>' +
+      '</span>' +
+      '<span class="ci-total">' + money(i.precio * i.cant) + '</span>' +
+      '<button type="button" class="ci-quitar" onclick="quitarDelCarrito(\'' + i.catalogoId + '\')" aria-label="Quitar">🗑</button>' +
+    '</div>';
   }).join('') +
-  (desc > 0 ? '<div class="carrito-item"><span class="nom sub">🏷 ' + esc(promo.nombre) +
-      '<br><span class="sub">' + esc(textoPromo(promo)) + '</span></span>' +
-      '<b style="color:var(--danger)">− ' + money(desc) + '</b></div>' : '') +
-  '<div class="total-venta"><span>' + (esVentaCredito() ? 'SE LLEVA' : 'TOTAL') +
-    (listaPrecio === 'colega' ? ' <span class="chip chip-morado">Distribuidor</span>' : '') +
-    (esVentaCredito() ? ' <span class="chip chip-amarillo">A crédito</span>' : '') +
-    '</span><span>' + money(bruto - desc) + '</span></div>' +
-  // A crédito no entra plata: se dice aquí, con el número, para que no haya dudas
-  (esVentaCredito() ? avisoCredito(bruto - desc) : '') +
-  (sinMayor.length
-    ? '<div class="aviso aviso-amarillo" style="margin:10px 0 0">💡 <b>' +
-        plural(sinMayor.length,'producto no tiene','productos no tienen') + ' precio distribuidor</b> cargado, ' +
-        'así que va al precio de venta normal: ' +
-        sinMayor.map(i => esc(i.nombre)).join(', ') + '.' +
-        '<div class="sub" style="margin-top:6px">Cárgalo en <b>⚙️ Precios</b> y no habrá que ajustarlo a mano cada vez. ' +
-        'La venta igual queda marcada como distribuidor.</div>' +
-      '</div>'
-    : '') +
-  // No se puede cobrar lo que no se puede entregar: se avisa aquí, no al final
-  (faltan.length
-    ? '<div class="aviso aviso-rojo" style="margin:10px 0 0">' +
-        '<b>⚠️ No hay stock para cobrar esto</b>' +
-        faltan.map(f => '<div class="sub">• ' + esc(f.nombre) + ': pide <b>' + f.pide + '</b>, ' +
-          (f.hay > 0 ? 'quedan <b>' + f.hay + '</b>' : '<b>no queda ninguno</b>') + '</div>').join('') +
-        '<div class="sub" style="margin-top:6px">Registra la entrada en <b>Stock</b>, o quita el producto de la venta.</div>' +
-      '</div>'
-    : '');
+  // El subtotal cierra la lista de productos; el descuento y el total van con
+  // el resto del dinero, del otro lado
+  '<div class="pos-subtotal"><span>Subtotal</span><b>' + money(bruto) + '</b></div>';
+
+  // El resumen: subtotal, lo que se descontó y el total, en ese orden
+  resumen.innerHTML =
+    (desc > 0
+      ? '<div class="pos-desglose">' +
+          '<div class="pos-fila"><span>Subtotal</span><span>' + money(bruto) + '</span></div>' +
+          '<div class="pos-fila desc"><span>🏷 ' + esc(promo.nombre) + '</span><span>− ' + money(desc) + '</span></div>' +
+        '</div>'
+      : '') +
+    '<div class="pos-total">' +
+      '<small>' + (esVentaCredito() ? 'Se lleva a crédito' : 'Total a cobrar') + '</small>' +
+      '<span class="pos-monto">' + money(total) + '</span>' +
+      (listaPrecio === 'colega'
+        ? '<div class="chips-estado"><span class="chip chip-morado">Distribuidor</span>' +
+          (esVentaCredito() ? '<span class="chip chip-amarillo">No entra plata ahora</span>' : '') + '</div>'
+        : '') +
+    '</div>' +
+    // A crédito no entra plata: se dice aquí, con el número, para que no haya dudas
+    (esVentaCredito() ? avisoCredito(total) : '') +
+    (sinMayor.length
+      ? '<div class="aviso aviso-amarillo" style="margin:10px 0 0">💡 <b>' +
+          plural(sinMayor.length,'producto no tiene','productos no tienen') + ' precio distribuidor</b> cargado, ' +
+          'así que va al precio de venta normal: ' + sinMayor.map(i => esc(i.nombre)).join(', ') + '.' +
+        '</div>'
+      : '') +
+    // No se puede cobrar lo que no se puede entregar: se avisa junto al botón
+    (faltan.length
+      ? '<div class="aviso aviso-rojo" style="margin:10px 0 0">' +
+          '<b>⚠️ No hay stock para cobrar esto</b>' +
+          faltan.map(f => '<div class="sub">• ' + esc(f.nombre) + ': pide <b>' + f.pide + '</b>, ' +
+            (f.hay > 0 ? 'quedan <b>' + f.hay + '</b>' : '<b>no queda ninguno</b>') + '</div>').join('') +
+          '<div class="sub" style="margin-top:6px">Registra la entrada en <b>Stock</b>, o quita el producto de la venta.</div>' +
+        '</div>'
+      : '');
 
   const faltaDistri = esVentaCredito() && !db.distribuidores.find(x => x.id === distribuidorDeVenta());
   // Una boleta sin DNI pasado el tope se puede seguir cobrando —el aviso ya está
@@ -5443,11 +5577,39 @@ function pintarCarrito() {
   const faltaFactura = comprobante === 'factura' && !!faltaComprobante();
   pintarAvisoComprobante();
   btn.disabled = faltan.length > 0 || faltaDistri || faltaFactura;
+  // El botón dice cuánto se cobra: es el número que se pronuncia en voz alta
   btn.textContent = faltan.length ? '🚫 Sin stock'
     : faltaDistri ? 'Elige el distribuidor'
     : faltaFactura ? 'Faltan datos de la factura'
-    : ventaEditando ? '✓ Guardar cambios'
-    : esVentaCredito() ? '📋 Entregar a crédito' : 'Cobrar y guardar';
+    : ventaEditando ? '✓ Guardar cambios · ' + money(total)
+    : esVentaCredito() ? '📋 ENTREGAR ' + money(total)
+    : 'COBRAR ' + money(total);
+}
+/* Un ícono por método, para reconocerlo sin leer. Si mañana el Dr. agrega otro
+   método al <select>, sale con el ícono genérico y sigue funcionando. */
+const ICONO_PAGO = { 'Efectivo':'💵', 'Yape / Plin':'📱', 'Tarjeta':'💳', 'Transferencia':'🏦', 'Crédito':'📋' };
+/* Los métodos de pago salen de las opciones del propio <select>, que sigue
+   siendo donde vive el valor. Una opción oculta —el crédito, que solo existe
+   vendiendo a distribuidor— tampoco sale como botón. */
+function pintarMetodosPago() {
+  const sel = document.getElementById('v-pago');
+  const cont = document.getElementById('v-pagos');
+  if (!sel || !cont) return;
+  cont.innerHTML = [...sel.options]
+    .filter(o => !o.classList.contains('oculto'))
+    .map(o => {
+      const valor = o.value || o.text;
+      // La etiqueta del select trae el emoji pegado al texto (el crédito);
+      // en el botón el ícono va arriba y el nombre limpio abajo
+      const nombre = o.text.replace(/^[^\p{L}]+/u, '').trim();
+      return '<button type="button" class="' + (valor === sel.value ? 'sel' : '') + '"' +
+        ' onclick="elegirMetodoPago(\'' + esc(valor).replace(/'/g, '&#39;') + '\')">' +
+        '<span class="ico">' + (ICONO_PAGO[valor] || '💰') + '</span>' + esc(nombre) + '</button>';
+    }).join('');
+}
+function elegirMetodoPago(valor) {
+  document.getElementById('v-pago').value = valor;
+  pintarCarrito();
 }
 function guardarVenta() {
   if (!carrito.length) { alert('Agrega al menos un servicio o producto.'); return; }
@@ -5769,7 +5931,6 @@ function pintarVentas() {
         '<td data-th="Total"><b>' + money(totalVenta(v)) + '</b> <span class="sub">' + esc(v.metodoPago||'') + '</span></td>' +
         '<td data-th="Registró" class="sub">' + esc(v.usuarioNombre || '—') + '</td>' +
         '<td data-th=""><div class="acc-tabla"><button class="btn btn-sec btn-mini" onclick="verTicket(\'' + v.id + '\')">🖨 Ticket</button>' +
-        (!v.anulada ? '<button class="btn btn-sec btn-mini" onclick="editarVenta(\'' + v.id + '\')">✏️ Editar</button>' : '') +
         (!v.anulada ? '<button class="btn btn-peligro btn-mini" onclick="anularVenta(\'' + v.id + '\')">Anular</button>' : '') +
         '</div></td></tr>').join('') + '</tbody></table>';
 }
