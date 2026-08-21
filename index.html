@@ -4233,7 +4233,27 @@ function verCuenta(id) {
       '</tr>').join('') + '</tbody></table>';
 
   const movs = movimientosCuenta(id);
+  const app = aplicacionDeAbonos(id);
+  const pendientes = app.filas.filter(f => f.estado !== 'pagada');
   document.getElementById('cuenta-movimientos').innerHTML =
+    // Qué entregas cubrió lo que abonó, sin que nadie tenga que anotarlo
+    (app.filas.length
+      ? '<h2>Qué está pagado</h2>' +
+        '<div class="sub" style="margin-bottom:8px">Lo que abona se aplica a las entregas de la más antigua a la más nueva.' +
+          (app.aFavor > 0 ? ' Tiene <b>' + money(app.aFavor) + '</b> a favor.' : '') + '</div>' +
+        '<table class="tabla tarjetas"><thead><tr><th>Entrega</th><th>Qué se llevó</th><th>Monto</th><th>Pagado</th><th>Falta</th></tr></thead><tbody>' +
+        app.filas.slice().reverse().map(fila =>
+          '<tr><td data-th="Entrega"><b>#' + fila.venta.numero + '</b><br><span class="sub">' + fechaBonita(fila.venta.fecha) + '</span></td>' +
+          '<td data-th="Qué se llevó" class="sub">' + fila.venta.items.map(i =>
+              i.cant + '× ' + esc(i.nombre) + (marcaDeItem(i) ? ' <span class="sub">(' + esc(marcaDeItem(i)) + ')</span>' : '')).join('<br>') + '</td>' +
+          '<td data-th="Monto">' + money(fila.total) + '</td>' +
+          '<td data-th="Pagado"><b style="color:var(--success)">' + money(fila.pagado) + '</b>' + chipPago(fila) + '</td>' +
+          '<td data-th="Falta">' + (fila.saldo > 0 ? '<b style="color:var(--warning)">' + money(fila.saldo) + '</b>' : '<span class="sub">—</span>') + '</td></tr>').join('') +
+        '</tbody></table>' +
+        (pendientes.length
+          ? '<div class="sub" style="margin:6px 0 0">' + plural(pendientes.length, 'entrega sigue', 'entregas siguen') + ' sin saldar del todo.</div>'
+          : '<div class="aviso" style="border-left-color:var(--success);margin-top:6px">✅ Todas las entregas están pagadas.</div>')
+      : '') +
     '<h2>Movimientos</h2>' +
     (!movs.length
       ? '<div class="vacio">Todavía no se llevó nada a crédito.</div>'
@@ -4251,7 +4271,9 @@ function verCuenta(id) {
               '</details>'
             : '<span class="sub">' + esc(m.detalle) + '</span>') +
           '</td>' +
-          '<td data-th="Se llevó">' + (m.tipo === 'cargo' ? '<b>' + money(m.monto) + '</b>' : '<span class="sub">—</span>') + '</td>' +
+          '<td data-th="Se llevó">' + (m.tipo === 'cargo'
+            ? '<b>' + money(m.monto) + '</b>' + chipPago(m.pago)
+            : '<span class="sub">—</span>') + '</td>' +
           '<td data-th="Abonó">' + (m.tipo === 'abono'
             ? '<b style="color:var(--success)">' + money(m.monto) + '</b>' +
               // Deshacer un abono también es tocar la caja: solo recepción
@@ -4263,13 +4285,27 @@ function verCuenta(id) {
   PESTANAS.forEach(s => document.getElementById('tab-' + s).classList.toggle('activo', s === 'distribuidores'));
 }
 
+/* Una entrega pagada, a medias o intacta. El color es el mismo criterio que
+   usa el resto del sistema: verde lo resuelto, amarillo lo que falta. */
+function chipPago(pago) {
+  if (!pago) return '';
+  if (pago.estado === 'pagada')  return ' <span class="chip chip-verde">Pagada</span>';
+  if (pago.estado === 'parcial') return ' <span class="chip chip-amarillo">Falta ' + money(pago.saldo) + '</span>';
+  return ' <span class="chip chip-rojo">Sin pagar</span>';
+}
+
 /* ---------- Abonos ---------- */
 function abrirModalAbono(id) {
   const d = db.distribuidores.find(x => x.id === id);
   if (!d) return;
   document.getElementById('modal-abono').dataset.distri = id;
+  const pend = aplicacionDeAbonos(id).filas.filter(x => x.estado !== 'pagada');
   document.getElementById('abono-quien').innerHTML =
-    '<b>' + esc(d.nombre) + '</b> debe <b style="color:var(--warning)">' + money(saldoDistribuidor(id)) + '</b>';
+    '<b>' + esc(d.nombre) + '</b> debe <b style="color:var(--warning)">' + money(saldoDistribuidor(id)) + '</b>' +
+    (pend.length
+      ? '<br>' + plural(pend.length, 'entrega pendiente', 'entregas pendientes') + '. La más antigua es el ' +
+        '<b>ticket #' + pend[0].venta.numero + '</b> del ' + fechaBonita(pend[0].venta.fecha) + ', le falta ' + money(pend[0].saldo) + '.'
+      : '');
   document.getElementById('ab-monto').value = '';
   document.getElementById('ab-nota').value = '';
   document.getElementById('ab-fecha').value = hoyStr();
@@ -4277,15 +4313,34 @@ function abrirModalAbono(id) {
   document.getElementById('ab-resultado').innerHTML = '';
   document.getElementById('modal-abono').classList.remove('oculto');
 }
-/* Se ve cómo queda la deuda antes de confirmar: evita el abono de S/5.000 donde
-   iban S/500, que después hay que deshacer */
+/* Se ve cómo queda la deuda antes de confirmar —evita el abono de S/5.000 donde
+   iban S/500— y, sobre todo, QUÉ entregas salda: es la pregunta que uno se hace
+   al recibir la plata, y la respuesta ya está en los tickets. */
 function pintarSaldoTrasAbono() {
   const id = document.getElementById('modal-abono').dataset.distri;
   const monto = Number(document.getElementById('ab-monto').value || 0);
   const cont = document.getElementById('ab-resultado');
   if (!monto) { cont.innerHTML = ''; return; }
   const queda = redondeo(saldoDistribuidor(id) - monto);
-  cont.innerHTML = '<div class="aviso" style="margin-top:10px">Después de este abono ' +
+
+  // Lo que este abono cambia: se compara la cuenta de ahora con la de después
+  const antes = aplicacionDeAbonos(id);
+  const luego = aplicacionDeAbonos(id, monto);
+  const previoDe = v => antes.filas.find(x => x.venta.id === v.id) || { pagado: 0, estado: 'pendiente' };
+  const detalle = luego.filas.filter(f => f.pagado > previoDe(f.venta).pagado).map(f => {
+    const cierra = f.estado === 'pagada' && previoDe(f.venta).estado !== 'pagada';
+    return '<div class="linea-item"><b>#' + f.venta.numero + '</b> <span class="sub">' + fechaBonita(f.venta.fecha) + '</span> · ' +
+      f.venta.items.map(i => i.cant + '× ' + esc(i.nombre)).join(', ') +
+      (cierra ? ' <span class="chip chip-verde">Queda pagada</span>'
+              : ' <span class="chip chip-amarillo">Falta ' + money(f.saldo) + '</span>') + '</div>';
+  }).join('');
+
+  cont.innerHTML =
+    (detalle
+      ? '<div class="aviso" style="margin-top:10px;border-left-color:var(--success)">' +
+          '<b>Con esto paga:</b>' + detalle + '</div>'
+      : '') +
+    '<div class="aviso" style="margin-top:10px">Después de este abono ' +
     (queda > 0 ? 'quedaría debiendo <b>' + money(queda) + '</b>.'
      : queda === 0 ? '<b style="color:var(--success)">queda al día.</b>'
      : '<b>quedaría a favor ' + money(-queda) + '</b> — revisa el monto.') + '</div>';
@@ -4580,6 +4635,33 @@ function cargosDe(id) {
 function abonosDe(id) {
   return db.abonos.filter(a => a.distribuidorId === id);
 }
+/* Los abonos se aplican a las entregas de la más vieja a la más nueva, como en
+   cualquier libreta: el que paga está saldando lo que debe desde hace más
+   tiempo. No hace falta preguntarle a nadie a qué entrega aplica —el orden lo
+   decide la fecha— y así el estado de cuenta puede decir qué quedó pagado y qué
+   no, sin pedirle un dato de más al mostrador.
+
+   Se recalcula siempre desde cero, nunca se guarda: si se anula una entrega, se
+   corrige un ticket o se borra un abono, la cuenta se reacomoda sola. Guardar la
+   aplicación obligaría a rehacerla a mano cada vez. */
+function aplicacionDeAbonos(id, abonoExtra) {
+  const entregas = cargosDe(id)
+    .slice()
+    .sort((a,b) => (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || '')) || a.numero - b.numero);
+  let bolsa = redondeo(abonosDe(id).reduce((t,a) => t + Number(a.monto || 0), 0) + Number(abonoExtra || 0));
+  const filas = entregas.map(v => {
+    const total = redondeo(totalVenta(v));
+    const pagado = redondeo(Math.min(bolsa, total));
+    bolsa = redondeo(bolsa - pagado);
+    return { venta: v, total, pagado, saldo: redondeo(total - pagado),
+             estado: pagado >= total ? 'pagada' : pagado > 0 ? 'parcial' : 'pendiente' };
+  });
+  // Lo que sobra es plata pagada por encima de lo que se llevó
+  return { filas, aFavor: bolsa };
+}
+function estadoEntrega(id, ventaId) {
+  return aplicacionDeAbonos(id).filas.find(f => f.venta.id === ventaId) || null;
+}
 function saldoDistribuidor(id) {
   const debe  = cargosDe(id).reduce((s,v) => s + totalVenta(v), 0);
   const pago  = abonosDe(id).reduce((s,a) => s + Number(a.monto || 0), 0);
@@ -4619,6 +4701,8 @@ function movimientosCuenta(id) {
   const filas = [
     ...cargosDe(id).map(v => ({
       fecha: v.fecha, hora: v.hora || '', tipo: 'cargo', id: v.id,
+      // Cuánto de esta entrega quedó cubierto por los abonos
+      pago: estadoEntrega(id, v.id),
       detalle: 'Ticket #' + v.numero + ' · ' + v.items.reduce((s,i) => s + Number(i.cant), 0) + ' und',
       // Qué se llevó exactamente en esa entrega, no solo cuántas unidades
       items: v.items.map(i => ({ nombre: i.nombre, cant: Number(i.cant), precio: Number(i.precio), marca: marcaDeItem(i) })),
