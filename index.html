@@ -800,7 +800,7 @@
   <section id="sec-agenda" class="oculto">
     <div id="controles-pendientes"></div>
     <div class="barra">
-      <button class="btn" id="btn-vista-dia" onclick="cambiarVista('dia')" style="background:#fff;color:#333;border:1px solid var(--border)">Día</button>
+      <button class="btn btn-sec" id="btn-vista-dia" onclick="cambiarVista('dia')">Día</button>
       <button class="btn" id="btn-vista-semana" onclick="cambiarVista('semana')">Semana</button>
       <span style="flex:1"></span>
       <button class="btn" onclick="abrirModalCita()">+ Nuevo</button>
@@ -882,15 +882,15 @@
   <section id="sec-reportes" class="oculto">
     <div class="tarjeta">
       <div class="barra" style="margin:0">
-        <div style="flex:1;min-width:130px"><label style="margin-top:0">Desde</label><input type="date" id="r-desde" onchange="pintarReportes()"></div>
-        <div style="flex:1;min-width:130px"><label style="margin-top:0">Hasta</label><input type="date" id="r-hasta" onchange="pintarReportes()"></div>
+        <div style="flex:1;min-width:130px"><label style="margin-top:0">Desde</label><input type="date" id="r-desde" onchange="apagarRangosRapidos();pintarReportes()"></div>
+        <div style="flex:1;min-width:130px"><label style="margin-top:0">Hasta</label><input type="date" id="r-hasta" onchange="apagarRangosRapidos();pintarReportes()"></div>
         <div style="flex:1;min-width:130px"><label style="margin-top:0">Usuario</label><select id="r-usuario" onchange="pintarReportes()"></select></div>
       </div>
       <div class="barra" style="margin:10px 0 0">
-        <button class="btn btn-sec btn-mini" onclick="rangoRapido('hoy')">Hoy</button>
-        <button class="btn btn-sec btn-mini" onclick="rangoRapido('semana')">Últimos 7 días</button>
-        <button class="btn btn-sec btn-mini" onclick="rangoRapido('mes')">Este mes</button>
-        <button class="btn btn-sec btn-mini" onclick="rangoRapido('anio')">Este año</button>
+        <button class="btn btn-sec btn-mini" id="btn-rango-hoy" onclick="rangoRapido('hoy')">Hoy</button>
+        <button class="btn btn-sec btn-mini" id="btn-rango-semana" onclick="rangoRapido('semana')">Últimos 7 días</button>
+        <button class="btn btn-sec btn-mini" id="btn-rango-mes" onclick="rangoRapido('mes')">Este mes</button>
+        <button class="btn btn-sec btn-mini" id="btn-rango-anio" onclick="rangoRapido('anio')">Este año</button>
         <span style="flex:1"></span>
         <button class="btn btn-sec btn-mini" onclick="exportarReporte()">📊 Descargar Excel</button>
       </div>
@@ -2954,10 +2954,25 @@ function chipPago(c) {
   return '<span class="chip chip-amarillo">⏳ Por pagar</span>';
 }
 
+/* Marca cuál de una barra de pestañas está abierta: la activa se pinta del
+   color del rol (.btn a secas) y las demás quedan claras (.btn-sec).
+
+   Antes esto se hacía pisando el estilo con style.cssText. No funcionaba: un
+   botón que en el HTML ya nacía con la clase btn-sec seguía viéndose claro
+   aunque se le quitara el estilo inline, porque la clase manda igual. El
+   resultado era que solo el primer botón de cada barra podía verse azul y las
+   otras pestañas nunca se encendían al presionarlas. Se limpia también el
+   cssText por si quedó pegado de una versión anterior. */
+function marcarPestana(id, activa) {
+  const b = document.getElementById(id);
+  if (!b) return;
+  b.style.cssText = '';
+  b.classList.toggle('btn-sec', !activa);
+}
 function cambiarVista(v) {
   calVista = v;
-  document.getElementById('btn-vista-dia').style.cssText = v==='dia' ? '' : 'background:#fff;color:#333;border:1px solid var(--border)';
-  document.getElementById('btn-vista-semana').style.cssText = v==='semana' ? '' : 'background:#fff;color:#333;border:1px solid var(--border)';
+  marcarPestana('btn-vista-dia', v === 'dia');
+  marcarPestana('btn-vista-semana', v === 'semana');
   pintarAgenda();
 }
 function moverCalendario(dir) { calFecha = sumarDias(calFecha, dir * (calVista === 'semana' ? 7 : 1)); pintarAgenda(); }
@@ -3185,10 +3200,7 @@ function cambiarCatalogo(t) {
   catTipo = t;
   const bus = document.getElementById('buscador-catalogo');
   if (bus) bus.value = '';
-  PESTANAS_CATALOGO.forEach(function (par) {
-    const b = document.getElementById(par[0]);
-    if (b) b.style.cssText = t === par[1] ? '' : 'background:#fff;color:#333;border:1px solid var(--border)';
-  });
+  PESTANAS_CATALOGO.forEach(function (par) { marcarPestana(par[0], t === par[1]); });
   pintarCatalogo();
 }
 /* Cómo se llama en pantalla lo que hay en la pestaña abierta */
@@ -6118,6 +6130,7 @@ function imprimirTicket() {
 }
 
 /* ================== MÓDULO 7 · REPORTES ================== */
+const RANGOS_REPORTE = ['hoy', 'semana', 'mes', 'anio'];
 function rangoRapido(cual) {
   const hoy = hoyStr();
   let desde = hoy;
@@ -6126,7 +6139,15 @@ function rangoRapido(cual) {
   if (cual === 'anio') desde = hoy.slice(0,4) + '-01-01';
   document.getElementById('r-desde').value = desde;
   document.getElementById('r-hasta').value = hoy;
+  // Se enciende el rango elegido: si no, los cuatro botones se ven iguales y
+  // no hay forma de saber qué periodo está mirando el reporte de abajo.
+  RANGOS_REPORTE.forEach(r => marcarPestana('btn-rango-' + r, r === cual));
   pintarReportes();
+}
+/* Escribir una fecha a mano deja de corresponder a cualquiera de los cuatro
+   botones: se apagan todos para no mentir sobre qué periodo se está viendo. */
+function apagarRangosRapidos() {
+  RANGOS_REPORTE.forEach(r => marcarPestana('btn-rango-' + r, false));
 }
 function filtrosReporte() {
   const desde = document.getElementById('r-desde').value || '0000-01-01';
@@ -6509,7 +6530,7 @@ let cfgVista = 'precios';
 function cambiarConfig(v) {
   cfgVista = v;
   ['precios','acuerdos','promos','usuarios','facturacion','datos'].forEach(x => {
-    document.getElementById('btn-cfg-' + x).style.cssText = v===x ? '' : 'background:#fff;color:#333;border:1px solid var(--border)';
+    marcarPestana('btn-cfg-' + x, v === x);
     document.getElementById('cfg-' + x).classList.toggle('oculto', v !== x);
   });
   if (v === 'precios') pintarCatalogo();
