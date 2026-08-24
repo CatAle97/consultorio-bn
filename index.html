@@ -840,7 +840,7 @@
 
   <!-- ============ MÓDULO 4 · STOCK ============ -->
   <section id="sec-stock" class="oculto">
-    <h2 style="margin-top:0">Stock de suplementos</h2>
+    <h2 style="margin-top:0">Stock de suplementos e insumos</h2>
     <div class="barra">
       <input type="search" id="buscador-stock" placeholder="Buscar por producto, marca o código…" oninput="pintarStock()">
       <button class="btn" id="btn-nueva-entrada" onclick="abrirModalMov()">+ Registrar entrada</button>
@@ -911,10 +911,11 @@
 
     <div id="cfg-precios">
       <h2 style="margin-top:0">Precios y catálogo</h2>
-      <div class="sub" style="margin-bottom:10px">Lo que cobra el consultorio. De aquí salen los precios de las ventas y los suplementos que puedes prescribir.</div>
+      <div class="sub" style="margin-bottom:10px">Lo que cobra el consultorio. De aquí salen los precios de las ventas y los suplementos que puedes prescribir. Los insumos médicos van en su propia pestaña.</div>
       <div class="barra">
-        <button class="btn" id="btn-cat-servicios" onclick="cambiarCatalogo('servicio')">Servicios</button>
-        <button class="btn btn-sec" id="btn-cat-productos" onclick="cambiarCatalogo('producto')">Suplementos</button>
+        <button class="btn" id="btn-cat-servicios" onclick="cambiarCatalogo('servicio')">Servicios / Cirugía</button>
+        <button class="btn btn-sec" id="btn-cat-productos" onclick="cambiarCatalogo('suplemento')">Suplementos</button>
+        <button class="btn btn-sec" id="btn-cat-insumos" onclick="cambiarCatalogo('insumo')">Insumos</button>
         <span style="flex:1"></span>
         <button class="btn btn-sec" onclick="cargarCatalogoDr()">📋 Cargar lista del Dr.</button>
         <button class="btn" onclick="abrirModalCatalogo()">+ Nuevo</button>
@@ -1173,8 +1174,9 @@
     <h3 id="titulo-modal-catalogo">Nuevo ítem</h3>
     <label>Tipo *</label>
     <select id="k-tipo" onchange="alternarCamposCatalogo()">
-      <option value="servicio">Servicio (consulta, cirugía…)</option>
-      <option value="producto">Producto (suplemento, insumo…)</option>
+      <option value="servicio">Servicio / Cirugía (consulta, cirugía, control…)</option>
+      <option value="suplemento">Suplemento (proteína, vitaminas…)</option>
+      <option value="insumo">Insumo médico (gasas, jeringas, material…)</option>
     </select>
     <label>Nombre *</label>
     <input id="k-nombre" placeholder="Ej: Consulta de nutrición / Proteína B&N vainilla" oninput="pintarLargoTicket()">
@@ -3153,22 +3155,50 @@ function actualizarBadge() {
 }
 
 /* ================== MÓDULO 3 · CATÁLOGO ================== */
+/* La pestaña abierta en Precios: 'servicio' | 'suplemento' | 'insumo'.
+   OJO: en la base siguen existiendo solo DOS tipos, 'servicio' y 'producto'.
+   Un insumo médico es un producto para todos los efectos —tiene stock, costo,
+   se vende en caja y descuenta inventario igual que un suplemento—; lo único
+   que cambia es dónde se lista. Esa separación se guarda aparte, en el campo
+   grupo, justamente para no tocar caja, stock, ventas ni reportes. */
 let catTipo = 'servicio';
 const CATEGORIAS = {
-  servicio: ['Consulta', 'Cirugía', 'Procedimiento', 'Control', 'Otro'],
-  producto: ['Suplemento', 'Vitamina', 'Insumo médico', 'Otro']
+  servicio:   ['Consulta', 'Cirugía', 'Procedimiento', 'Control', 'Otro'],
+  suplemento: ['Suplemento', 'Vitamina', 'Proteína', 'Otro'],
+  insumo:     ['Insumo médico', 'Material descartable', 'Equipo', 'Otro']
 };
+function tipoDeVista(v) { return v === 'servicio' ? 'servicio' : 'producto'; }
+/* Los productos cargados antes de que existiera la pestaña Insumos no traen
+   grupo. Se deduce de la categoría para que no aparezcan todos amontonados en
+   Suplementos; en cuanto se editan y se guardan, queda escrito de verdad. */
+const PISTAS_INSUMO = ['insumo', 'material', 'descartable', 'equipo', 'gasa', 'jeringa', 'sutura'];
+function grupoDe(k) {
+  if (k.tipo !== 'producto') return '';
+  if (k.grupo) return k.grupo;
+  const cat = normalizar(k.categoria || '');
+  return PISTAS_INSUMO.some(p => cat.includes(p)) ? 'insumo' : 'suplemento';
+}
+/* En qué pestaña de Precios le toca aparecer a un ítem del catálogo */
+function vistaDe(k) { return k.tipo === 'servicio' ? 'servicio' : grupoDe(k); }
+const PESTANAS_CATALOGO = [['btn-cat-servicios','servicio'], ['btn-cat-productos','suplemento'], ['btn-cat-insumos','insumo']];
 function cambiarCatalogo(t) {
   catTipo = t;
   const bus = document.getElementById('buscador-catalogo');
   if (bus) bus.value = '';
-  document.getElementById('btn-cat-servicios').style.cssText = t==='servicio' ? '' : 'background:#fff;color:#333;border:1px solid var(--border)';
-  document.getElementById('btn-cat-productos').style.cssText = t==='producto' ? '' : 'background:#fff;color:#333;border:1px solid var(--border)';
+  PESTANAS_CATALOGO.forEach(function (par) {
+    const b = document.getElementById(par[0]);
+    if (b) b.style.cssText = t === par[1] ? '' : 'background:#fff;color:#333;border:1px solid var(--border)';
+  });
   pintarCatalogo();
+}
+/* Cómo se llama en pantalla lo que hay en la pestaña abierta */
+function nombreVista(v, enPlural) {
+  const nom = v === 'servicio' ? ['servicio','servicios'] : v === 'insumo' ? ['insumo','insumos'] : ['suplemento','suplementos'];
+  return enPlural ? nom[1] : nom[0];
 }
 /* Por dónde está ordenado el catálogo. Se guarda por tipo: el orden que sirve
    para suplementos (por marca) no es el que sirve para servicios. */
-let catOrden = { servicio: { campo:'nombre', dir:1 }, producto: { campo:'nombre', dir:1 } };
+let catOrden = { servicio: { campo:'nombre', dir:1 }, suplemento: { campo:'nombre', dir:1 }, insumo: { campo:'nombre', dir:1 } };
 /* Tocar la misma cabecera dos veces da vuelta el orden; tocar otra empieza de
    nuevo hacia arriba, que es lo que uno espera de una tabla. */
 function ordenarCatalogo(campo) {
@@ -3221,14 +3251,14 @@ function pintarCatalogo() {
   const cont = document.getElementById('lista-catalogo');
   const bus = document.getElementById('buscador-catalogo');
   const filtro = normalizar(bus ? bus.value : '');
-  const todos = db.catalogo.filter(k => k.tipo === catTipo);
+  const todos = db.catalogo.filter(k => vistaDe(k) === catTipo);
   // Se busca por lo que uno tiene en la cabeza: el nombre, la marca, la
   // categoría o el código que vio en un ticket
   const lista = catalogoOrdenado(todos.filter(k => !filtro ||
     normalizar(k.nombre).includes(filtro) || normalizar(k.marca || '').includes(filtro) ||
     normalizar(k.categoria || '').includes(filtro) || normalizar(k.codigo || '').includes(filtro)));
 
-  if (!todos.length) { cont.innerHTML = '<div class="vacio">No hay ' + (catTipo==='servicio'?'servicios':'productos') + ' registrados. Presiona <b>+ Nuevo</b>.</div>'; return; }
+  if (!todos.length) { cont.innerHTML = '<div class="vacio">No hay ' + nombreVista(catTipo, true) + ' registrados. Presiona <b>+ Nuevo</b>.</div>'; return; }
   if (!lista.length) { cont.innerHTML = '<div class="vacio">Nada coincide con «' + esc(bus.value.trim()) + '».</div>'; return; }
 
   // Sin precio no se puede cobrar. Es lo primero que hay que ver al entrar,
@@ -3261,19 +3291,22 @@ function pintarCatalogo() {
       '</tbody></table>';
   } else {
     const faltanCostos = todos.filter(k => !Number(k.costo)).length;
+    // "Insumo" o "Suplemento": la tabla es la misma, pero llamarle "Producto" a
+    // todo hacía que la pestaña de insumos pareciera la equivocada.
+    const eti = catTipo === 'insumo' ? 'Insumo' : 'Suplemento';
     cont.innerHTML =
       avisoPrecios +
-      (faltanCostos ? '<div class="aviso aviso-amarillo">💡 <b>' + plural(faltanCostos,'producto','productos') +
+      (faltanCostos ? '<div class="aviso aviso-amarillo">💡 <b>' + plural(faltanCostos, nombreVista(catTipo), nombreVista(catTipo, true)) +
         '</b> sin costo cargado. Sin ese dato el sistema sabe cuánto vendió, pero no cuánto ganó.</div>' : '') +
       avisoCodigos +
-      barraOrdenMovil([['nombre','Producto'],['marca','Marca'],['codigo','Código'],['precio','Precio'],['stock','Stock']], catOrden[catTipo], 'ordenarCatalogo') +
+      barraOrdenMovil([['nombre',eti],['marca','Marca'],['codigo','Código'],['precio','Precio'],['stock','Stock']], catOrden[catTipo], 'ordenarCatalogo') +
       '<table class="tabla tarjetas"><thead><tr>' +
-        thOrden('nombre','Producto') + thOrden('marca','Marca') + thOrden('codigo','Cód. ticket') +
+        thOrden('nombre',eti) + thOrden('marca','Marca') + thOrden('codigo','Cód. ticket') +
         thOrden('precio','Precio') + thOrden('stock','Stock') + '<th></th></tr></thead><tbody>' +
       lista.map(k => {
         const bajo = Number(k.stock||0) <= Number(k.stockMin||0);
         const stockCell = (k.stock||0) + ' ' + esc(k.unidad||'') + (bajo ? ' <span class="chip chip-rojo">Bajo</span>' : '');
-        return '<tr><td data-th="Producto"><b>' + esc(k.nombre) + '</b> <span class="sub">' + esc(k.categoria||'') + '</span></td>' +
+        return '<tr><td data-th="' + eti + '"><b>' + esc(k.nombre) + '</b> <span class="sub">' + esc(k.categoria||'') + '</span></td>' +
           '<td data-th="Marca">' + (k.marca==='B&N' ? '<span class="chip chip-azul">B&amp;N</span>' : esc(k.marca||'—')) + '</td>' +
           '<td data-th="Cód. ticket">' + celdaCodigo(k) + '</td>' +
           '<td data-th="Precio">' + (Number(k.precio) > 0 ? money(k.precio) : '<span class="chip chip-rojo">Sin precio</span>') +
@@ -3417,9 +3450,9 @@ function pintarMargenCatalogo() {
 /* Las sugerencias son las categorías de siempre más las que se hayan inventado
    en el catálogo. La categoría igual se puede escribir a mano: la lista solo
    ahorra tipeo y evita que la misma categoría termine escrita de tres formas. */
-function llenarCategorias(tipo, sel) {
-  const usadas = db.catalogo.filter(k => k.tipo === tipo).map(k => (k.categoria || '').trim());
-  const opciones = [...new Set([...CATEGORIAS[tipo], ...usadas])].filter(Boolean);
+function llenarCategorias(vista, sel) {
+  const usadas = db.catalogo.filter(k => vistaDe(k) === vista).map(k => (k.categoria || '').trim());
+  const opciones = [...new Set([...(CATEGORIAS[vista] || []), ...usadas])].filter(Boolean);
   document.getElementById('lista-categorias').innerHTML = opciones.map(c => '<option value="' + esc(c) + '">').join('');
   document.getElementById('k-categoria').value = sel || '';
 }
@@ -3439,20 +3472,20 @@ function llenarMarcas() {
 /* Un suplemento es un bien y paga IGV; los servicios de salud normalmente van
    exonerados. Es solo el punto de partida del formulario: quien manda es el
    contador, y por eso el campo se puede cambiar a mano. */
-function igvPorDefecto(tipo) { return tipo === 'servicio' ? 'exonerado' : 'gravado'; }
+function igvPorDefecto(vista) { return vista === 'servicio' ? 'exonerado' : 'gravado'; }
 function alternarCamposCatalogo() {
-  const tipo = document.getElementById('k-tipo').value;
-  document.getElementById('campos-producto').classList.toggle('oculto', tipo !== 'producto');
-  document.getElementById('k-igv').value = igvPorDefecto(tipo);
-  llenarCategorias(tipo);
+  const vista = document.getElementById('k-tipo').value;
+  document.getElementById('campos-producto').classList.toggle('oculto', vista === 'servicio');
+  document.getElementById('k-igv').value = igvPorDefecto(vista);
+  llenarCategorias(vista);
 }
 function abrirModalCatalogo(id) {
   const k = id ? db.catalogo.find(x => x.id === id) : null;
-  const tipo = k ? k.tipo : catTipo;
-  document.getElementById('titulo-modal-catalogo').textContent = k ? 'Editar ítem' : 'Nuevo ' + (tipo==='servicio'?'servicio':'producto');
-  document.getElementById('k-tipo').value = tipo;
+  const vista = k ? vistaDe(k) : catTipo;
+  document.getElementById('titulo-modal-catalogo').textContent = k ? 'Editar ítem' : 'Nuevo ' + nombreVista(vista);
+  document.getElementById('k-tipo').value = vista;
   alternarCamposCatalogo();
-  llenarCategorias(tipo, k ? k.categoria : '');
+  llenarCategorias(vista, k ? k.categoria : '');
   document.getElementById('k-nombre').value = k ? k.nombre : '';
   document.getElementById('k-nombreticket').value = k ? (k.nombreTicket||'') : '';
   document.getElementById('k-codigo').value = k ? (k.codigo||'') : '';
@@ -3460,7 +3493,7 @@ function abrirModalCatalogo(id) {
   document.getElementById('k-precio').value = k ? (k.precio||'') : '';
   // Va después de alternarCamposCatalogo() a propósito: esa función deja el
   // IGV que le toca al tipo, y al editar hay que respetar lo que ya se eligió
-  document.getElementById('k-igv').value = (k && k.igv) || igvPorDefecto(tipo);
+  document.getElementById('k-igv').value = (k && k.igv) || igvPorDefecto(vista);
   llenarMarcas();
   // Un producto nuevo arranca sin marca a propósito: antes salía B&N puesto de
   // fábrica y un producto de otra marca se guardaba como si fuera propio.
@@ -3502,7 +3535,7 @@ function sugerirCodigoModal() {
   const nombre = document.getElementById('k-nombre').value.trim();
   if (!nombre) { alert('Escribe primero el nombre.'); document.getElementById('k-nombre').focus(); return; }
   const borrador = {
-    tipo: document.getElementById('k-tipo').value,
+    tipo: tipoDeVista(document.getElementById('k-tipo').value),
     nombre,
     marca: document.getElementById('k-marca').value.trim(),
     categoria: document.getElementById('k-categoria').value.trim()
@@ -3513,7 +3546,8 @@ function sugerirCodigoModal() {
 function guardarCatalogo() {
   const nombre = document.getElementById('k-nombre').value.trim();
   if (!nombre) { alert('El nombre es obligatorio.'); return; }
-  const tipo = document.getElementById('k-tipo').value;
+  const vista = document.getElementById('k-tipo').value;
+  const tipo = tipoDeVista(vista);
   const idEditando = document.getElementById('modal-catalogo').dataset.editando;
   const codigoEscrito = document.getElementById('k-codigo').value.trim().toUpperCase();
   // Dos ítems con el mismo código romperían justo para lo que sirve el código
@@ -3528,11 +3562,14 @@ function guardarCatalogo() {
     activo: true
   };
   if (tipo === 'producto') {
-    // La marca se pide sí o sí en productos: los reportes separan lo que deja
+    // Lo que decide en qué pestaña se lista: suplemento o insumo
+    datos.grupo = vista;
+    // La marca se pide sí o sí en suplementos: los reportes separan lo que deja
     // la marca propia de lo que deja el producto de terceros, y sin marca esa
-    // plata cae en un "Sin marca" que no le sirve a nadie.
+    // plata cae en un "Sin marca" que no le sirve a nadie. En insumos no se
+    // exige: una gasa o una jeringa muchas veces no tiene marca que importe.
     datos.marca = document.getElementById('k-marca').value.trim();
-    if (!datos.marca) { alert('Escribe la marca del producto (por ejemplo B&N).'); document.getElementById('k-marca').focus(); return; }
+    if (!datos.marca && vista === 'suplemento') { alert('Escribe la marca del suplemento (por ejemplo B&N).'); document.getElementById('k-marca').focus(); return; }
     datos.unidad = document.getElementById('k-unidad').value.trim();
     datos.stock = document.getElementById('k-stock').value || 0;
     datos.stockMin = document.getElementById('k-stockmin').value || 0;
@@ -3544,8 +3581,8 @@ function guardarCatalogo() {
   datos.codigo = codigoEscrito || generarCodigo(datos, idEditando);
   if (idEditando) Object.assign(db.catalogo.find(x => x.id === idEditando), datos);
   else db.catalogo.push({ id: nuevoId(), ...datos });
-  catTipo = tipo;
-  cambiarCatalogo(tipo);
+  catTipo = vista;
+  cambiarCatalogo(vista);
   guardar(); cerrarModales();
 }
 function borrarCatalogo(id) {
@@ -3829,7 +3866,7 @@ function cargarCatalogoDr() {
   });
   productos.forEach(p => {
     if (existe('producto', p.nombre)) return;
-    const item = { id:nuevoId(), tipo:'producto', nombre:p.nombre, categoria:p.categoria, marca:'B&N',
+    const item = { id:nuevoId(), tipo:'producto', grupo:'suplemento', nombre:p.nombre, categoria:p.categoria, marca:'B&N',
       unidad:p.unidad, precio:p.precio, precioMayor:p.mayor, costo:0, stock:0, stockMin:5, activo:true };
     item.codigo = generarCodigo(item, item.id);
     db.catalogo.push(item);
@@ -4028,7 +4065,8 @@ function abrirAtencion(citaId) {
     : (ultima ? (ultima.cirugias || []).slice() : (p.procedimientos || []).slice());
 
   // Sin precios: el doctor prescribe por criterio clínico, no por lo que cuesta. De cobrar se encarga recepción.
-  const sups = db.catalogo.filter(k => k.tipo === 'producto').sort((a,b) => a.nombre.localeCompare(b.nombre));
+  // Solo suplementos: en la receta no tiene sentido ofrecer gasas ni jeringas
+  const sups = db.catalogo.filter(k => grupoDe(k) === 'suplemento').sort((a,b) => a.nombre.localeCompare(b.nombre));
   document.getElementById('at-suplemento').innerHTML = '<option value="">+ Agregar suplemento…</option>' +
     sups.map(k => '<option value="' + k.id + '">' + esc(k.nombre) + '</option>').join('');
 
@@ -6601,7 +6639,7 @@ function abrirModalPromo(id) {
   const prods = db.catalogo.filter(k => k.tipo === 'producto' && k.activo !== false)
     .sort((a,b) => a.nombre.localeCompare(b.nombre));
   document.getElementById('pr-catalogo').innerHTML = !prods.length
-    ? '<option value="">— No hay suplementos cargados —</option>'
+    ? '<option value="">— No hay productos cargados —</option>'
     : prods.map(k => '<option value="' + k.id + '">' + esc(k.nombre) + ' · ' + money(k.precio) + '</option>').join('');
 
   document.getElementById('pr-nombre').value = pr ? pr.nombre : '';
@@ -6848,7 +6886,7 @@ function cargarDemo() {
   const kFist = { id:nuevoId(), tipo:'servicio', nombre:'Fístulas', categoria:'Cirugía', precio:4500, activo:true };
   const kApen = { id:nuevoId(), tipo:'servicio', nombre:'Apéndice', categoria:'Cirugía', precio:6000, activo:true };
   const kVesi = { id:nuevoId(), tipo:'servicio', nombre:'Vesícula', categoria:'Cirugía', precio:7000, activo:true };
-  const k5 = { id:nuevoId(), tipo:'producto', nombre:'Proteína B&N vainilla 500g', categoria:'Suplemento', marca:'B&N', unidad:'frasco', precio:120, stock:18, stockMin:5, activo:true };
+  const k5 = { id:nuevoId(), tipo:'producto', grupo:'suplemento', nombre:'Proteína B&N vainilla 500g', categoria:'Suplemento', marca:'B&N', unidad:'frasco', precio:120, stock:18, stockMin:5, activo:true };
   const k6 = { id:nuevoId(), tipo:'producto', nombre:'Multivitamínico bariátrico B&N', categoria:'Vitamina', marca:'B&N', unidad:'frasco', precio:85, stock:4, stockMin:6, activo:true };
   const k7 = { id:nuevoId(), tipo:'producto', nombre:'Hierro masticable', categoria:'Vitamina', marca:'Otra marca', unidad:'caja', precio:45, stock:12, stockMin:5, activo:true };
   db.catalogo = [k1,k2,k3,k4,kBypass,kHernia,kHemo,kFist,kApen,kVesi,k5,k6,k7];
