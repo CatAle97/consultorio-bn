@@ -1633,13 +1633,20 @@
 <!-- ============ MODAL ABONO ============ -->
 <div id="modal-abono" class="fondo-modal oculto">
   <div class="modal" style="max-width:520px">
-    <h3>Registrar abono</h3>
+    <h3 id="titulo-abono">Registrar abono</h3>
     <div id="abono-quien" class="sub" style="margin-bottom:12px"></div>
 
     <!-- Lo normal: se elige QUÉ se está pagando y el monto sale del precio -->
     <div id="abono-productos">
       <label>¿Qué le está pagando?</label>
+      <!-- Con nueve suplementos la lista entra en pantalla; con cuarenta, no.
+           El buscador filtra sin re-pintar las líneas, así lo que ya se marcó
+           no se pierde al escribir. -->
+      <input type="search" id="abono-buscar" placeholder="🔍 Escribe el producto…" oninput="filtrarAbono()">
       <div id="abono-lista" class="lista-conteo"></div>
+      <div id="abono-vacio" class="sub oculto"></div>
+      <!-- Los atajos viven fuera de la lista para que el buscador no los tape -->
+      <div id="abono-atajos" class="barra" style="margin-top:8px"></div>
       <div id="abono-total" class="total-abono"></div>
     </div>
 
@@ -1665,7 +1672,7 @@
     <input id="ab-nota" placeholder="Ej: adelanto de la semana">
     <div class="acciones">
       <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
-      <button class="btn" onclick="guardarAbono()">Registrar abono</button>
+      <button class="btn" id="btn-guardar-abono" onclick="guardarAbono()">Registrar abono</button>
     </div>
   </div>
 </div>
@@ -4565,7 +4572,12 @@ function verCuenta(id) {
                 (i.precio ? ' <span class="sub">a ' + money(i.precio) + '</span>' : '')).join('') +
               '</details>'
             : '<span class="sub">' + esc(m.detalle) + '</span>' +
-              (m.sinDetalle ? ' <span class="chip chip-amarillo">Sin detallar</span>' : '')) +
+              // Un abono sin detalle no dice qué frasco saldó. Se puede arreglar
+              // sin borrarlo: se le marcan los productos y la cuenta se acomoda.
+              (m.sinDetalle
+                ? ' <span class="chip chip-amarillo">Sin detallar</span>' +
+                  (!esDoctor() ? ' <button class="btn btn-sec btn-mini" onclick="abrirModalAbono(\'' + id + '\', \'' + m.id + '\')">Detallar</button>' : '')
+                : '')) +
           '</td>' +
           '<td data-th="Se llevó">' + (m.tipo === 'cargo'
             ? '<b>' + money(m.monto) + '</b>'
@@ -4723,23 +4735,35 @@ function borrarConteo(idConteo) {
    con productos que rotan a distinta velocidad eso es justo lo que hay que
    saber. Acá se eligen los frascos —el monto sale solo del precio de
    distribuidor— y cada unidad pagada queda marcada en su producto. */
-function abrirModalAbono(id) {
+function abrirModalAbono(id, abonoId) {
   const d = db.distribuidores.find(x => x.id === id);
   if (!d) return;
+  const ab = abonoId ? db.abonos.find(x => x.id === abonoId) : null;
   const m = document.getElementById('modal-abono');
   m.dataset.distri = id;
+  m.dataset.abono = ab ? ab.id : '';
   m.dataset.modo = 'productos';
   const r = resumenCuenta(id);
-  document.getElementById('abono-quien').innerHTML =
-    '<b>' + esc(d.nombre) + '</b> debe <b style="color:var(--warning)">' + money(r.debe) + '</b>' +
-    (r.hayConteo && r.vendido > 0
-      ? '. De eso, <b>' + money(r.vendido) + '</b> es mercadería que ya vendió.'
-      : '');
-  pintarLineasAbono(id);
-  document.getElementById('ab-monto').value = '';
-  document.getElementById('ab-nota').value = '';
-  document.getElementById('ab-fecha').value = hoyStr();
-  document.getElementById('ab-pago').value = 'Efectivo';
+
+  document.getElementById('titulo-abono').textContent = ab ? 'Detallar el abono' : 'Registrar abono';
+  document.getElementById('abono-quien').innerHTML = ab
+    // Detallando: lo que importa es el abono que ya está, no la deuda total
+    ? 'Abono de <b>' + money(ab.monto) + '</b> del ' + fechaBonita(ab.fecha) +
+      (ab.metodoPago ? ' · ' + esc(ab.metodoPago) : '') +
+      '.<br>Marca qué productos pagó. Si lo que marques suma distinto, el abono queda por ese monto.'
+    : '<b>' + esc(d.nombre) + '</b> debe <b style="color:var(--warning)">' + money(r.debe) + '</b>' +
+      (r.hayConteo && r.vendido > 0
+        ? '. De eso, <b>' + money(r.vendido) + '</b> es mercadería que ya vendió.'
+        : '');
+
+  pintarLineasAbono(id, ab);
+  document.getElementById('ab-monto').value = ab ? ab.monto : '';
+  document.getElementById('ab-nota').value = ab ? (ab.nota || '') : '';
+  document.getElementById('ab-fecha').value = ab ? ab.fecha : hoyStr();
+  document.getElementById('ab-pago').value = ab ? (ab.metodoPago || 'Efectivo') : 'Efectivo';
+  document.getElementById('btn-guardar-abono').textContent = ab ? 'Guardar el detalle' : 'Registrar abono';
+  // Detallando no tiene sentido volver al monto suelto: es de lo que se sale
+  document.getElementById('link-modo-abono').classList.toggle('oculto', !!ab);
   cambiarModoAbono('productos');
   m.classList.remove('oculto');
 }
@@ -4759,40 +4783,71 @@ function cambiarModoAbono(modo) {
 function alternarModoAbono() {
   cambiarModoAbono(document.getElementById('modal-abono').dataset.modo === 'productos' ? 'suelto' : 'productos');
 }
-function pintarLineasAbono(id) {
-  const filas = cuentaPorProducto(id).filter(f => f.debeUnd > 0);
+function pintarLineasAbono(id, ab) {
+  // Detallando un abono viejo, sus propias unidades ya no cuentan como deuda
+  // pendiente de otro lado: se le suman a lo que puede marcar.
+  const yaPuestas = {};
+  if (ab) lineasAbono(ab).forEach(l => (yaPuestas[l.key || l.catalogoId || ('n:' + l.nombre)] = Number(l.cant) || 0));
+  const filas = cuentaPorProducto(id).filter(f => f.debeUnd > 0 || yaPuestas[f.key]);
+  const buscador = document.getElementById('abono-buscar');
+  if (buscador) buscador.value = '';
   document.getElementById('abono-lista').innerHTML = !filas.length
     ? '<div class="vacio">No debe ningún producto. Está al día.</div>'
-    : filas.map(f =>
-        '<div class="linea-conteo" data-key="' + esc(f.key) + '" data-catalogo="' + esc(f.catalogoId) + '" ' +
-             'data-nombre="' + esc(f.nombre) + '" data-marca="' + esc(f.marca || '') + '" data-debe="' + f.debeUnd + '">' +
+    : filas.map(f => {
+        const tope = f.debeUnd + (yaPuestas[f.key] || 0);
+        return '<div class="linea-conteo" data-key="' + esc(f.key) + '" data-catalogo="' + esc(f.catalogoId) + '" ' +
+             'data-nombre="' + esc(f.nombre) + '" data-marca="' + esc(f.marca || '') + '" data-debe="' + tope + '" ' +
+             'data-desde="' + Math.max(0, f.pago - (yaPuestas[f.key] || 0)) + '" ' +
+             'data-vendido="' + (f.vendio === null ? '' : Math.max(0, f.vendio - f.pago + (yaPuestas[f.key] || 0))) + '" ' +
+             'data-buscar="' + esc(normalizar(f.nombre + ' ' + (f.marca || ''))) + '">' +
           '<div><b>' + esc(f.nombre) + '</b>' + chipMarca(f.marca) +
-            '<br><span class="sub">debe ' + f.debeUnd + ' und · ' + money(f.unit) + ' c/u' +
+            '<br><span class="sub">debe ' + tope + ' und · ' + money(f.unit) + ' c/u' +
             (f.contado ? ' · ' + (f.vendio - f.pago > 0 ? 'vendió ' + (f.vendio - f.pago) + ' sin pagar' : 'no ha vendido más') : '') +
             '</span></div>' +
-          '<input type="number" min="0" max="' + f.debeUnd + '" step="1" class="conteo-input abono-input" ' +
-            'value="" placeholder="0" oninput="pintarSaldoTrasAbono()">' +
-        '</div>').join('') +
-      '<div class="barra" style="margin-top:8px">' +
-        '<button type="button" class="btn btn-sec btn-mini" onclick="llenarAbono(\'vendido\')">Pagar lo que ya vendió</button>' +
-        '<button type="button" class="btn btn-sec btn-mini" onclick="llenarAbono(\'todo\')">Pagar todo lo que debe</button>' +
-        '<button type="button" class="btn btn-sec btn-mini" onclick="llenarAbono(\'nada\')">Limpiar</button>' +
-      '</div>';
+          '<input type="number" min="0" max="' + tope + '" step="1" class="conteo-input abono-input" ' +
+            'value="' + (yaPuestas[f.key] || '') + '" placeholder="0" oninput="pintarSaldoTrasAbono()">' +
+        '</div>';
+      }).join('');
+  document.getElementById('abono-atajos').innerHTML = !filas.length ? '' :
+      '<button type="button" class="btn btn-sec btn-mini" onclick="llenarAbono(\'vendido\')">Pagar lo que ya vendió</button>' +
+      '<button type="button" class="btn btn-sec btn-mini" onclick="llenarAbono(\'todo\')">Pagar todo lo que debe</button>' +
+      '<button type="button" class="btn btn-sec btn-mini" onclick="llenarAbono(\'nada\')">Limpiar</button>';
+  filtrarAbono();
+}
+/* El filtro esconde líneas, no las vuelve a dibujar: si se re-pintara, lo que
+   ya se marcó se perdería al escribir la primera letra. Y lo que tiene cantidad
+   puesta no se esconde nunca —esconder algo que se está pagando es cómo se
+   termina abonando de menos sin darse cuenta. */
+function filtrarAbono() {
+  const campo = document.getElementById('abono-buscar');
+  if (!campo) return;
+  const t = normalizar(campo.value);
+  const lineas = [...document.querySelectorAll('#abono-lista .linea-conteo')];
+  let visibles = 0;
+  lineas.forEach(el => {
+    const marcada = Number(el.querySelector('.abono-input').value) > 0;
+    const coincide = !t || el.dataset.buscar.includes(t) || marcada;
+    el.hidden = !coincide;
+    if (coincide) visibles++;
+  });
+  const vacio = document.getElementById('abono-vacio');
+  vacio.classList.toggle('oculto', visibles > 0);
+  if (!visibles) vacio.textContent = 'Nada coincide con «' + campo.value.trim() + '».';
 }
 /* Los dos atajos reales: "te pago lo que ya vendí" (lo habitual) y "te pago
-   todo". Escribirlos producto por producto con el proveedor delante es lento. */
+   todo". Escribirlos producto por producto con el proveedor delante es lento.
+   Los topes salen de la línea y no del catálogo, para que valgan igual cuando
+   se está detallando un abono viejo. */
 function llenarAbono(que) {
-  const id = document.getElementById('modal-abono').dataset.distri;
-  const mapa = {};
-  cuentaPorProducto(id).forEach(f => (mapa[f.key] = f));
   document.querySelectorAll('#abono-lista .linea-conteo').forEach(el => {
-    const f = mapa[el.dataset.key];
     const input = el.querySelector('.abono-input');
-    if (!f) { input.value = ''; return; }
+    const tope = Number(el.dataset.debe) || 0;
+    const vendido = el.dataset.vendido === '' ? tope : Number(el.dataset.vendido);
     input.value = que === 'nada' ? ''
-      : que === 'todo' ? f.debeUnd
-      : Math.max(0, Math.min(f.debeUnd, (f.vendio === null ? f.debeUnd : f.vendio - f.pago))) || '';
+      : que === 'todo' ? tope
+      : Math.max(0, Math.min(tope, vendido)) || '';
   });
+  filtrarAbono();
   pintarSaldoTrasAbono();
 }
 /* Qué se está pagando exactamente, valorizado a los precios de las unidades más
@@ -4803,10 +4858,12 @@ function lineasElegidasAbono() {
   cuentaPorProducto(id).forEach(f => (mapa[f.key] = f));
   return [...document.querySelectorAll('#abono-lista .linea-conteo')].map(el => {
     const f = mapa[el.dataset.key];
-    const cant = Math.max(0, Math.min(Number(el.dataset.debe) || 0, Number(el.querySelector('.abono-input').value) || 0));
+    const tope = Number(el.dataset.debe) || 0;
+    const desde = Number(el.dataset.desde) || 0;
+    const cant = Math.max(0, Math.min(tope, Number(el.querySelector('.abono-input').value) || 0));
     if (!f || !cant) return null;
-    const monto = redondeo(f.precios.slice(f.pago, f.pago + cant).reduce((s,pr) => s + pr, 0));
-    return { key: f.key, catalogoId: f.catalogoId, nombre: f.nombre, marca: f.marca, cant, monto, fila: f };
+    const monto = redondeo(f.precios.slice(desde, desde + cant).reduce((s,pr) => s + pr, 0));
+    return { key: f.key, catalogoId: f.catalogoId, nombre: f.nombre, marca: f.marca, cant, monto, tope };
   }).filter(Boolean);
 }
 function montoModoProductos() {
@@ -4817,6 +4874,11 @@ function montoDelAbono() {
     ? montoModoProductos()
     : redondeo(Number(document.getElementById('ab-monto').value || 0));
 }
+/* El abono que se está editando, si es que se está detallando uno viejo */
+function abonoEditando() {
+  const aid = document.getElementById('modal-abono').dataset.abono;
+  return aid ? db.abonos.find(x => x.id === aid) : null;
+}
 /* Se ve cómo queda la deuda antes de confirmar —evita el abono de S/5.000 donde
    iban S/500— y qué producto queda saldado, que es la pregunta que uno se hace
    con la plata en la mano. */
@@ -4826,25 +4888,32 @@ function pintarSaldoTrasAbono() {
   const cont = document.getElementById('ab-resultado');
   const monto = montoDelAbono();
   const porProducto = document.getElementById('modal-abono').dataset.modo === 'productos';
+  const ab = abonoEditando();
   const tot = document.getElementById('abono-total');
-  if (tot) tot.innerHTML = porProducto
-    ? 'Total del abono: <b>' + money(monto) + '</b>'
-    : '';
+  if (tot) tot.innerHTML = porProducto ? 'Total del abono: <b>' + money(monto) + '</b>' : '';
   if (!monto) { cont.innerHTML = ''; return; }
-  const queda = redondeo(saldoDistribuidor(id) - monto);
+  // Detallando, lo que cambia la deuda es la diferencia con lo que ya estaba
+  const queda = redondeo(saldoDistribuidor(id) - monto + (ab ? Number(ab.monto || 0) : 0));
 
   const detalle = porProducto
     ? lineasElegidasAbono().map(l =>
         '<div class="linea-item"><b>' + l.cant + '×</b> ' + esc(l.nombre) + chipMarca(l.marca) +
         ' <span class="sub">' + money(l.monto) + '</span>' +
-        (l.cant >= l.fila.debeUnd ? ' <span class="chip chip-verde">Queda pagado</span>'
-                                  : ' <span class="chip chip-amarillo">Faltarán ' + (l.fila.debeUnd - l.cant) + ' und</span>') +
+        (l.cant >= l.tope ? ' <span class="chip chip-verde">Queda pagado</span>'
+                          : ' <span class="chip chip-amarillo">Faltarán ' + (l.tope - l.cant) + ' und</span>') +
         '</div>').join('')
     : '';
 
   cont.innerHTML =
     (detalle
       ? '<div class="aviso" style="margin-top:10px;border-left-color:var(--success)"><b>Con esto paga:</b>' + detalle + '</div>'
+      : '') +
+    // Detallando se compara contra el monto que ya tenía: es el número que el
+    // distribuidor recuerda haber pagado y no debería cambiar sin que se vea.
+    (ab && monto !== redondeo(Number(ab.monto || 0))
+      ? '<div class="aviso" style="border-left-color:var(--warning);margin-top:10px">' +
+          'El abono estaba registrado por <b>' + money(ab.monto) + '</b> y lo que marcaste suma <b>' + money(monto) + '</b>. ' +
+          'Al guardar, el abono queda por ' + money(monto) + '.</div>'
       : '') +
     '<div class="aviso" style="margin-top:10px">Después de este abono ' +
     (queda > 0 ? 'quedaría debiendo <b>' + money(queda) + '</b>.'
@@ -4854,11 +4923,28 @@ function pintarSaldoTrasAbono() {
 function guardarAbono() {
   const id = document.getElementById('modal-abono').dataset.distri;
   const porProducto = document.getElementById('modal-abono').dataset.modo === 'productos';
+  const ab = abonoEditando();
   const lineas = porProducto ? lineasElegidasAbono() : [];
   const monto = montoDelAbono();
   const fecha = document.getElementById('ab-fecha').value || hoyStr();
   if (monto <= 0) {
     alert(porProducto ? 'Elige cuántas unidades de cada producto está pagando.' : 'El monto debe ser mayor que cero.');
+    return;
+  }
+  if (ab) {
+    // Detallar no crea un abono nuevo: le pone nombre y apellido al que ya está
+    const previo = redondeo(Number(ab.monto || 0));
+    if (monto !== previo &&
+        !confirm('El abono estaba por ' + money(previo) + ' y lo que marcaste suma ' + money(monto) + '.\n\n' +
+                 'Va a quedar registrado por ' + money(monto) + '. ¿Guardar así?')) return;
+    ab.lineas = lineas.map(l => ({ key: l.key, catalogoId: l.catalogoId, nombre: l.nombre, marca: l.marca, cant: l.cant, monto: l.monto }));
+    ab.monto = monto;
+    ab.fecha = fecha;
+    ab.metodoPago = document.getElementById('ab-pago').value;
+    ab.nota = document.getElementById('ab-nota').value.trim();
+    ab.detalladoPor = sesion ? sesion.nombre : '—';
+    ab.detalladoEl = hoyStr();
+    guardar(); cerrarModales(); verCuenta(id); refrescarBadges();
     return;
   }
   const debe = saldoDistribuidor(id);
