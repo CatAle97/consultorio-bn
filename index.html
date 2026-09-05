@@ -627,6 +627,22 @@
        driver ya tiene puesto, que es el que funciona. */
     @page { margin:2mm; }
   }
+/* Listas de "una línea por producto con su casillero": las usan el conteo del
+   estante y el abono por productos. Es la misma forma en los dos porque es el
+   mismo gesto —recorrer la lista poniendo un número— y conviene que se
+   reconozca. */
+.lista-conteo { border:1px solid var(--border); border-radius:10px; max-height:320px; overflow-y:auto; margin-bottom:10px; }
+.linea-conteo { display:flex; align-items:center; gap:10px; padding:9px 11px; border-bottom:1px solid var(--border); }
+.linea-conteo:last-child { border-bottom:none; }
+.linea-conteo > div { flex:1; min-width:0; line-height:1.35; }
+.linea-conteo .conteo-input { width:74px; flex:none; margin:0; text-align:center; font-weight:700; font-size:16px; }
+.total-abono { text-align:right; font-size:16px; margin-bottom:6px; }
+/* El cambio de modo no es un botón de acción: es un enlace, para que no compita
+   con "Registrar abono". */
+.link-modo { background:none; border:none; padding:2px 0; margin-bottom:6px; color:var(--azul); font:inherit; font-size:13px; cursor:pointer; text-align:left; }
+.link-modo:hover { text-decoration:underline; }
+
+
 </style>
 </head>
 <body>
@@ -1594,25 +1610,57 @@
 
 <!-- ============ MODAL ABONO ============ -->
 <div id="modal-abono" class="fondo-modal oculto">
-  <div class="modal" style="max-width:420px">
+  <div class="modal" style="max-width:520px">
     <h3>Registrar abono</h3>
     <div id="abono-quien" class="sub" style="margin-bottom:12px"></div>
+
+    <!-- Lo normal: se elige QUÉ se está pagando y el monto sale del precio -->
+    <div id="abono-productos">
+      <label>¿Qué le está pagando?</label>
+      <div id="abono-lista" class="lista-conteo"></div>
+      <div id="abono-total" class="total-abono"></div>
+    </div>
+
+    <!-- Salida de emergencia: un adelanto que no corresponde a frascos -->
+    <div id="abono-suelto" class="oculto">
+      <label>Monto (S/) *</label>
+      <input id="ab-monto" type="number" min="0" step="0.5" placeholder="Ej: 500" oninput="pintarSaldoTrasAbono()">
+      <div class="sub">Baja la deuda, pero después no se va a poder saber qué producto quedó saldado.</div>
+    </div>
+
+    <button type="button" id="link-modo-abono" class="link-modo" onclick="alternarModoAbono()"></button>
+
+    <div id="ab-resultado"></div>
     <div class="fila-2">
-      <div><label>Monto (S/) *</label>
-        <input id="ab-monto" type="number" min="0" step="0.5" placeholder="Ej: 500" oninput="pintarSaldoTrasAbono()">
-      </div>
       <div><label>Cómo pagó</label>
         <select id="ab-pago"><option>Efectivo</option><option>Yape / Plin</option><option>Transferencia</option><option>Tarjeta</option></select>
       </div>
+      <div><label>Fecha</label>
+        <input id="ab-fecha" type="date">
+      </div>
     </div>
-    <div id="ab-resultado"></div>
-    <label>Fecha</label>
-    <input id="ab-fecha" type="date">
     <label>Nota <span class="sub" style="font-weight:400">— opcional</span></label>
     <input id="ab-nota" placeholder="Ej: adelanto de la semana">
     <div class="acciones">
       <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
       <button class="btn" onclick="guardarAbono()">Registrar abono</button>
+    </div>
+  </div>
+</div>
+
+<!-- Contar el estante: la rutina que el distribuidor ya hace antes de ir a
+     reponer. De acá sale lo vendido, la deuda real y la lista de qué pedir. -->
+<div id="modal-conteo" class="fondo-modal oculto">
+  <div class="modal" style="max-width:520px">
+    <h3>¿Cuántos le quedan?</h3>
+    <div id="conteo-quien" class="sub" style="margin-bottom:12px"></div>
+    <div id="conteo-lista" class="lista-conteo"></div>
+    <div id="conteo-resultado"></div>
+    <label>Fecha del conteo</label>
+    <input id="conteo-fecha" type="date">
+    <div class="acciones">
+      <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
+      <button class="btn" onclick="guardarConteo()">Guardar conteo</button>
     </div>
   </div>
 </div>
@@ -1665,7 +1713,7 @@ const USUARIOS_INICIALES = [
   { id: 'u-recepcion', nombre: 'Recepción', rol: 'recepcion', pin: '1234' },
   { id: 'u-doctor', nombre: 'Dr. Arredondo', rol: 'doctor', pin: '4321' }
 ];
-let db = { pacientes: [], citas: [], catalogo: [], ventas: [], movimientos: [], atenciones: [], ordenes: [], controles: [], usuarios: [], promos: [], distribuidores: [], abonos: [], acuerdos: [], liquidaciones: [], borrados: [], config: { correlativo: 1, negocio: NEGOCIO } };
+let db = { pacientes: [], citas: [], catalogo: [], ventas: [], movimientos: [], atenciones: [], ordenes: [], controles: [], usuarios: [], promos: [], distribuidores: [], abonos: [], conteos: [], acuerdos: [], liquidaciones: [], borrados: [], config: { correlativo: 1, negocio: NEGOCIO } };
 
 function cargar() {
   try {
@@ -1704,7 +1752,7 @@ function guardar() {
   // dejaría al consultorio sin poder cobrar.
   marcarPendienteDeSubir();
 }
-const COLECCIONES = ['pacientes','citas','catalogo','ventas','movimientos','atenciones','ordenes','controles','usuarios','promos','distribuidores','abonos','acuerdos','liquidaciones'];
+const COLECCIONES = ['pacientes','citas','catalogo','ventas','movimientos','atenciones','ordenes','controles','usuarios','promos','distribuidores','abonos','conteos','acuerdos','liquidaciones'];
 
 /* Al fusionar dos copias, "lo que está en cualquiera de las dos" es la regla —
    por eso hay que anotar aparte lo que se borró. Si no, borrar un paciente en
@@ -4382,6 +4430,7 @@ function borrarDistribuidor(id) {
   else if (!cargosDe(id).length && !confirm('¿Eliminar a ' + d.nombre + '?')) return;
   olvidar('distribuidores', id);
   abonosDe(id).forEach(a => olvidar('abonos', a.id));
+  db.conteos.filter(c => c.distribuidorId === id).forEach(c => olvidar('conteos', c.id));
   guardar(); irA('distribuidores');
 }
 
@@ -4391,76 +4440,88 @@ function verCuenta(id) {
   const d = db.distribuidores.find(x => x.id === id);
   if (!d) { irA('distribuidores'); return; }
   cuentaId = id;
-  const debe = saldoDistribuidor(id);
-  const cargos = cargosDe(id).reduce((s,v) => s + totalVenta(v), 0);
-  const pagos  = abonosDe(id).reduce((s,a) => s + Number(a.monto || 0), 0);
+  const r = resumenCuenta(id);
 
   document.getElementById('cuenta-cabecera').innerHTML =
     '<h2 style="margin-top:12px">' + esc(d.nombre) + '</h2>' +
     '<div class="sub" style="margin-bottom:10px">' + esc(d.documento || 'Sin documento') +
       (d.telefono ? ' · ' + esc(d.telefono) : '') + (d.nota ? ' · ' + esc(d.nota) : '') + '</div>' +
     '<div class="grid-datos">' +
-      '<div class="dato"><small>Se llevó</small><b>' + money(cargos) + '</b></div>' +
-      '<div class="dato"><small>Abonó</small><b style="color:var(--success)">' + money(pagos) + '</b></div>' +
+      '<div class="dato"><small>Se llevó</small><b>' + money(r.llevo) + '</b></div>' +
+      '<div class="dato"><small>Abonó</small><b style="color:var(--success)">' + money(r.abono) + '</b></div>' +
       '<div class="dato"><small>Debe hoy</small><b style="font-size:19px;color:' +
-        (debe > 0 ? 'var(--warning)' : 'var(--success)') + '">' + money(debe) + '</b></div>' +
+        (r.debe > 0 ? 'var(--warning)' : 'var(--success)') + '">' + money(r.debe) + '</b></div>' +
     '</div>' +
+    // La deuda partida en dos: la que ya cobró en la calle y la que todavía
+    // está en su estante. Son dos conversaciones distintas y antes se veían
+    // como una sola cifra.
+    (r.debe > 0 && r.hayConteo
+      ? '<div class="grid-datos" style="margin-top:-4px">' +
+          '<div class="dato"><small>De eso, ya lo vendió</small><b style="color:var(--warning)">' + money(r.vendido) + '</b>' +
+            '<span class="sub">plata que ya cobró</span></div>' +
+          '<div class="dato"><small>Todavía lo tiene</small><b>' + money(r.estante) + '</b>' +
+            '<span class="sub">mercadería en su poder</span></div>' +
+        '</div>'
+      : r.debe > 0
+        ? '<div class="aviso">Todo lo que debe figura como no vendido todavía. Toca <b>📋 Qué le queda</b> y anota cuántos frascos tiene de cada producto: el sistema calcula solo lo que vendió.</div>'
+        : '') +
     '<div class="barra">' +
-      (debe > 0 && !esDoctor() ? '<button class="btn" onclick="abrirModalAbono(\'' + id + '\')">💵 Registrar abono</button>' : '') +
+      (!esDoctor() ? '<button class="btn" onclick="abrirModalAbono(\'' + id + '\')">💵 Registrar abono</button>' : '') +
+      '<button class="btn btn-sec" onclick="abrirModalConteo(\'' + id + '\')">📋 Qué le queda</button>' +
       '<button class="btn btn-sec" onclick="abrirModalDistribuidor(\'' + id + '\')">Editar datos</button>' +
       '<span style="flex:1"></span>' +
       (!esDoctor() ? '<button class="btn btn-peligro btn-mini" onclick="borrarDistribuidor(\'' + id + '\')">Eliminar</button>' : '') +
     '</div>' +
     // Para el dueño esta pantalla es de consulta: ve cuánto le deben, no cobra
-    (esDoctor() && debe > 0
+    (esDoctor() && r.debe > 0
       ? '<div class="sub" style="margin-bottom:12px">Cuando ' + esc(d.nombre) + ' pague, recepción lo registra desde su usuario y el saldo se actualiza aquí solo.</div>'
+      : '') +
+    (r.sinDetalle > 0
+      ? '<div class="aviso">Hay <b>' + money(r.sinDetalle) + '</b> abonados sin decir qué producto pagaban. Bajan la deuda, pero no se puede saber qué frasco quedó saldado. De acá en adelante conviene abonar eligiendo los productos.</div>'
       : '');
 
-  // Qué marcas se llevó en total: lo primero que quiere saber el dueño
-  const llevados = productosLlevados(id);
-  const unidades = llevados.reduce((s,k) => s + k.cant, 0);
+  // LA TABLA QUE MANDA: producto por producto, sumando todos los retiros.
+  const filas = r.filas;
+  const unidades = filas.reduce((s,f) => s + f.llevo, 0);
   const marcas = porMarca(id);
-  document.getElementById('cuenta-productos').innerHTML = !llevados.length ? '' :
-    '<h2>Qué se llevó</h2>' +
-    '<div class="sub" style="margin-bottom:8px">' + plural(unidades,'unidad','unidades') + ' en total, sumando todas las entregas a crédito.</div>' +
-    // Cuánto es marca propia y cuánto de terceros: es lo primero que mira el dueño
+  document.getElementById('cuenta-productos').innerHTML = !filas.length ? '' :
+    '<h2>Producto por producto</h2>' +
+    '<div class="sub" style="margin-bottom:8px">' + plural(unidades,'unidad','unidades') +
+      ' en total, sumando ' + plural(cargosDe(id).length,'retiro','retiros') + '. No importa de qué retiro salió cada frasco.' +
+      (r.hayConteo ? ' Último conteo: ' + fechaBonita(fechaUltimoConteo(id)) + '.' : '') + '</div>' +
+    // Cuánto es marca propia y cuánto de terceros: lo primero que mira el dueño
     (marcas.length > 1
       ? '<div class="grid-datos">' + marcas.map(m =>
           '<div class="dato"><small>' + esc(m.marca) + '</small><b>' + money(m.monto) + '</b>' +
-          '<span class="sub">' + m.cant + ' und · ' + plural(m.productos,'producto','productos') + '</span></div>').join('') +
+          '<span class="sub">' + m.cant + ' und · debe ' + money(m.debe) + '</span></div>').join('') +
         '</div>'
       : '') +
-    '<table class="tabla tarjetas"><thead><tr><th>Producto</th><th>Marca</th><th>Unidades</th><th>Entregas</th><th>Monto</th></tr></thead><tbody>' +
-    llevados.map(k => '<tr>' +
-      '<td data-th="Producto"><b>' + esc(k.nombre) + '</b></td>' +
-      '<td data-th="Marca">' + (k.marca ? '<span class="chip ' + (k.marca === 'B&N' ? 'chip-verde' : 'chip-gris') + '">' + esc(k.marca) + '</span>' : '<span class="sub">—</span>') + '</td>' +
-      '<td data-th="Unidades"><b>' + k.cant + '</b></td>' +
-      '<td data-th="Entregas" class="sub">' + plural(k.veces,'vez','veces') + '</td>' +
-      '<td data-th="Monto">' + money(k.monto) + '</td>' +
-      '</tr>').join('') + '</tbody></table>';
+    '<table class="tabla tarjetas"><thead><tr><th>Producto</th><th>Marca</th><th>Se llevó</th><th>Pagó</th><th>Le queda</th><th>Debe</th></tr></thead><tbody>' +
+    filas.map(f => '<tr>' +
+      '<td data-th="Producto"><b>' + esc(f.nombre) + '</b>' +
+        '<br><span class="sub">' + money(f.unit) + ' c/u · ' + plural(f.veces,'retiro','retiros') + '</span></td>' +
+      '<td data-th="Marca">' + (f.marca ? chipMarca(f.marca).trim() : '<span class="sub">—</span>') + '</td>' +
+      '<td data-th="Se llevó"><b>' + f.llevo + '</b></td>' +
+      '<td data-th="Pagó">' + (f.pago ? '<b style="color:var(--success)">' + f.pago + '</b>' : '<span class="sub">0</span>') + '</td>' +
+      '<td data-th="Le queda">' + (f.contado
+          ? '<b>' + f.queda + '</b>' + (f.queda === 0 ? ' <span class="chip chip-gris">Agotado</span>' : '')
+          : '<span class="sub">sin contar</span>') + '</td>' +
+      '<td data-th="Debe">' + (f.debe > 0
+          ? '<b style="color:var(--warning)">' + money(f.debe) + '</b><br><span class="sub">' + f.debeUnd + ' und</span>'
+          : '<span class="chip chip-verde">Pagado</span>') + '</td>' +
+      '</tr>').join('') + '</tbody></table>' +
+    // Qué reponer: el sistema arma la lista para no ir de memoria donde el Dr.
+    (function () {
+      const bajos = filas.filter(f => f.contado && f.queda <= 1);
+      return bajos.length
+        ? '<div class="aviso" style="border-left-color:var(--warning);margin-top:8px"><b>Para reponer:</b> ' +
+            bajos.map(f => esc(f.nombre) + ' <span class="sub">(le ' + (f.queda === 1 ? 'queda 1' : 'quedan 0') + ')</span>').join(' · ') +
+          '</div>'
+        : '';
+    })();
 
   const movs = movimientosCuenta(id);
-  const app = aplicacionDeAbonos(id);
-  const pendientes = app.filas.filter(f => f.estado !== 'pagada');
   document.getElementById('cuenta-movimientos').innerHTML =
-    // Qué entregas cubrió lo que abonó, sin que nadie tenga que anotarlo
-    (app.filas.length
-      ? '<h2>Qué está pagado</h2>' +
-        '<div class="sub" style="margin-bottom:8px">Lo que abona se aplica a las entregas de la más antigua a la más nueva.' +
-          (app.aFavor > 0 ? ' Tiene <b>' + money(app.aFavor) + '</b> a favor.' : '') + '</div>' +
-        '<table class="tabla tarjetas"><thead><tr><th>Entrega</th><th>Qué se llevó</th><th>Monto</th><th>Pagado</th><th>Falta</th></tr></thead><tbody>' +
-        app.filas.slice().reverse().map(fila =>
-          '<tr><td data-th="Entrega"><b>#' + fila.venta.numero + '</b><br><span class="sub">' + fechaBonita(fila.venta.fecha) + '</span></td>' +
-          '<td data-th="Qué se llevó" class="sub">' + fila.venta.items.map(i =>
-              i.cant + '× ' + esc(i.nombre) + (marcaDeItem(i) ? ' <span class="sub">(' + esc(marcaDeItem(i)) + ')</span>' : '')).join('<br>') + '</td>' +
-          '<td data-th="Monto">' + money(fila.total) + '</td>' +
-          '<td data-th="Pagado"><b style="color:var(--success)">' + money(fila.pagado) + '</b>' + chipPago(fila) + '</td>' +
-          '<td data-th="Falta">' + (fila.saldo > 0 ? '<b style="color:var(--warning)">' + money(fila.saldo) + '</b>' : '<span class="sub">—</span>') + '</td></tr>').join('') +
-        '</tbody></table>' +
-        (pendientes.length
-          ? '<div class="sub" style="margin:6px 0 0">' + plural(pendientes.length, 'entrega sigue', 'entregas siguen') + ' sin saldar del todo.</div>'
-          : '<div class="aviso" style="border-left-color:var(--success);margin-top:6px">✅ Todas las entregas están pagadas.</div>')
-      : '') +
     '<h2>Movimientos</h2>' +
     (!movs.length
       ? '<div class="vacio">Todavía no se llevó nada a crédito.</div>'
@@ -4474,78 +4535,237 @@ function verCuenta(id) {
                 '<span class="pista"> · ver detalle</span></summary>' +
               m.items.map(i =>
                 '<div class="linea-item"><b>' + i.cant + '×</b> ' + esc(i.nombre) + chipMarca(i.marca) +
-                ' <span class="sub">a ' + money(i.precio) + '</span></div>').join('') +
+                (i.precio ? ' <span class="sub">a ' + money(i.precio) + '</span>' : '')).join('') +
               '</details>'
-            : '<span class="sub">' + esc(m.detalle) + '</span>') +
+            : '<span class="sub">' + esc(m.detalle) + '</span>' +
+              (m.sinDetalle ? ' <span class="chip chip-amarillo">Sin detallar</span>' : '')) +
           '</td>' +
           '<td data-th="Se llevó">' + (m.tipo === 'cargo'
-            ? '<b>' + money(m.monto) + '</b>' + chipPago(m.pago)
+            ? '<b>' + money(m.monto) + '</b>'
             : '<span class="sub">—</span>') + '</td>' +
           '<td data-th="Abonó">' + (m.tipo === 'abono'
             ? '<b style="color:var(--success)">' + money(m.monto) + '</b>' +
               // Deshacer un abono también es tocar la caja: solo recepción
               (!esDoctor() ? '<button class="btn btn-peligro btn-mini" style="margin-left:8px" onclick="borrarAbono(\'' + m.id + '\')">✕</button>' : '')
-            : '<span class="sub">—</span>') + '</td>' +
+            : m.tipo === 'conteo'
+              ? '<span class="chip chip-gris">Conteo</span>' +
+                (!esDoctor() ? '<button class="btn btn-peligro btn-mini" style="margin-left:8px" onclick="borrarConteo(\'' + m.id + '\')">✕</button>' : '')
+              : '<span class="sub">—</span>') + '</td>' +
           '</tr>').join('') + '</tbody></table>');
 
   SECCIONES.forEach(s => document.getElementById('sec-' + s).classList.toggle('oculto', s !== 'cuenta'));
   PESTANAS.forEach(s => document.getElementById('tab-' + s).classList.toggle('activo', s === 'distribuidores'));
 }
 
-/* Una entrega pagada, a medias o intacta. El color es el mismo criterio que
-   usa el resto del sistema: verde lo resuelto, amarillo lo que falta. */
-function chipPago(pago) {
-  if (!pago) return '';
-  if (pago.estado === 'pagada')  return ' <span class="chip chip-verde">Pagada</span>';
-  if (pago.estado === 'parcial') return ' <span class="chip chip-amarillo">Falta ' + money(pago.saldo) + '</span>';
-  return ' <span class="chip chip-rojo">Sin pagar</span>';
+/* ---------- Conteo: cuántos le quedan ----------
+   La rutina real del distribuidor es ir al local cuando le queda uno y
+   completar. Contar el estante es lo único que hace igual sin que nadie se lo
+   pida, y de ahí sale todo lo demás: lo vendido, la deuda real y qué reponer.
+   Pedirle que registre venta por venta sería pedirle que trabaje dos veces. */
+function abrirModalConteo(id) {
+  const d = db.distribuidores.find(x => x.id === id);
+  if (!d) return;
+  const filas = cuentaPorProducto(id).filter(f => f.llevo > 0);
+  document.getElementById('modal-conteo').dataset.distri = id;
+  document.getElementById('conteo-fecha').value = hoyStr();
+  document.getElementById('conteo-quien').innerHTML = !filas.length ? '' :
+    '<b>' + esc(d.nombre) + '</b> — anota cuántos le quedan hoy de cada producto. ' +
+    'Lo que falte cuenta como vendido.';
+  document.getElementById('conteo-lista').innerHTML = !filas.length
+    ? '<div class="vacio">Todavía no se llevó nada.</div>'
+    : filas.map(f =>
+        '<div class="linea-conteo" data-key="' + esc(f.key) + '" data-nombre="' + esc(f.nombre) + '" data-llevado="' + f.llevo + '">' +
+          '<div><b>' + esc(f.nombre) + '</b>' + chipMarca(f.marca) +
+            '<br><span class="sub">se llevó ' + f.llevo + ' en total' +
+            (f.contado ? ' · la última vez tenía ' + f.queda : '') + '</span></div>' +
+          '<input type="number" min="0" max="' + f.llevo + '" step="1" class="conteo-input" ' +
+            'value="' + (f.contado ? f.queda : '') + '" placeholder="0" oninput="pintarResumenConteo()">' +
+        '</div>').join('');
+  document.getElementById('conteo-resultado').innerHTML = '';
+  document.getElementById('modal-conteo').classList.remove('oculto');
+  pintarResumenConteo();
+}
+function lineasDelConteo() {
+  return [...document.querySelectorAll('#conteo-lista .linea-conteo')].map(el => {
+    const input = el.querySelector('.conteo-input');
+    const txt = input.value.trim();
+    const llevado = Number(el.dataset.llevado) || 0;
+    return { key: el.dataset.key, nombre: el.dataset.nombre, llevado,
+             quedan: Math.min(llevado, Math.max(0, Number(txt) || 0)), vacio: txt === '' };
+  });
+}
+/* Antes de guardar se dice en plata qué implica el conteo: es la diferencia
+   entre "anoté un número" y "acabo de declarar que vendí S/900". */
+function pintarResumenConteo() {
+  const id = document.getElementById('modal-conteo').dataset.distri;
+  if (!id) return;
+  const mapa = {};
+  cuentaPorProducto(id).forEach(f => (mapa[f.key] = f));
+  const puestas = lineasDelConteo().filter(l => !l.vacio);
+  const cont = document.getElementById('conteo-resultado');
+  if (!puestas.length) { cont.innerHTML = '<div class="sub">Anota al menos un producto.</div>'; return; }
+  let vendidas = 0, monto = 0, quedan = 0;
+  puestas.forEach(l => {
+    const f = mapa[l.key]; if (!f) return;
+    const v = Math.max(0, l.llevado - l.quedan);
+    vendidas += v; quedan += l.quedan;
+    monto = redondeo(monto + f.precios.slice(0, v).reduce((s,pr) => s + pr, 0));
+  });
+  cont.innerHTML = '<div class="aviso" style="margin-top:10px">Con esto queda declarado que vendió <b>' +
+    plural(vendidas,'unidad','unidades') + '</b> por <b>' + money(monto) + '</b> y que le quedan <b>' +
+    plural(quedan,'frasco','frascos') + '</b> en su poder.</div>';
+}
+function guardarConteo() {
+  const id = document.getElementById('modal-conteo').dataset.distri;
+  const puestas = lineasDelConteo().filter(l => !l.vacio);
+  if (!puestas.length) { alert('Anota cuántos le quedan de al menos un producto.'); return; }
+  db.conteos.push({
+    id: nuevoId(), distribuidorId: id,
+    fecha: document.getElementById('conteo-fecha').value || hoyStr(), hora: horaAhora(),
+    // Se guarda cuánto se había llevado al momento de contar: es lo que hace
+    // que un retiro posterior no descuadre lo vendido.
+    lineas: puestas.map(l => ({ key: l.key, nombre: l.nombre, quedan: l.quedan, llevado: l.llevado })),
+    usuarioId: sesion ? sesion.id : '', usuarioNombre: sesion ? sesion.nombre : '—'
+  });
+  guardar(); cerrarModales(); verCuenta(id); refrescarBadges();
+}
+function borrarConteo(idConteo) {
+  const c = db.conteos.find(x => x.id === idConteo);
+  if (!c) return;
+  if (!confirm('¿Borrar el conteo del ' + fechaBonita(c.fecha) + '?\n\nSe volverá a usar el conteo anterior, si lo hay.')) return;
+  const distri = c.distribuidorId;
+  olvidar('conteos', idConteo);
+  guardar(); verCuenta(distri); refrescarBadges();
 }
 
 /* ---------- Abonos ---------- */
+/* ABONAR ES DECIR QUÉ SE PAGA, no soltar un monto.
+   Con un monto suelto la libreta sabe cuánto bajó la deuda pero no de qué, y
+   con productos que rotan a distinta velocidad eso es justo lo que hay que
+   saber. Acá se eligen los frascos —el monto sale solo del precio de
+   distribuidor— y cada unidad pagada queda marcada en su producto. */
 function abrirModalAbono(id) {
   const d = db.distribuidores.find(x => x.id === id);
   if (!d) return;
-  document.getElementById('modal-abono').dataset.distri = id;
-  const pend = aplicacionDeAbonos(id).filas.filter(x => x.estado !== 'pagada');
+  const m = document.getElementById('modal-abono');
+  m.dataset.distri = id;
+  m.dataset.modo = 'productos';
+  const r = resumenCuenta(id);
   document.getElementById('abono-quien').innerHTML =
-    '<b>' + esc(d.nombre) + '</b> debe <b style="color:var(--warning)">' + money(saldoDistribuidor(id)) + '</b>' +
-    (pend.length
-      ? '<br>' + plural(pend.length, 'entrega pendiente', 'entregas pendientes') + '. La más antigua es el ' +
-        '<b>ticket #' + pend[0].venta.numero + '</b> del ' + fechaBonita(pend[0].venta.fecha) + ', le falta ' + money(pend[0].saldo) + '.'
+    '<b>' + esc(d.nombre) + '</b> debe <b style="color:var(--warning)">' + money(r.debe) + '</b>' +
+    (r.hayConteo && r.vendido > 0
+      ? '. De eso, <b>' + money(r.vendido) + '</b> es mercadería que ya vendió.'
       : '');
+  pintarLineasAbono(id);
   document.getElementById('ab-monto').value = '';
   document.getElementById('ab-nota').value = '';
   document.getElementById('ab-fecha').value = hoyStr();
   document.getElementById('ab-pago').value = 'Efectivo';
-  document.getElementById('ab-resultado').innerHTML = '';
-  document.getElementById('modal-abono').classList.remove('oculto');
+  cambiarModoAbono('productos');
+  m.classList.remove('oculto');
+}
+/* Dos maneras de abonar. La normal es por productos; el monto suelto queda como
+   salida de emergencia (un adelanto, una plata a cuenta) y se avisa que no se
+   va a poder saber qué saldó. */
+function cambiarModoAbono(modo) {
+  const m = document.getElementById('modal-abono');
+  m.dataset.modo = modo;
+  document.getElementById('abono-productos').classList.toggle('oculto', modo !== 'productos');
+  document.getElementById('abono-suelto').classList.toggle('oculto', modo === 'productos');
+  document.getElementById('link-modo-abono').textContent = modo === 'productos'
+    ? 'o abonar un monto suelto, sin detallar →'
+    : '← volver a elegir productos';
+  pintarSaldoTrasAbono();
+}
+function alternarModoAbono() {
+  cambiarModoAbono(document.getElementById('modal-abono').dataset.modo === 'productos' ? 'suelto' : 'productos');
+}
+function pintarLineasAbono(id) {
+  const filas = cuentaPorProducto(id).filter(f => f.debeUnd > 0);
+  document.getElementById('abono-lista').innerHTML = !filas.length
+    ? '<div class="vacio">No debe ningún producto. Está al día.</div>'
+    : filas.map(f =>
+        '<div class="linea-conteo" data-key="' + esc(f.key) + '" data-catalogo="' + esc(f.catalogoId) + '" ' +
+             'data-nombre="' + esc(f.nombre) + '" data-marca="' + esc(f.marca || '') + '" data-debe="' + f.debeUnd + '">' +
+          '<div><b>' + esc(f.nombre) + '</b>' + chipMarca(f.marca) +
+            '<br><span class="sub">debe ' + f.debeUnd + ' und · ' + money(f.unit) + ' c/u' +
+            (f.contado ? ' · ' + (f.vendio - f.pago > 0 ? 'vendió ' + (f.vendio - f.pago) + ' sin pagar' : 'no ha vendido más') : '') +
+            '</span></div>' +
+          '<input type="number" min="0" max="' + f.debeUnd + '" step="1" class="conteo-input abono-input" ' +
+            'value="" placeholder="0" oninput="pintarSaldoTrasAbono()">' +
+        '</div>').join('') +
+      '<div class="barra" style="margin-top:8px">' +
+        '<button type="button" class="btn btn-sec btn-mini" onclick="llenarAbono(\'vendido\')">Pagar lo que ya vendió</button>' +
+        '<button type="button" class="btn btn-sec btn-mini" onclick="llenarAbono(\'todo\')">Pagar todo lo que debe</button>' +
+        '<button type="button" class="btn btn-sec btn-mini" onclick="llenarAbono(\'nada\')">Limpiar</button>' +
+      '</div>';
+}
+/* Los dos atajos reales: "te pago lo que ya vendí" (lo habitual) y "te pago
+   todo". Escribirlos producto por producto con el proveedor delante es lento. */
+function llenarAbono(que) {
+  const id = document.getElementById('modal-abono').dataset.distri;
+  const mapa = {};
+  cuentaPorProducto(id).forEach(f => (mapa[f.key] = f));
+  document.querySelectorAll('#abono-lista .linea-conteo').forEach(el => {
+    const f = mapa[el.dataset.key];
+    const input = el.querySelector('.abono-input');
+    if (!f) { input.value = ''; return; }
+    input.value = que === 'nada' ? ''
+      : que === 'todo' ? f.debeUnd
+      : Math.max(0, Math.min(f.debeUnd, (f.vendio === null ? f.debeUnd : f.vendio - f.pago))) || '';
+  });
+  pintarSaldoTrasAbono();
+}
+/* Qué se está pagando exactamente, valorizado a los precios de las unidades más
+   antiguas: son las primeras que se saldan. */
+function lineasElegidasAbono() {
+  const id = document.getElementById('modal-abono').dataset.distri;
+  const mapa = {};
+  cuentaPorProducto(id).forEach(f => (mapa[f.key] = f));
+  return [...document.querySelectorAll('#abono-lista .linea-conteo')].map(el => {
+    const f = mapa[el.dataset.key];
+    const cant = Math.max(0, Math.min(Number(el.dataset.debe) || 0, Number(el.querySelector('.abono-input').value) || 0));
+    if (!f || !cant) return null;
+    const monto = redondeo(f.precios.slice(f.pago, f.pago + cant).reduce((s,pr) => s + pr, 0));
+    return { key: f.key, catalogoId: f.catalogoId, nombre: f.nombre, marca: f.marca, cant, monto, fila: f };
+  }).filter(Boolean);
+}
+function montoModoProductos() {
+  return redondeo(lineasElegidasAbono().reduce((s,l) => s + l.monto, 0));
+}
+function montoDelAbono() {
+  return document.getElementById('modal-abono').dataset.modo === 'productos'
+    ? montoModoProductos()
+    : redondeo(Number(document.getElementById('ab-monto').value || 0));
 }
 /* Se ve cómo queda la deuda antes de confirmar —evita el abono de S/5.000 donde
-   iban S/500— y, sobre todo, QUÉ entregas salda: es la pregunta que uno se hace
-   al recibir la plata, y la respuesta ya está en los tickets. */
+   iban S/500— y qué producto queda saldado, que es la pregunta que uno se hace
+   con la plata en la mano. */
 function pintarSaldoTrasAbono() {
   const id = document.getElementById('modal-abono').dataset.distri;
-  const monto = Number(document.getElementById('ab-monto').value || 0);
+  if (!id) return;
   const cont = document.getElementById('ab-resultado');
+  const monto = montoDelAbono();
+  const porProducto = document.getElementById('modal-abono').dataset.modo === 'productos';
+  const tot = document.getElementById('abono-total');
+  if (tot) tot.innerHTML = porProducto
+    ? 'Total del abono: <b>' + money(monto) + '</b>'
+    : '';
   if (!monto) { cont.innerHTML = ''; return; }
   const queda = redondeo(saldoDistribuidor(id) - monto);
 
-  // Lo que este abono cambia: se compara la cuenta de ahora con la de después
-  const antes = aplicacionDeAbonos(id);
-  const luego = aplicacionDeAbonos(id, monto);
-  const previoDe = v => antes.filas.find(x => x.venta.id === v.id) || { pagado: 0, estado: 'pendiente' };
-  const detalle = luego.filas.filter(f => f.pagado > previoDe(f.venta).pagado).map(f => {
-    const cierra = f.estado === 'pagada' && previoDe(f.venta).estado !== 'pagada';
-    return '<div class="linea-item"><b>#' + f.venta.numero + '</b> <span class="sub">' + fechaBonita(f.venta.fecha) + '</span> · ' +
-      f.venta.items.map(i => i.cant + '× ' + esc(i.nombre)).join(', ') +
-      (cierra ? ' <span class="chip chip-verde">Queda pagada</span>'
-              : ' <span class="chip chip-amarillo">Falta ' + money(f.saldo) + '</span>') + '</div>';
-  }).join('');
+  const detalle = porProducto
+    ? lineasElegidasAbono().map(l =>
+        '<div class="linea-item"><b>' + l.cant + '×</b> ' + esc(l.nombre) + chipMarca(l.marca) +
+        ' <span class="sub">' + money(l.monto) + '</span>' +
+        (l.cant >= l.fila.debeUnd ? ' <span class="chip chip-verde">Queda pagado</span>'
+                                  : ' <span class="chip chip-amarillo">Faltarán ' + (l.fila.debeUnd - l.cant) + ' und</span>') +
+        '</div>').join('')
+    : '';
 
   cont.innerHTML =
     (detalle
-      ? '<div class="aviso" style="margin-top:10px;border-left-color:var(--success)">' +
-          '<b>Con esto paga:</b>' + detalle + '</div>'
+      ? '<div class="aviso" style="margin-top:10px;border-left-color:var(--success)"><b>Con esto paga:</b>' + detalle + '</div>'
       : '') +
     '<div class="aviso" style="margin-top:10px">Después de este abono ' +
     (queda > 0 ? 'quedaría debiendo <b>' + money(queda) + '</b>.'
@@ -4554,13 +4774,21 @@ function pintarSaldoTrasAbono() {
 }
 function guardarAbono() {
   const id = document.getElementById('modal-abono').dataset.distri;
-  const monto = Number(document.getElementById('ab-monto').value || 0);
+  const porProducto = document.getElementById('modal-abono').dataset.modo === 'productos';
+  const lineas = porProducto ? lineasElegidasAbono() : [];
+  const monto = montoDelAbono();
   const fecha = document.getElementById('ab-fecha').value || hoyStr();
-  if (monto <= 0) { alert('El monto debe ser mayor que cero.'); return; }
+  if (monto <= 0) {
+    alert(porProducto ? 'Elige cuántas unidades de cada producto está pagando.' : 'El monto debe ser mayor que cero.');
+    return;
+  }
   const debe = saldoDistribuidor(id);
   if (monto > debe && !confirm('El abono (' + money(monto) + ') es mayor que la deuda (' + money(debe) + ').\n\n¿Registrarlo igual?')) return;
   db.abonos.push({
     id: nuevoId(), distribuidorId: id, monto, fecha, hora: horaAhora(),
+    // Las líneas son lo que convierte el abono en información: sin ellas solo
+    // se sabe que bajó la deuda.
+    lineas: lineas.map(l => ({ key: l.key, catalogoId: l.catalogoId, nombre: l.nombre, marca: l.marca, cant: l.cant, monto: l.monto })),
     metodoPago: document.getElementById('ab-pago').value,
     nota: document.getElementById('ab-nota').value.trim(),
     usuarioId: sesion ? sesion.id : '', usuarioNombre: sesion ? sesion.nombre : '—'
@@ -4843,32 +5071,173 @@ function cargosDe(id) {
 function abonosDe(id) {
   return db.abonos.filter(a => a.distribuidorId === id);
 }
-/* Los abonos se aplican a las entregas de la más vieja a la más nueva, como en
-   cualquier libreta: el que paga está saldando lo que debe desde hace más
-   tiempo. No hace falta preguntarle a nadie a qué entrega aplica —el orden lo
-   decide la fecha— y así el estado de cuenta puede decir qué quedó pagado y qué
-   no, sin pedirle un dato de más al mostrador.
+/* ---------- LA CUENTA, PRODUCTO POR PRODUCTO ----------
+   Por qué no por entrega: el distribuidor no vacía un lote y después pide otro.
+   Repone cuando le queda uno, así que sus retiros se solapan. Si los abonos se
+   aplican "a la entrega más antigua primero", un producto de rotación lenta
+   —la fibra— deja esa entrega abierta para siempre aunque todo lo demás de ese
+   mismo retiro ya esté vendido y pagado. El número total sale bien, pero
+   repartido donde no es, y la libreta deja de servir para conversar.
 
-   Se recalcula siempre desde cero, nunca se guarda: si se anula una entrega, se
-   corrige un ticket o se borra un abono, la cuenta se reacomoda sola. Guardar la
-   aplicación obligaría a rehacerla a mano cada vez. */
-function aplicacionDeAbonos(id, abonoExtra) {
-  const entregas = cargosDe(id)
-    .slice()
-    .sort((a,b) => (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || '')) || a.numero - b.numero);
-  let bolsa = redondeo(abonosDe(id).reduce((t,a) => t + Number(a.monto || 0), 0) + Number(abonoExtra || 0));
-  const filas = entregas.map(v => {
-    const total = redondeo(totalVenta(v));
-    const pagado = redondeo(Math.min(bolsa, total));
-    bolsa = redondeo(bolsa - pagado);
-    return { venta: v, total, pagado, saldo: redondeo(total - pagado),
-             estado: pagado >= total ? 'pagada' : pagado > 0 ? 'parcial' : 'pendiente' };
-  });
-  // Lo que sobra es plata pagada por encima de lo que se llevó
-  return { filas, aFavor: bolsa };
+   La unidad correcta es el PRODUCTO: cuántos frascos se llevó en total (de
+   todos los retiros juntos), cuántos ya pagó, cuántos le quedan en el estante
+   y, de ahí, cuánto debe de verdad. */
+
+/* Clave con la que se reconoce el mismo producto entre entregas, abonos y
+   conteos. El nombre es el respaldo para lo cargado antes de que existiera el
+   código de catálogo. */
+function keyProd(i) { return i.catalogoId || ('n:' + i.nombre); }
+
+/* Las líneas de un abono dicen QUÉ se está pagando. Los abonos registrados
+   antes de este cambio —y los que se hagan como monto suelto— no las tienen:
+   son plata que baja la deuda pero no se sabe de qué producto. */
+function lineasAbono(a) { return Array.isArray(a.lineas) ? a.lineas : []; }
+function abonoDetallado(a) { return lineasAbono(a).length > 0; }
+function abonosSinDetalle(id) { return abonosDe(id).filter(a => !abonoDetallado(a)); }
+function montoSinDetalle(id) {
+  return redondeo(abonosSinDetalle(id).reduce((s,a) => s + Number(a.monto || 0), 0));
 }
-function estadoEntrega(id, ventaId) {
-  return aplicacionDeAbonos(id).filas.find(f => f.venta.id === ventaId) || null;
+
+/* El último conteo de cada producto. Guarda cuánto se había llevado en ese
+   momento, no solo cuánto le quedaba: así lo vendido queda congelado y los
+   retiros posteriores suman al estante en vez de descuadrar la cuenta. */
+function ultimoConteo(id) {
+  const mapa = {};
+  db.conteos
+    .filter(c => c.distribuidorId === id)
+    .sort((a,b) => (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || '')))
+    .forEach(c => (c.lineas || []).forEach(l => {
+      mapa[l.key] = { quedan: Number(l.quedan) || 0, llevado: Number(l.llevado) || 0, fecha: c.fecha };
+    }));
+  return mapa;
+}
+function fechaUltimoConteo(id) {
+  const cs = db.conteos.filter(c => c.distribuidorId === id);
+  return cs.length ? cs.map(c => c.fecha).sort().pop() : '';
+}
+
+function cuentaPorProducto(id) {
+  const acum = {};
+  const nueva = (k, i) => (acum[k] = {
+    key: k, catalogoId: i.catalogoId || '', nombre: i.nombre, tipo: i.tipo || 'producto',
+    marca: marcaDeItem(i), llevo: 0, monto: 0, veces: 0, precios: [], pago: 0
+  });
+
+  // 1. Todo lo que salió del local, unidad por unidad y en orden cronológico:
+  //    lo que se paga primero son las unidades más antiguas.
+  cargosDe(id).slice()
+    .sort((a,b) => (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || '')) || a.numero - b.numero)
+    .forEach(v => v.items.forEach(i => {
+      const k = keyProd(i);
+      const f = acum[k] || nueva(k, i);
+      const cant = Number(i.cant) || 0, precio = Number(i.precio) || 0;
+      f.llevo += cant;
+      f.monto = redondeo(f.monto + precio * cant);
+      f.veces++;
+      for (let n = 0; n < cant; n++) f.precios.push(precio);
+    }));
+
+  // 2. Lo que ya pagó de cada uno
+  abonosDe(id).forEach(a => lineasAbono(a).forEach(l => {
+    const k = l.key || l.catalogoId || ('n:' + l.nombre);
+    const f = acum[k] || nueva(k, { catalogoId: l.catalogoId, nombre: l.nombre, tipo: 'producto' });
+    f.pago += Number(l.cant) || 0;
+  }));
+
+  // 3. Lo que declaró que le queda la última vez que contó
+  const conteo = ultimoConteo(id);
+
+  return Object.values(acum).map(f => {
+    const pago     = Math.min(f.pago, f.llevo);
+    const debeUnd  = Math.max(0, f.llevo - pago);
+    const debe     = redondeo(f.precios.slice(pago).reduce((s,p) => s + p, 0));
+    const pagado   = redondeo(f.monto - debe);
+    const unit     = f.precios.length ? f.precios[Math.min(pago, f.precios.length - 1)] : 0;
+
+    // Vendido = lo que se había llevado cuando contó, menos lo que le quedaba.
+    // Queda hoy = todo lo llevado menos lo vendido, así un retiro posterior al
+    // conteo entra solo al estante sin descuadrar nada.
+    const c = conteo[f.key];
+    const vendio = c ? Math.max(0, Math.min(f.llevo, c.llevado - c.quedan)) : null;
+    const queda  = c ? Math.max(0, f.llevo - vendio) : null;
+
+    // De lo que debe, cuánto es mercadería ya vendida (plata que ya cobró) y
+    // cuánto es mercadería que todavía tiene en la mano.
+    const vendidoSinPagar = c ? Math.max(0, Math.min(debeUnd, vendio - pago)) : debeUnd;
+    const debeVendido = redondeo(f.precios.slice(pago, pago + vendidoSinPagar).reduce((s,p) => s + p, 0));
+
+    return Object.assign({}, f, {
+      pago, debeUnd, debe, pagado, unit, vendio, queda,
+      debeVendido, debeEnEstante: redondeo(debe - debeVendido),
+      contado: !!c, fechaConteo: c ? c.fecha : ''
+    });
+  }).sort((a, b) =>
+    (b.debeUnd > 0) - (a.debeUnd > 0) ||
+    (b.marca === 'B&N') - (a.marca === 'B&N') ||
+    b.debe - a.debe || a.nombre.localeCompare(b.nombre));
+}
+
+/* Los números de la cabecera. El saldo total no cambia —sigue siendo lo que se
+   llevó menos lo que abonó—; lo que cambia es saber en qué está parado. */
+function resumenCuenta(id) {
+  const filas   = cuentaPorProducto(id);
+  const llevo   = redondeo(filas.reduce((s,f) => s + f.monto, 0));
+  const debe    = saldoDistribuidor(id);
+  const sinDet  = montoSinDetalle(id);
+  const brutoV  = redondeo(filas.reduce((s,f) => s + f.debeVendido, 0));
+  const brutoE  = redondeo(filas.reduce((s,f) => s + f.debeEnEstante, 0));
+  // Los abonos sin detalle no se pueden atribuir a un producto: se descuentan
+  // de lo vendido, que es lo primero que cualquiera paga.
+  const vendido = redondeo(Math.max(0, brutoV - sinDet));
+  const sobra   = redondeo(Math.max(0, sinDet - brutoV));
+  const estante = redondeo(Math.max(0, brutoE - sobra));
+  return { filas, llevo, abono: redondeo(llevo - debe), debe, vendido, estante,
+           sinDetalle: sinDet, hayConteo: filas.some(f => f.contado) };
+}
+
+/* Qué se llevó en total. Conserva el nombre viejo porque la lista de
+   distribuidores lo usa para el resumen de una línea. */
+function productosLlevados(id) {
+  return cuentaPorProducto(id).filter(f => f.llevo > 0)
+    .map(f => Object.assign({}, f, { cant: f.llevo }))
+    .sort((a,b) => (b.marca === 'B&N') - (a.marca === 'B&N') || b.cant - a.cant || a.nombre.localeCompare(b.nombre));
+}
+/* Cuánto de lo entregado es de la marca propia y cuánto de terceros */
+function porMarca(id) {
+  const acum = {};
+  cuentaPorProducto(id).forEach(k => {
+    const m = k.marca || 'Sin marca';
+    const a = acum[m] || (acum[m] = { marca: m, cant: 0, monto: 0, debe: 0, productos: 0 });
+    a.cant += k.llevo; a.monto = redondeo(a.monto + k.monto); a.debe = redondeo(a.debe + k.debe); a.productos++;
+  });
+  return Object.values(acum).sort((a, b) => b.monto - a.monto);
+}
+/* Estado de cuenta: retiros, abonos y conteos mezclados en orden, como una
+   libreta. */
+function movimientosCuenta(id) {
+  const filas = [
+    ...cargosDe(id).map(v => ({
+      fecha: v.fecha, hora: v.hora || '', tipo: 'cargo', id: v.id,
+      detalle: 'Retiró · ticket #' + v.numero + ' · ' + v.items.reduce((s,i) => s + Number(i.cant), 0) + ' und',
+      // Qué se llevó exactamente en esa entrega, no solo cuántas unidades
+      items: v.items.map(i => ({ nombre: i.nombre, cant: Number(i.cant), precio: Number(i.precio), marca: marcaDeItem(i) })),
+      monto: totalVenta(v)
+    })),
+    ...abonosDe(id).map(a => ({
+      fecha: a.fecha, hora: a.hora || '', tipo: 'abono', id: a.id,
+      detalle: 'Abonó · ' + (a.metodoPago || '—') + (a.nota ? ' · ' + a.nota : ''),
+      items: lineasAbono(a).map(l => ({ nombre: l.nombre, cant: Number(l.cant), precio: redondeo(Number(l.monto || 0) / (Number(l.cant) || 1)), marca: l.marca || '' })),
+      sinDetalle: !abonoDetallado(a),
+      monto: Number(a.monto || 0)
+    })),
+    ...db.conteos.filter(c => c.distribuidorId === id).map(c => ({
+      fecha: c.fecha, hora: c.hora || '', tipo: 'conteo', id: c.id,
+      detalle: 'Contó lo que le queda · ' + plural((c.lineas || []).length, 'producto', 'productos'),
+      items: (c.lineas || []).map(l => ({ nombre: l.nombre, cant: Number(l.quedan), precio: 0, marca: '' })),
+      monto: 0
+    }))
+  ];
+  return filas.sort((a,b) => (b.fecha + b.hora).localeCompare(a.fecha + a.hora));
 }
 function saldoDistribuidor(id) {
   const debe  = cargosDe(id).reduce((s,v) => s + totalVenta(v), 0);
@@ -4877,52 +5246,6 @@ function saldoDistribuidor(id) {
 }
 function deudaTotal() {
   return redondeo(db.distribuidores.reduce((s,d) => s + Math.max(0, saldoDistribuidor(d.id)), 0));
-}
-/* Qué marcas se llevó en total, sumando todas las entregas a crédito. Es la
-   pregunta del dueño —"¿qué se está llevando?"— y no se responde mirando
-   ticket por ticket. */
-function productosLlevados(id) {
-  const acum = {};
-  cargosDe(id).forEach(v => v.items.forEach(i => {
-    const k = acum[i.nombre] || (acum[i.nombre] = { nombre: i.nombre, tipo: i.tipo, marca: marcaDeItem(i), cant: 0, monto: 0, veces: 0 });
-    k.cant  += Number(i.cant);
-    k.monto += Number(i.precio) * Number(i.cant);
-    k.veces++;
-  }));
-  // Primero lo propio: al Dr. le interesa distinto lo que se lleva de B&N que
-  // lo que se lleva de otras marcas
-  return Object.values(acum).sort((a, b) =>
-    (b.marca === 'B&N') - (a.marca === 'B&N') || b.cant - a.cant || a.nombre.localeCompare(b.nombre));
-}
-/* Cuánto de lo entregado es de la marca propia y cuánto de terceros */
-function porMarca(id) {
-  const acum = {};
-  productosLlevados(id).forEach(k => {
-    const m = k.marca || 'Sin marca';
-    const a = acum[m] || (acum[m] = { marca: m, cant: 0, monto: 0, productos: 0 });
-    a.cant += k.cant; a.monto += k.monto; a.productos++;
-  });
-  return Object.values(acum).sort((a, b) => b.monto - a.monto);
-}
-/* Estado de cuenta: cargos y abonos mezclados en orden, como una libreta */
-function movimientosCuenta(id) {
-  const filas = [
-    ...cargosDe(id).map(v => ({
-      fecha: v.fecha, hora: v.hora || '', tipo: 'cargo', id: v.id,
-      // Cuánto de esta entrega quedó cubierto por los abonos
-      pago: estadoEntrega(id, v.id),
-      detalle: 'Ticket #' + v.numero + ' · ' + v.items.reduce((s,i) => s + Number(i.cant), 0) + ' und',
-      // Qué se llevó exactamente en esa entrega, no solo cuántas unidades
-      items: v.items.map(i => ({ nombre: i.nombre, cant: Number(i.cant), precio: Number(i.precio), marca: marcaDeItem(i) })),
-      monto: totalVenta(v)
-    })),
-    ...abonosDe(id).map(a => ({
-      fecha: a.fecha, hora: a.hora || '', tipo: 'abono', id: a.id,
-      detalle: 'Abono · ' + (a.metodoPago || '—') + (a.nota ? ' · ' + a.nota : ''),
-      monto: Number(a.monto || 0)
-    }))
-  ];
-  return filas.sort((a,b) => (b.fecha + b.hora).localeCompare(a.fecha + a.hora));
 }
 /* Lo que un distribuidor abonó dentro de un rango: esto SÍ es plata que entró */
 function abonosEnRango(desde, hasta, usuario) {
