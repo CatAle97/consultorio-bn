@@ -1385,13 +1385,6 @@
       <div id="v-distri-bloque" class="oculto" style="margin-top:10px">
         <label style="margin-top:0">¿Cuál distribuidor?</label>
         <select id="v-distribuidor" onchange="pintarCarrito()"></select>
-        <!-- La fecha se puede corregir SOLO acá. Un retiro se anota a veces
-             días después —o nunca se anotó, como los primeros—, y ponerle la
-             fecha de hoy desordena la libreta. En una venta de mostrador no
-             aparece: esa sí es la caja del día y no se toca. -->
-        <label>¿Qué día se lo llevó?</label>
-        <input id="v-fecha" type="date">
-        <div class="sub">Déjalo en hoy si se lo está llevando ahora. Cámbialo si estás anotando un retiro de antes.</div>
       </div>
       <!-- Vincular al paciente es opcional y por eso está plegado: obligar a
            buscarlo antes de cobrar es lo que hace que se vuelva al papel.
@@ -1432,6 +1425,18 @@
          apilan en el mismo orden. -->
     <div class="pos-grid">
       <div class="pos-col">
+        <!-- ============ CUÁNDO FUE ============
+             El sistema entró a un negocio que venía anotando en papel y por
+             WhatsApp, así que hay ventas viejas que recién se están cargando.
+             Si todas se fechan hoy, la caja de hoy queda inflada y la de esos
+             días, vacía. Arranca en hoy —que es el caso normal— y avisa fuerte
+             cuando no lo es, para que nadie deje una fecha vieja sin querer. -->
+        <div class="pos-paso">
+          <div class="pos-titulo">¿Qué día fue la venta?</div>
+          <input id="v-fecha" type="date" onchange="pintarAvisoFecha()">
+          <div id="v-fecha-aviso"></div>
+        </div>
+
         <div class="pos-paso">
           <div class="pos-titulo">Método de pago</div>
           <!-- Los botones salen de las opciones del propio <select>, que sigue
@@ -5471,6 +5476,9 @@ function abrirModalVenta(pacienteId) {
         .map(d => '<option value="' + d.id + '">' + esc(d.nombre) +
           (saldoDistribuidor(d.id) > 0 ? ' · debe ' + money(saldoDistribuidor(d.id)) : '') + '</option>').join('');
   document.getElementById('v-fecha').value = hoyStr();
+  // Una venta no puede haber ocurrido mañana: el navegador no deja elegirla
+  document.getElementById('v-fecha').max = hoyStr();
+  pintarAvisoFecha();
   listaPrecio = 'paciente';
   cambiarListaPrecio('paciente');   // deja el bloque de distribuidor y el crédito ocultos
   // El comprobante arranca en nota interna: es lo que se entrega hoy. Los datos
@@ -5521,6 +5529,7 @@ function editarVenta(id) {
   carrito = v.items.map(i => ({ ...i }));
   if (v.distribuidorId) document.getElementById('v-distribuidor').value = v.distribuidorId;
   document.getElementById('v-fecha').value = v.fecha || hoyStr();
+  pintarAvisoFecha();
   document.getElementById('v-pago').value = v.metodoPago || 'Efectivo';
 
   cambiarComprobante(tipoComprobante(v));
@@ -6035,6 +6044,11 @@ function pintarCarrito() {
     : ventaEditando ? '✓ Guardar cambios · ' + money(total)
     : esVentaCredito() ? '📋 ENTREGAR ' + money(total)
     : 'COBRAR ' + money(total);
+  // El botón es lo último que se mira antes de confirmar: si la venta no es de
+  // hoy, tiene que decirlo ahí y no solo en un aviso más arriba.
+  if (!faltan.length && !faltaDistri && !faltaFactura && !esFechaDeHoy()) {
+    btn.textContent += ' · ' + fechaBonita(fechaDeVenta());
+  }
 }
 /* Un ícono por método, para reconocerlo sin leer. Si mañana el Dr. agrega otro
    método al <select>, sale con el ícono genérico y sigue funcionando. */
@@ -6062,6 +6076,31 @@ function elegirMetodoPago(valor) {
   document.getElementById('v-pago').value = valor;
   pintarCarrito();
 }
+/* La fecha que se está cobrando. Nunca en el futuro y nunca vacía: si el campo
+   quedó en blanco, la venta es de hoy. */
+function fechaDeVenta(porDefecto) {
+  const el = document.getElementById('v-fecha');
+  const v = el ? el.value : '';
+  if (!v) return porDefecto || hoyStr();
+  return v > hoyStr() ? hoyStr() : v;
+}
+function esFechaDeHoy() { return fechaDeVenta() === hoyStr(); }
+/* Cobrar con fecha vieja es correcto —así se cargan las ventas del papel— pero
+   tiene que verse: esa plata entra a la caja de ese día, no a la de hoy, y
+   quien cuadre caja hoy no la va a encontrar. */
+function pintarAvisoFecha() {
+  const cont = document.getElementById('v-fecha-aviso');
+  if (!cont) return;
+  const f = fechaDeVenta();
+  cont.innerHTML = f === hoyStr()
+    ? '<div class="sub">Hoy. Cámbialo solo si estás anotando una venta de otro día.</div>'
+    : '<div class="aviso" style="border-left-color:var(--warning);margin-top:8px">' +
+        'Se va a registrar en la caja del <b>' + fechaBonita(f) + '</b>, no en la de hoy. ' +
+        'El ticket va a salir con esa fecha.</div>';
+  // El botón de cobrar repite la fecha vieja: es el último sitio donde se mira
+  if (typeof pintarCarrito === 'function') pintarCarrito();
+}
+
 function guardarVenta() {
   if (!carrito.length) { alert('Agrega al menos un servicio o producto.'); return; }
   // El descuento se recalcula aquí, no se lee de la pantalla: lo que se cobra
@@ -6102,8 +6141,7 @@ function guardarVenta() {
     // A crédito la mercadería sale pero la plata no entra: queda como deuda
     credito: aCredito,
     distribuidorId: distriId,
-    // Solo un retiro a crédito puede llevar una fecha que no sea hoy
-    fecha: aCredito ? (document.getElementById('v-fecha').value || hoyStr()) : hoyStr(),
+    fecha: fechaDeVenta(),
     comprobante,
     receptor: receptorDeVenta(),
     ordenId: ordenCobrando,
@@ -6173,9 +6211,7 @@ function guardarEdicionVenta(promo, desc, aCredito, distriId) {
   v.lista = listaPrecio === 'colega' ? 'colega' : 'paciente';
   v.credito = !!aCredito;
   v.distribuidorId = distriId || '';
-  // Corregir el día del retiro es parte de ordenar la libreta; una venta de
-  // mostrador conserva la suya, que es la de la caja de ese día.
-  if (aCredito) v.fecha = document.getElementById('v-fecha').value || v.fecha;
+  v.fecha = fechaDeVenta(v.fecha);
   v.comprobante = comprobante || 'nota';
   v.receptor = receptorDeVenta();
   // Rastro de quién la tocó y cuándo: una venta corregida no puede parecer
