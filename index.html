@@ -1694,6 +1694,37 @@
   </div>
 </div>
 
+<!-- Devolución: en consignación, lo que no se vendió vuelve. Baja la deuda y
+     el frasco regresa al estante del consultorio, listo para venderse. -->
+<div id="modal-devolucion" class="fondo-modal oculto">
+  <div class="modal" style="max-width:520px">
+    <h3>↩️ Devolución de mercadería</h3>
+    <div id="dev-quien" class="sub" style="margin-bottom:12px"></div>
+    <label>¿Qué le está devolviendo?</label>
+    <input type="search" id="dev-buscar" placeholder="🔍 Escribe el producto…" oninput="filtrarDevolucion()">
+    <div id="dev-lista" class="lista-conteo"></div>
+    <div id="dev-vacio" class="sub oculto"></div>
+    <div id="dev-atajos" class="barra" style="margin-top:8px"></div>
+    <div id="dev-total" class="total-abono"></div>
+    <div id="dev-resultado"></div>
+    <div class="fila-2">
+      <div><label>Fecha</label><input id="dev-fecha" type="date"></div>
+      <div><label>Estado de lo devuelto</label>
+        <select id="dev-estado" onchange="pintarSaldoTrasDevolucion()">
+          <option value="bueno">Vuelve a la venta — entra al stock</option>
+          <option value="malo">Roto o vencido — no entra al stock</option>
+        </select>
+      </div>
+    </div>
+    <label>Nota <span class="sub" style="font-weight:400">— opcional</span></label>
+    <input id="dev-nota" placeholder="Ej: no se vendió, cierra el punto">
+    <div class="acciones">
+      <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
+      <button class="btn" onclick="guardarDevolucion()">Registrar devolución</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============ MODAL NUBE · conectar este equipo al consultorio ============ -->
 <div id="modal-nube" class="fondo-modal oculto">
   <div class="modal" style="max-width:460px">
@@ -1742,7 +1773,7 @@ const USUARIOS_INICIALES = [
   { id: 'u-recepcion', nombre: 'Recepción', rol: 'recepcion', pin: '1234' },
   { id: 'u-doctor', nombre: 'Dr. Arredondo', rol: 'doctor', pin: '4321' }
 ];
-let db = { pacientes: [], citas: [], catalogo: [], ventas: [], movimientos: [], atenciones: [], ordenes: [], controles: [], usuarios: [], promos: [], distribuidores: [], abonos: [], conteos: [], acuerdos: [], liquidaciones: [], borrados: [], config: { correlativo: 1, negocio: NEGOCIO } };
+let db = { pacientes: [], citas: [], catalogo: [], ventas: [], movimientos: [], atenciones: [], ordenes: [], controles: [], usuarios: [], promos: [], distribuidores: [], abonos: [], conteos: [], devoluciones: [], acuerdos: [], liquidaciones: [], borrados: [], config: { correlativo: 1, negocio: NEGOCIO } };
 
 function cargar() {
   try {
@@ -1781,7 +1812,7 @@ function guardar() {
   // dejaría al consultorio sin poder cobrar.
   marcarPendienteDeSubir();
 }
-const COLECCIONES = ['pacientes','citas','catalogo','ventas','movimientos','atenciones','ordenes','controles','usuarios','promos','distribuidores','abonos','conteos','acuerdos','liquidaciones'];
+const COLECCIONES = ['pacientes','citas','catalogo','ventas','movimientos','atenciones','ordenes','controles','usuarios','promos','distribuidores','abonos','conteos','devoluciones','acuerdos','liquidaciones'];
 
 /* Al fusionar dos copias, "lo que está en cualquiera de las dos" es la regla —
    por eso hay que anotar aparte lo que se borró. Si no, borrar un paciente en
@@ -4372,8 +4403,17 @@ function distribuidoresOrdenados(filtro) {
   const t = normalizar(filtro || '');
   return db.distribuidores
     .filter(d => !t || normalizar(d.nombre).includes(t) || String(d.documento || '').includes(t))
-    // Primero los que deben, y de esos, el que más debe: es lo que hay que mirar
-    .sort((a, b) => saldoDistribuidor(b.id) - saldoDistribuidor(a.id) || a.nombre.localeCompare(b.nombre));
+    // Primero los que deben; entre ellos, el que hace más tiempo que no abona.
+    // Ordenar por monto ponía arriba al que se llevó ayer y escondía al que
+    // debe poco desde hace meses, que es justo al que hay que llamar.
+    .sort((a, b) => {
+      const da = saldoDistribuidor(a.id) > 0, dbb = saldoDistribuidor(b.id) > 0;
+      if (da !== dbb) return da ? -1 : 1;
+      const aa = antiguedadDeuda(a.id), ab = antiguedadDeuda(b.id);
+      return (ab ? ab.dias : -1) - (aa ? aa.dias : -1) ||
+             saldoDistribuidor(b.id) - saldoDistribuidor(a.id) ||
+             a.nombre.localeCompare(b.nombre);
+    });
 }
 function pintarDistribuidores() {
   const lista = distribuidoresOrdenados(document.getElementById('buscador-distri').value);
@@ -4388,6 +4428,19 @@ function pintarDistribuidores() {
       '<div class="dato"><small>Distribuidores debiendo</small><b style="font-size:19px">' + conDeuda.length + '</b></div>' +
       '<div class="dato"><small>Registrados</small><b style="font-size:19px">' + db.distribuidores.length + '</b></div>' +
     '</div>' +
+    // A quién llamar hoy. La deuda sin antigüedad no se cobra sola.
+    (function () {
+      const viejos = conDeuda.map(d => ({ d, a: antiguedadDeuda(d.id) }))
+        .filter(x => x.a && x.a.dias >= DIAS_DEUDA_VIEJA)
+        .sort((x, y) => y.a.dias - x.a.dias);
+      if (!viejos.length) return '';
+      const plata = redondeo(viejos.reduce((s, x) => s + saldoDistribuidor(x.d.id), 0));
+      return '<div class="aviso aviso-amarillo" style="margin-bottom:12px">' +
+        '📞 <b>' + plural(viejos.length, 'distribuidor lleva', 'distribuidores llevan') + '</b> más de ' +
+        DIAS_DEUDA_VIEJA + ' días sin abonar, por <b>' + money(plata) + '</b> en total: ' +
+        viejos.slice(0, 3).map(x => esc(x.d.nombre) + ' <span class="sub">(' + x.a.dias + ' días)</span>').join(' · ') +
+        (viejos.length > 3 ? ' y ' + plural(viejos.length - 3, 'más', 'más') : '') + '</div>';
+    })() +
     // Esta plata está en la calle, no en la caja: conviene que se lea así
     (total > 0 ? '<div class="sub" style="margin-bottom:12px">Es mercadería ya entregada que todavía no se cobró. No cuenta como ingreso hasta que abonen.</div>' : '');
 
@@ -4414,7 +4467,16 @@ function pintarDistribuidores() {
           '</td>' +
           '<td data-th="Abonó" style="color:var(--success)">' + money(pagos) + '</td>' +
           '<td data-th="Debe"><b style="color:' + (debe > 0 ? 'var(--warning)' : 'var(--success)') + '">' +
-            money(debe) + '</b>' + (debe <= 0 ? ' <span class="chip chip-verde">Al día</span>' : '') + '</td>' +
+            money(debe) + '</b>' + (debe <= 0 ? ' <span class="chip chip-verde">Al día</span>' : '') +
+            (function () {
+              const a = antiguedadDeuda(d.id);
+              if (!a) return '';
+              const texto = a.abonoAlguna
+                ? (a.dias === 0 ? 'abonó hoy' : 'sin abonar hace ' + plural(a.dias, 'día', 'días'))
+                : (a.dias === 0 ? 'se lo llevó hoy' : 'debe desde hace ' + plural(a.dias, 'día', 'días'));
+              return '<br><span class="sub"' + (a.dias >= DIAS_DEUDA_VIEJA ? ' style="color:var(--warning)"' : '') + '>' +
+                     (a.dias >= DIAS_DEUDA_VIEJA ? '⏳ ' : '') + texto + '</span>';
+            })() + '</td>' +
           '<td data-th=""><div class="acc-tabla">' +
             '<button class="btn btn-sec btn-mini" onclick="verCuenta(\'' + d.id + '\')">Estado de cuenta</button>' +
             // El doctor consulta la cuenta; quien recibe la plata y la registra
@@ -4455,11 +4517,14 @@ function borrarDistribuidor(id) {
   // Un distribuidor con deuda no se borra: se perdería el rastro de esa plata
   const debe = saldoDistribuidor(d.id);
   if (debe > 0) { alert(d.nombre + ' todavía debe ' + money(debe) + '.\n\nRegistra el pago antes de eliminarlo.'); return; }
-  if (cargosDe(id).length && !confirm('Se eliminará a ' + d.nombre + '.\n\nSus tickets quedan en la caja, pero el estado de cuenta se pierde. ¿Continuar?')) return;
+  if (cargosDe(id).length && !confirm('Se eliminará a ' + d.nombre + '.\n\nSus tickets quedan en la caja, pero el estado de cuenta se pierde' +
+      (devolucionesDe(id).length ? ', incluidas sus ' + plural(devolucionesDe(id).length, 'devolución', 'devoluciones') : '') +
+      '. ¿Continuar?')) return;
   else if (!cargosDe(id).length && !confirm('¿Eliminar a ' + d.nombre + '?')) return;
   olvidar('distribuidores', id);
   abonosDe(id).forEach(a => olvidar('abonos', a.id));
   db.conteos.filter(c => c.distribuidorId === id).forEach(c => olvidar('conteos', c.id));
+  db.devoluciones.filter(x => x.distribuidorId === id).forEach(x => olvidar('devoluciones', x.id));
   guardar(); irA('distribuidores');
 }
 
@@ -4478,6 +4543,11 @@ function verCuenta(id) {
     '<div class="grid-datos">' +
       '<div class="dato"><small>Se llevó</small><b>' + money(r.llevo) + '</b></div>' +
       '<div class="dato"><small>Abonó</small><b style="color:var(--success)">' + money(r.abono) + '</b></div>' +
+      // Devolver no es pagar: baja la deuda pero no entró plata. Se muestra
+      // aparte para que nadie lo lea como cobranza.
+      (r.devuelto > 0
+        ? '<div class="dato"><small>Devolvió</small><b>' + money(r.devuelto) + '</b><span class="sub">no entró plata</span></div>'
+        : '') +
       '<div class="dato"><small>Debe hoy</small><b style="font-size:19px;color:' +
         (r.debe > 0 ? 'var(--warning)' : 'var(--success)') + '">' + money(r.debe) + '</b></div>' +
     '</div>' +
@@ -4497,6 +4567,8 @@ function verCuenta(id) {
     '<div class="barra">' +
       (!esDoctor() ? '<button class="btn" onclick="abrirModalAbono(\'' + id + '\')">💵 Registrar abono</button>' : '') +
       '<button class="btn btn-sec" onclick="abrirModalConteo(\'' + id + '\')">📋 Qué le queda</button>' +
+      // Devolver mercadería mueve deuda y stock: es de recepción, igual que abonar
+      (!esDoctor() && r.debe > 0 ? '<button class="btn btn-sec" onclick="abrirModalDevolucion(\'' + id + '\')">↩️ Devolución</button>' : '') +
       '<button class="btn btn-sec" onclick="abrirModalDistribuidor(\'' + id + '\')">Editar datos</button>' +
       '<span style="flex:1"></span>' +
       // Rehacer los pagos desde cero: los abonos viejos no dicen qué producto
@@ -4530,13 +4602,17 @@ function verCuenta(id) {
           '<span class="sub">' + m.cant + ' und · debe ' + money(m.debe) + '</span></div>').join('') +
         '</div>'
       : '') +
-    '<table class="tabla tarjetas"><thead><tr><th>Producto</th><th>Marca</th><th>Se llevó</th><th>Pagó</th><th>Le queda</th><th>Debe</th></tr></thead><tbody>' +
+    '<table class="tabla tarjetas"><thead><tr><th>Producto</th><th>Marca</th><th>Se llevó</th><th>Pagó</th>' +
+      (r.hayDevoluciones ? '<th>Devolvió</th>' : '') + '<th>Le queda</th><th>Debe</th></tr></thead><tbody>' +
     filas.map(f => '<tr>' +
       '<td data-th="Producto"><b>' + esc(f.nombre) + '</b>' +
         '<br><span class="sub">' + money(f.unit) + ' c/u · ' + plural(f.veces,'retiro','retiros') + '</span></td>' +
       '<td data-th="Marca">' + (f.marca ? chipMarca(f.marca).trim() : '<span class="sub">—</span>') + '</td>' +
       '<td data-th="Se llevó"><b>' + f.llevo + '</b></td>' +
       '<td data-th="Pagó">' + (f.pago ? '<b style="color:var(--success)">' + f.pago + '</b>' : '<span class="sub">0</span>') + '</td>' +
+      (r.hayDevoluciones
+        ? '<td data-th="Devolvió">' + (f.devuelto ? '<b>' + f.devuelto + '</b>' : '<span class="sub">0</span>') + '</td>'
+        : '') +
       '<td data-th="Le queda">' + (f.contado
           ? '<b>' + f.queda + '</b>' + (f.queda === 0 ? ' <span class="chip chip-gris">Agotado</span>' : '')
           : '<span class="sub">sin contar</span>') + '</td>' +
@@ -4559,7 +4635,8 @@ function verCuenta(id) {
     '<h2>Movimientos</h2>' +
     (!movs.length
       ? '<div class="vacio">Todavía no se llevó nada a crédito.</div>'
-      : '<table class="tabla tarjetas"><thead><tr><th>Fecha</th><th>Detalle</th><th>Se llevó</th><th>Abonó</th></tr></thead><tbody>' +
+      : '<table class="tabla tarjetas"><thead><tr><th>Fecha</th><th>Detalle</th><th>Se llevó</th><th>Abonó</th>' +
+        (r.hayDevoluciones ? '<th>Devolvió</th>' : '') + '</tr></thead><tbody>' +
         movs.map(m => '<tr>' +
           '<td data-th="Fecha">' + fechaBonita(m.fecha) + (m.hora ? ' <span class="sub">' + m.hora + '</span>' : '') + '</td>' +
           // El detalle va plegado: con diez entregas, mostrarlo siempre convierte
@@ -4569,7 +4646,7 @@ function verCuenta(id) {
                 '<span class="pista"> · ver detalle</span></summary>' +
               m.items.map(i =>
                 '<div class="linea-item"><b>' + i.cant + '×</b> ' + esc(i.nombre) + chipMarca(i.marca) +
-                (i.precio ? ' <span class="sub">a ' + money(i.precio) + '</span>' : '')).join('') +
+                (i.precio ? ' <span class="sub">a ' + money(i.precio) + '</span>' : '') + '</div>').join('') +
               '</details>'
             : '<span class="sub">' + esc(m.detalle) + '</span>' +
               // Un abono sin detalle no dice qué frasco saldó. Se puede arreglar
@@ -4590,10 +4667,189 @@ function verCuenta(id) {
               ? '<span class="chip chip-gris">Conteo</span>' +
                 (!esDoctor() ? '<button class="btn btn-peligro btn-mini" style="margin-left:8px" onclick="borrarConteo(\'' + m.id + '\')">✕</button>' : '')
               : '<span class="sub">—</span>') + '</td>' +
+          // Lo devuelto baja la deuda igual que un abono, pero en su propia
+          // columna: mezclarlo con la cobranza haría creer que entró plata.
+          (r.hayDevoluciones
+            ? '<td data-th="Devolvió">' + (m.tipo === 'devolucion'
+                ? '<b>' + money(m.monto) + '</b>' +
+                  (!esDoctor() ? '<button class="btn btn-peligro btn-mini" style="margin-left:8px" onclick="borrarDevolucion(\'' + m.id + '\')">✕</button>' : '')
+                : '<span class="sub">—</span>') + '</td>'
+            : '') +
           '</tr>').join('') + '</tbody></table>');
 
   SECCIONES.forEach(s => document.getElementById('sec-' + s).classList.toggle('oculto', s !== 'cuenta'));
   PESTANAS.forEach(s => document.getElementById('tab-' + s).classList.toggle('activo', s === 'distribuidores'));
+}
+
+/* ---------- Devolución: la mercadería que vuelve ----------
+   Antes esto no existía y la única salida era inventar un abono: la deuda
+   bajaba, pero la caja mostraba una plata que nunca entró y el frasco seguía
+   figurando en la calle. Ahora la deuda baja SIN tocar la caja y el stock
+   vuelve al consultorio. */
+function abrirModalDevolucion(id) {
+  const d = db.distribuidores.find(x => x.id === id);
+  if (!d) return;
+  const m = document.getElementById('modal-devolucion');
+  m.dataset.distri = id;
+  const r = resumenCuenta(id);
+  document.getElementById('dev-quien').innerHTML =
+    '<b>' + esc(d.nombre) + '</b> debe <b style="color:var(--warning)">' + money(r.debe) + '</b>. ' +
+    'Marca cuántas unidades trae de vuelta: <b>la deuda baja sin que entre plata a la caja</b>.';
+  document.getElementById('dev-fecha').value = hoyStr();
+  document.getElementById('dev-estado').value = 'bueno';
+  document.getElementById('dev-nota').value = '';
+  document.getElementById('dev-resultado').innerHTML = '';
+  pintarLineasDevolucion(id);
+  m.classList.remove('oculto');
+}
+/* Solo se puede devolver lo que todavía se debe: un frasco ya pagado no vuelve
+   como devolución —eso sería plata a favor y se resuelve de otra forma. */
+function pintarLineasDevolucion(id) {
+  const filas = cuentaPorProducto(id).filter(f => f.debeUnd > 0);
+  const buscador = document.getElementById('dev-buscar');
+  if (buscador) buscador.value = '';
+  document.getElementById('dev-lista').innerHTML = !filas.length
+    ? '<div class="vacio">No debe ninguna unidad. No hay nada que devolver.</div>'
+    : filas.map(f =>
+        '<div class="linea-conteo" data-key="' + esc(f.key) + '" data-catalogo="' + esc(f.catalogoId) + '" ' +
+          'data-nombre="' + esc(f.nombre) + '" data-marca="' + esc(f.marca || '') + '" data-debe="' + f.debeUnd + '" ' +
+          'data-desde="' + f.saldadas + '" data-queda="' + (f.contado ? f.queda : '') + '" ' +
+          'data-buscar="' + esc(normalizar(f.nombre + ' ' + (f.marca || ''))) + '">' +
+        '<div><b>' + esc(f.nombre) + '</b>' + chipMarca(f.marca) +
+          '<br><span class="sub">debe ' + f.debeUnd + ' und · ' + money(f.unit) + ' c/u' +
+          (f.contado ? ' · le quedan ' + f.queda : '') + '</span></div>' +
+        '<input type="number" min="0" max="' + f.debeUnd + '" step="1" class="conteo-input dev-input" ' +
+          'placeholder="0" oninput="pintarSaldoTrasDevolucion()">' +
+      '</div>').join('');
+  // El atajo real: el distribuidor cierra el punto y trae todo lo que no vendió,
+  // que es exactamente lo que declaró en el último conteo.
+  document.getElementById('dev-atajos').innerHTML = !filas.length ? '' :
+      (filas.some(f => f.contado)
+        ? '<button type="button" class="btn btn-sec btn-mini" onclick="llenarDevolucion(\'queda\')">Devolver todo lo que le queda</button>'
+        : '') +
+      '<button type="button" class="btn btn-sec btn-mini" onclick="llenarDevolucion(\'nada\')">Limpiar</button>';
+  filtrarDevolucion();
+  pintarSaldoTrasDevolucion();
+}
+function filtrarDevolucion() {
+  const campo = document.getElementById('dev-buscar');
+  if (!campo) return;
+  const t = normalizar(campo.value);
+  let visibles = 0;
+  [...document.querySelectorAll('#dev-lista .linea-conteo')].forEach(el => {
+    const marcada = Number(el.querySelector('.dev-input').value) > 0;
+    const coincide = !t || el.dataset.buscar.includes(t) || marcada;
+    el.hidden = !coincide;
+    if (coincide) visibles++;
+  });
+  const vacio = document.getElementById('dev-vacio');
+  vacio.classList.toggle('oculto', visibles > 0);
+  if (!visibles) vacio.textContent = 'Nada coincide con «' + campo.value.trim() + '».';
+}
+function llenarDevolucion(que) {
+  document.querySelectorAll('#dev-lista .linea-conteo').forEach(el => {
+    const input = el.querySelector('.dev-input');
+    const tope = Number(el.dataset.debe) || 0;
+    const queda = el.dataset.queda === '' ? 0 : Number(el.dataset.queda);
+    input.value = que === 'nada' ? '' : (Math.max(0, Math.min(tope, queda)) || '');
+  });
+  filtrarDevolucion();
+  pintarSaldoTrasDevolucion();
+}
+/* Se acredita al precio de las unidades más antiguas pendientes: el mismo
+   criterio con el que se saldan los abonos, para que la cuenta cierre igual. */
+function lineasElegidasDevolucion() {
+  const id = document.getElementById('modal-devolucion').dataset.distri;
+  const mapa = {};
+  cuentaPorProducto(id).forEach(f => (mapa[f.key] = f));
+  return [...document.querySelectorAll('#dev-lista .linea-conteo')].map(el => {
+    const f = mapa[el.dataset.key];
+    const tope = Number(el.dataset.debe) || 0;
+    const desde = Number(el.dataset.desde) || 0;
+    const cant = Math.max(0, Math.min(tope, Number(el.querySelector('.dev-input').value) || 0));
+    if (!f || !cant) return null;
+    const monto = redondeo(f.precios.slice(desde, desde + cant).reduce((s,pr) => s + pr, 0));
+    return { key: f.key, catalogoId: f.catalogoId, nombre: f.nombre, marca: f.marca, cant, monto, tope };
+  }).filter(Boolean);
+}
+function pintarSaldoTrasDevolucion() {
+  const id = document.getElementById('modal-devolucion').dataset.distri;
+  if (!id) return;
+  const lineas = lineasElegidasDevolucion();
+  const monto = redondeo(lineas.reduce((s,l) => s + l.monto, 0));
+  const unidades = lineas.reduce((s,l) => s + l.cant, 0);
+  const alStock = document.getElementById('dev-estado').value === 'bueno';
+  document.getElementById('dev-total').innerHTML = monto
+    ? 'Baja la deuda en <b>' + money(monto) + '</b> · ' + plural(unidades, 'unidad', 'unidades')
+    : '';
+  const cont = document.getElementById('dev-resultado');
+  if (!monto) { cont.innerHTML = ''; return; }
+  const queda = redondeo(saldoDistribuidor(id) - monto);
+  cont.innerHTML =
+    '<div class="aviso" style="margin-top:10px;border-left-color:var(--success)"><b>Vuelve al consultorio:</b>' +
+      lineas.map(l => '<div class="linea-item"><b>' + l.cant + '×</b> ' + esc(l.nombre) + chipMarca(l.marca) +
+        ' <span class="sub">' + money(l.monto) + '</span>' +
+        (l.cant >= l.tope ? ' <span class="chip chip-verde">Devuelve todo lo que debía</span>' : '') + '</div>').join('') +
+    '</div>' +
+    '<div class="aviso" style="margin-top:10px">Después de esta devolución ' +
+      (queda > 0 ? 'quedaría debiendo <b>' + money(queda) + '</b>.'
+       : '<b style="color:var(--success)">queda al día.</b>') +
+      (alStock ? ' ' + (unidades === 1 ? 'La unidad vuelve' : 'Las ' + unidades + ' unidades vuelven') + ' al stock del consultorio.'
+               : ' <b>No entran al stock</b>: se dan de baja por rotas o vencidas.') +
+    '</div>';
+}
+function guardarDevolucion() {
+  const id = document.getElementById('modal-devolucion').dataset.distri;
+  const d = db.distribuidores.find(x => x.id === id);
+  if (!d) return;
+  const lineas = lineasElegidasDevolucion();
+  if (!lineas.length) { alert('Marca cuántas unidades de cada producto está devolviendo.'); return; }
+  const monto = redondeo(lineas.reduce((s,l) => s + l.monto, 0));
+  const alStock = document.getElementById('dev-estado').value === 'bueno';
+  const fecha = document.getElementById('dev-fecha').value || hoyStr();
+  const unidades = lineas.reduce((s,l) => s + l.cant, 0);
+  if (!confirm('Vuelven ' + unidades + ' unidades de ' + d.nombre + '.\n\n' +
+               'La deuda baja ' + money(monto) + ' y NO entra plata a la caja.' +
+               (alStock ? '\nEl stock del consultorio sube esas unidades.' : '\nNo entran al stock: se dan de baja.') +
+               '\n\n¿Registrar la devolución?')) return;
+  const dev = {
+    id: nuevoId(), distribuidorId: id, monto, fecha, hora: horaAhora(), alStock,
+    lineas: lineas.map(l => ({ key: l.key, catalogoId: l.catalogoId, nombre: l.nombre, marca: l.marca, cant: l.cant, monto: l.monto })),
+    nota: document.getElementById('dev-nota').value.trim(),
+    usuarioId: sesion ? sesion.id : '', usuarioNombre: sesion ? sesion.nombre : '—'
+  };
+  db.devoluciones.push(dev);
+  // El frasco que vuelve tiene que poder venderse otra vez: entra al stock con
+  // su movimiento, igual que cualquier entrada, para que quede auditado.
+  if (alStock) moverStockDevolucion(dev, d.nombre, 1);
+  guardar(); cerrarModales(); verCuenta(id); refrescarBadges();
+}
+/* signo 1 = vuelve al consultorio, -1 = se deshace la devolución */
+function moverStockDevolucion(dev, nombreDistri, signo) {
+  (dev.lineas || []).forEach(l => {
+    const k = l.catalogoId ? db.catalogo.find(x => x.id === l.catalogoId) : null;
+    if (!k || k.tipo !== 'producto') return;
+    const cant = (Number(l.cant) || 0) * signo;
+    k.stock = Math.max(0, Number(k.stock || 0) + cant);
+    db.movimientos.push({
+      id: nuevoId(), catalogoId: k.id, nombre: k.nombre,
+      tipo: signo > 0 ? 'entrada' : 'salida', cantidad: Math.abs(cant),
+      motivo: (signo > 0 ? 'Devolución de ' : 'Se deshizo la devolución de ') + nombreDistri,
+      fecha: dev.fecha, hora: horaAhora(),
+      usuarioId: sesion ? sesion.id : '', usuarioNombre: sesion ? sesion.nombre : '—'
+    });
+  });
+}
+function borrarDevolucion(idDev) {
+  const dv = db.devoluciones.find(x => x.id === idDev);
+  if (!dv) return;
+  const d = db.distribuidores.find(x => x.id === dv.distribuidorId);
+  if (!confirm('¿Borrar la devolución de ' + money(dv.monto) + ' del ' + fechaBonita(dv.fecha) + '?\n\n' +
+               'La deuda volverá a subir ese monto' + (dv.alStock ? ' y el stock bajará las unidades que habían vuelto.' : '.'))) return;
+  if (dv.alStock) moverStockDevolucion(dv, d ? d.nombre : '—', -1);
+  const distri = dv.distribuidorId;
+  olvidar('devoluciones', idDev);
+  guardar(); verCuenta(distri); refrescarBadges();
 }
 
 /* ---------- Conteo: cuántos le quedan ----------
@@ -4797,7 +5053,7 @@ function pintarLineasAbono(id, ab) {
         const tope = f.debeUnd + (yaPuestas[f.key] || 0);
         return '<div class="linea-conteo" data-key="' + esc(f.key) + '" data-catalogo="' + esc(f.catalogoId) + '" ' +
              'data-nombre="' + esc(f.nombre) + '" data-marca="' + esc(f.marca || '') + '" data-debe="' + tope + '" ' +
-             'data-desde="' + Math.max(0, f.pago - (yaPuestas[f.key] || 0)) + '" ' +
+             'data-desde="' + Math.max(0, f.saldadas - (yaPuestas[f.key] || 0)) + '" ' +
              'data-vendido="' + (f.vendio === null ? '' : Math.max(0, f.vendio - f.pago + (yaPuestas[f.key] || 0))) + '" ' +
              'data-buscar="' + esc(normalizar(f.nombre + ' ' + (f.marca || ''))) + '">' +
           '<div><b>' + esc(f.nombre) + '</b>' + chipMarca(f.marca) +
@@ -5256,6 +5512,15 @@ function keyProd(i) { return i.catalogoId || ('n:' + i.nombre); }
 /* Las líneas de un abono dicen QUÉ se está pagando. Los abonos registrados
    antes de este cambio —y los que se hagan como monto suelto— no las tienen:
    son plata que baja la deuda pero no se sabe de qué producto. */
+/* Lo que el distribuidor trajo de vuelta. En consignacion la mercaderia que no
+   se vendio se devuelve: baja la deuda y el frasco vuelve al estante del
+   consultorio. Antes esto solo se podia arreglar inventando un abono. */
+function devolucionesDe(id) {
+  return db.devoluciones.filter(d => d.distribuidorId === id);
+}
+function montoDevuelto(id) {
+  return redondeo(devolucionesDe(id).reduce((s,d) => s + Number(d.monto || 0), 0));
+}
 function lineasAbono(a) { return Array.isArray(a.lineas) ? a.lineas : []; }
 function abonoDetallado(a) { return lineasAbono(a).length > 0; }
 function abonosSinDetalle(id) { return abonosDe(id).filter(a => !abonoDetallado(a)); }
@@ -5285,7 +5550,7 @@ function cuentaPorProducto(id) {
   const acum = {};
   const nueva = (k, i) => (acum[k] = {
     key: k, catalogoId: i.catalogoId || '', nombre: i.nombre, tipo: i.tipo || 'producto',
-    marca: marcaDeItem(i), llevo: 0, monto: 0, veces: 0, precios: [], pago: 0
+    marca: marcaDeItem(i), llevo: 0, monto: 0, veces: 0, precios: [], pago: 0, devuelto: 0
   });
 
   // 1. Todo lo que salió del local, unidad por unidad y en orden cronológico:
@@ -5309,30 +5574,41 @@ function cuentaPorProducto(id) {
     f.pago += Number(l.cant) || 0;
   }));
 
-  // 3. Lo que declaró que le queda la última vez que contó
+  // 3. Lo que trajo de vuelta: no lo vendió y no lo va a pagar
+  devolucionesDe(id).forEach(dv => (dv.lineas || []).forEach(l => {
+    const k = l.key || l.catalogoId || ('n:' + l.nombre);
+    const f = acum[k] || nueva(k, { catalogoId: l.catalogoId, nombre: l.nombre, tipo: 'producto' });
+    f.devuelto += Number(l.cant) || 0;
+  }));
+
+  // 4. Lo que declaró que le queda la última vez que contó
   const conteo = ultimoConteo(id);
 
   return Object.values(acum).map(f => {
     const pago     = Math.min(f.pago, f.llevo);
-    const debeUnd  = Math.max(0, f.llevo - pago);
-    const debe     = redondeo(f.precios.slice(pago).reduce((s,p) => s + p, 0));
+    // Una unidad devuelta salda igual que una pagada: deja de deberse. Lo que
+    // cambia es que no entró plata, por eso se cuentan por separado.
+    const devuelto = Math.min(f.devuelto, f.llevo - pago);
+    const saldadas = pago + devuelto;
+    const debeUnd  = Math.max(0, f.llevo - saldadas);
+    const debe     = redondeo(f.precios.slice(saldadas).reduce((s,p) => s + p, 0));
     const pagado   = redondeo(f.monto - debe);
-    const unit     = f.precios.length ? f.precios[Math.min(pago, f.precios.length - 1)] : 0;
+    const unit     = f.precios.length ? f.precios[Math.min(saldadas, f.precios.length - 1)] : 0;
 
     // Vendido = lo que se había llevado cuando contó, menos lo que le quedaba.
     // Queda hoy = todo lo llevado menos lo vendido, así un retiro posterior al
     // conteo entra solo al estante sin descuadrar nada.
     const c = conteo[f.key];
     const vendio = c ? Math.max(0, Math.min(f.llevo, c.llevado - c.quedan)) : null;
-    const queda  = c ? Math.max(0, f.llevo - vendio) : null;
+    const queda  = c ? Math.max(0, f.llevo - vendio - devuelto) : null;
 
     // De lo que debe, cuánto es mercadería ya vendida (plata que ya cobró) y
     // cuánto es mercadería que todavía tiene en la mano.
     const vendidoSinPagar = c ? Math.max(0, Math.min(debeUnd, vendio - pago)) : debeUnd;
-    const debeVendido = redondeo(f.precios.slice(pago, pago + vendidoSinPagar).reduce((s,p) => s + p, 0));
+    const debeVendido = redondeo(f.precios.slice(saldadas, saldadas + vendidoSinPagar).reduce((s,p) => s + p, 0));
 
     return Object.assign({}, f, {
-      pago, debeUnd, debe, pagado, unit, vendio, queda,
+      pago, devuelto, saldadas, debeUnd, debe, pagado, unit, vendio, queda,
       debeVendido, debeEnEstante: redondeo(debe - debeVendido),
       contado: !!c, fechaConteo: c ? c.fecha : ''
     });
@@ -5356,8 +5632,10 @@ function resumenCuenta(id) {
   const vendido = redondeo(Math.max(0, brutoV - sinDet));
   const sobra   = redondeo(Math.max(0, sinDet - brutoV));
   const estante = redondeo(Math.max(0, brutoE - sobra));
-  return { filas, llevo, abono: redondeo(llevo - debe), debe, vendido, estante,
-           sinDetalle: sinDet, hayConteo: filas.some(f => f.contado) };
+  const devuelto = montoDevuelto(id);
+  return { filas, llevo, abono: redondeo(llevo - debe - devuelto), devuelto, debe, vendido, estante,
+           sinDetalle: sinDet, hayConteo: filas.some(f => f.contado),
+           hayDevoluciones: devolucionesDe(id).length > 0 };
 }
 
 /* Qué se llevó en total. Conserva el nombre viejo porque la lista de
@@ -5395,6 +5673,12 @@ function movimientosCuenta(id) {
       sinDetalle: !abonoDetallado(a),
       monto: Number(a.monto || 0)
     })),
+    ...devolucionesDe(id).map(dv => ({
+      fecha: dv.fecha, hora: dv.hora || '', tipo: 'devolucion', id: dv.id,
+      detalle: 'Devolvió · ' + (dv.lineas || []).reduce((s,l) => s + Number(l.cant), 0) + ' und' + (dv.nota ? ' · ' + dv.nota : ''),
+      items: (dv.lineas || []).map(l => ({ nombre: l.nombre, cant: Number(l.cant), precio: redondeo(Number(l.monto || 0) / (Number(l.cant) || 1)), marca: l.marca || '' })),
+      monto: Number(dv.monto || 0)
+    })),
     ...db.conteos.filter(c => c.distribuidorId === id).map(c => ({
       fecha: c.fecha, hora: c.hora || '', tipo: 'conteo', id: c.id,
       detalle: 'Contó lo que le queda · ' + plural((c.lineas || []).length, 'producto', 'productos'),
@@ -5404,10 +5688,32 @@ function movimientosCuenta(id) {
   ];
   return filas.sort((a,b) => (b.fecha + b.hora).localeCompare(a.fecha + a.hora));
 }
+/* Cuánto hace que no abona. La deuda sin fecha no sirve para cobrar: S/3.000
+   de la semana pasada y S/3.000 de hace tres meses son dos problemas muy
+   distintos y en la lista se veían igual. Si nunca abonó se cuenta desde el
+   primer retiro, que es cuando empezó a deber. */
+function fechaUltimoAbono(id) {
+  const fechas = abonosDe(id).map(a => a.fecha).filter(Boolean).sort();
+  return fechas.length ? fechas[fechas.length - 1] : '';
+}
+function fechaPrimerRetiro(id) {
+  const fechas = cargosDe(id).map(v => v.fecha).filter(Boolean).sort();
+  return fechas.length ? fechas[0] : '';
+}
+function antiguedadDeuda(id) {
+  if (saldoDistribuidor(id) <= 0) return null;
+  const abono = fechaUltimoAbono(id);
+  const desde = abono || fechaPrimerRetiro(id);
+  if (!desde) return null;
+  return { dias: Math.max(0, -diasHasta(desde)), desde, abonoAlguna: !!abono };
+}
+const DIAS_DEUDA_VIEJA = 30;
+
 function saldoDistribuidor(id) {
   const debe  = cargosDe(id).reduce((s,v) => s + totalVenta(v), 0);
   const pago  = abonosDe(id).reduce((s,a) => s + Number(a.monto || 0), 0);
-  return redondeo(debe - pago);
+  // Lo devuelto no se cobra: volvio al estante del consultorio
+  return redondeo(debe - pago - montoDevuelto(id));
 }
 function deudaTotal() {
   return redondeo(db.distribuidores.reduce((s,d) => s + Math.max(0, saldoDistribuidor(d.id)), 0));
