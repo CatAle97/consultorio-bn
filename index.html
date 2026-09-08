@@ -2745,7 +2745,7 @@ function htmlConsumo(pacienteId) {
           '<span class="sub">Total gastado por este paciente</span><b style="font-size:18px">' + money(gastado) + '</b></div>' +
         '<table class="tabla"><thead><tr><th>#</th><th>Fecha</th><th>Detalle</th><th>Total</th><th></th></tr></thead><tbody>' +
         ventasP.map(v => '<tr><td><b>#' + v.numero + '</b></td><td>' + fechaBonita(v.fecha) + '</td>' +
-          '<td class="sub">' + v.items.map(i => i.cant + '× ' + esc(i.nombre)).join('<br>') + '</td>' +
+          '<td class="sub">' + detalleVenta(v, 'pac') + '</td>' +
           '<td><b>' + money(totalVenta(v)) + '</b></td>' +
           '<td><button class="btn btn-sec btn-mini" onclick="verTicket(\'' + v.id + '\')">🖨</button></td></tr>').join('') +
         '</tbody></table>');
@@ -6451,6 +6451,34 @@ function descartarOrden(id) {
   guardar(); pintarVentas();
 }
 
+/* Un retiro de distribuidor trae 10 productos y la fila crecia media
+   pantalla, tapando las demas ventas. Se muestra el resumen y las dos
+   primeras lineas; el resto se abre solo si lo piden. El prefijo evita
+   que la ficha del paciente y la caja repitan el mismo id en el DOM. */
+function detalleVenta(v, pref) {
+  const items = v.items || [];
+  const linea = i => i.cant + '× ' + esc(i.nombre);
+  const promo = v.promoNombre ? '<br><span class="chip chip-naranja">🏷 ' + esc(v.promoNombre) + '</span>' : '';
+  if (items.length <= 2) return items.map(linea).join('<br>') + promo;
+  const unidades = items.reduce((s,i) => s + Number(i.cant || 0), 0);
+  const key = (pref || 'v') + '-' + v.id;
+  const restan = items.length - 2;
+  return '<b>' + items.length + ' productos · ' + unidades + ' unidades</b><br>' +
+    items.slice(0,2).map(linea).join('<br>') +
+    '<span id="det-' + key + '" class="oculto"><br>' + items.slice(2).map(linea).join('<br>') + '</span>' +
+    '<br><button class="btn btn-sec btn-mini" style="margin-top:4px" id="btn-det-' + key + '" ' +
+      'onclick="verDetalleVenta(\'' + key + '\',' + restan + ')">+ ' + restan + ' más</button>' +
+    promo;
+}
+
+function verDetalleVenta(key, restan) {
+  const bloque = document.getElementById('det-' + key);
+  const btn = document.getElementById('btn-det-' + key);
+  if (!bloque || !btn) return;
+  const cerrado = bloque.classList.toggle('oculto');
+  btn.textContent = cerrado ? '+ ' + restan + ' más' : 'Ver menos';
+}
+
 function pintarVentas() {
   pintarOrdenes();
   const filtro = (document.getElementById('buscador-ventas').value || '').toLowerCase().trim();
@@ -6504,8 +6532,7 @@ function pintarVentas() {
             ? ' <span class="chip chip-verde">' + (tipoComprobante(v) === 'factura' ? '🧾 Factura' : '🧾 Boleta') + '</span>' +
               (v.receptor && v.receptor.doc ? '<br><span class="sub">' + esc(v.receptor.tipoDoc) + ' ' + esc(v.receptor.doc) + '</span>' : '')
             : '') + '</td>' +
-        '<td data-th="Detalle" class="sub">' + v.items.map(i => i.cant + '× ' + esc(i.nombre)).join('<br>') +
-          (v.promoNombre ? '<br><span class="chip chip-naranja">🏷 ' + esc(v.promoNombre) + '</span>' : '') + '</td>' +
+        '<td data-th="Detalle" class="sub">' + detalleVenta(v, 'caja') + '</td>' +
         '<td data-th="Total"><b>' + money(totalVenta(v)) + '</b> <span class="sub">' + esc(v.metodoPago||'') + '</span></td>' +
         '<td data-th="Registró" class="sub">' + esc(v.usuarioNombre || '—') + '</td>' +
         '<td data-th=""><div class="acc-tabla"><button class="btn btn-sec btn-mini" onclick="verTicket(\'' + v.id + '\')">🖨 Ticket</button>' +
