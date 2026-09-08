@@ -1045,10 +1045,12 @@
 
       <h2>Cuenta corriente de distribuidores</h2>
       <div class="tarjeta" style="border-color:#e0b4ae">
-        <div class="sub" style="margin-bottom:10px">Borra <b>todo el crédito</b>: los retiros a crédito de todos los distribuidores, sus abonos, sus conteos y sus devoluciones.
+        <div class="sub" style="margin-bottom:10px">Deja la cuenta de un distribuidor <b>en cero</b> para volver a cargarla: borra sus retiros a crédito, sus abonos, sus conteos y sus devoluciones.
           Las unidades entregadas <b>vuelven al stock</b>, como si el retiro nunca hubiera pasado. Las ventas del consultorio y los pacientes no se tocan. No se puede deshacer.</div>
+        <label style="margin-top:0">¿La cuenta de quién?</label>
+        <select id="cfg-vaciar-quien"></select>
         <div id="cfg-cuenta-resumen"></div>
-        <button class="btn btn-peligro" onclick="vaciarCuentaCorriente()">🧹 Vaciar la cuenta corriente</button>
+        <div class="barra" style="margin:12px 0 0"><button class="btn btn-peligro" onclick="vaciarCuentaCorriente()">🧹 Vaciar esa cuenta</button></div>
       </div>
 
       <h2>Empezar de cero</h2>
@@ -4987,12 +4989,21 @@ function renumerarTickets() {
    inventario cierre en el mismo número en el que está hoy. */
 function vaciarCuentaCorriente() {
   if (!esDoctor()) { alert('Solo el doctor puede vaciar la cuenta corriente.'); return; }
-  const ventas = db.ventas.filter(v => !!v.credito);
-  const abonos = db.abonos.slice(), conteos = db.conteos.slice(), devs = db.devoluciones.slice();
+  const quien = document.getElementById('cfg-vaciar-quien').value;
+  if (!quien) { alert('Elige de qué distribuidor quieres vaciar la cuenta.'); return; }
+  const todos = quien === '__todos';
+  const d = todos ? null : db.distribuidores.find(x => x.id === quien);
+  if (!todos && !d) { alert('Ese distribuidor ya no existe.'); return; }
+  const suyo = x => todos || x.distribuidorId === quien;
+
+  const ventas = db.ventas.filter(v => !!v.credito && suyo(v));
+  const abonos = db.abonos.filter(suyo), conteos = db.conteos.filter(suyo), devs = db.devoluciones.filter(suyo);
   if (!ventas.length && !abonos.length && !conteos.length && !devs.length) {
-    alert('La cuenta corriente ya está vacía. No hay nada que borrar.'); return;
+    alert(todos ? 'La cuenta corriente ya está vacía. No hay nada que borrar.'
+                : 'La cuenta de ' + d.nombre + ' ya está vacía. No hay nada que borrar.');
+    return;
   }
-  const deuda = deudaTotal();
+  const deuda = todos ? deudaTotal() : Math.max(0, saldoDistribuidor(quien));
   const plata = redondeo(abonos.reduce((s,a) => s + Number(a.monto || 0), 0));
 
   // Cuánto vuelve al estante: lo entregado que no estaba anulado, menos lo que
@@ -5007,12 +5018,14 @@ function vaciarCuentaCorriente() {
   const unidades = Object.values(vuelve).reduce((s,n) => s + n, 0);
 
   const r = prompt(
-    'Se va a vaciar la cuenta corriente de TODOS los distribuidores:\n\n' +
+    (todos ? 'Se va a vaciar la cuenta corriente de TODOS los distribuidores:'
+           : 'Se va a vaciar la cuenta de ' + d.nombre + ':') + '\n\n' +
     '  · ' + plural(ventas.length, 'retiro a crédito', 'retiros a crédito') + '\n' +
     '  · ' + plural(abonos.length, 'abono', 'abonos') + ' por ' + money(plata) + '\n' +
     '  · ' + plural(conteos.length, 'conteo', 'conteos') + '\n' +
     '  · ' + plural(devs.length, 'devolución', 'devoluciones') + '\n\n' +
     'La deuda pasa de ' + money(deuda) + ' a S/ 0.00 y vuelven ' + unidades + ' unidades al stock.\n' +
+    (todos ? '' : 'Los demás distribuidores no se tocan.\n') +
     'Las ventas del consultorio, los pacientes y las historias NO se tocan.\n\n' +
     'Esto no se puede deshacer. Descarga un respaldo antes si tienes dudas.\n\n' +
     'Escribe VACIAR para confirmar:');
@@ -5036,8 +5049,9 @@ function vaciarCuentaCorriente() {
   guardar();
   irA('config');
   refrescarBadges();
-  alert('Listo. La cuenta corriente quedó en cero y ' + unidades + ' unidades volvieron al stock.\n\n' +
-        'Los distribuidores siguen registrados con sus datos.\n' +
+  alert('Listo. ' + (todos ? 'La cuenta corriente quedó en cero' : 'La cuenta de ' + d.nombre + ' quedó en cero') +
+        ' y ' + unidades + ' unidades volvieron al stock.\n\n' +
+        (todos ? 'Los distribuidores siguen' : d.nombre + ' sigue') + ' registrado con sus datos.\n' +
         'Ahora puedes cargar los retiros de nuevo desde 💰 Caja.\n\n' +
         'Cuando termines, conviene correr «🔢 Reordenar los números por fecha» para que la numeración quede corrida.');
 }
@@ -7686,6 +7700,20 @@ function pintarDatos() {
         '<button class="btn btn-sec" onclick="abrirModalNube()">Ver estado de sincronización</button>'
       : '<div class="sub" style="margin-bottom:10px">⚠️ Este equipo <b>no está conectado</b>: lo que registres aquí no lo verá nadie más.</div>' +
         '<button class="btn" onclick="abrirModalNube()">Conectar este equipo</button>';
+  // Se llena acá y no una sola vez al arrancar: si se da de alta un
+  // distribuidor, tiene que aparecer sin recargar el sistema.
+  const selV = document.getElementById('cfg-vaciar-quien');
+  if (selV) {
+    const previo = selV.value;
+    // Arranca sin nadie elegido a propósito: el default de una herramienta que
+    // borra no puede ser una cuenta cualquiera, y menos "todas".
+    selV.innerHTML = '<option value="">— Elige un distribuidor —</option>' +
+      distribuidoresOrdenados('').map(d =>
+        '<option value="' + d.id + '">' + esc(d.nombre) +
+        (saldoDistribuidor(d.id) > 0 ? ' — debe ' + money(saldoDistribuidor(d.id)) : '') + '</option>').join('') +
+      (db.distribuidores.length > 1 ? '<option value="__todos">⚠️ TODOS los distribuidores</option>' : '');
+    selV.value = previo;
+  }
   document.getElementById('cfg-datos-resumen').innerHTML =
     (vacio ? '<div class="aviso" style="border-color:var(--success);background:#f2f9f4"><b>✅ El sistema está en cero.</b> Listo para empezar con pacientes reales.</div>' : '') +
     '<div class="grid-datos">' +
