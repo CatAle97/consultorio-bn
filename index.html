@@ -1043,6 +1043,14 @@
         <button class="btn btn-sec" onclick="renumerarTickets()">🔢 Reordenar los números por fecha</button>
       </div>
 
+      <h2>Cuenta corriente de distribuidores</h2>
+      <div class="tarjeta" style="border-color:#e0b4ae">
+        <div class="sub" style="margin-bottom:10px">Borra <b>todo el crédito</b>: los retiros a crédito de todos los distribuidores, sus abonos, sus conteos y sus devoluciones.
+          Las unidades entregadas <b>vuelven al stock</b>, como si el retiro nunca hubiera pasado. Las ventas del consultorio y los pacientes no se tocan. No se puede deshacer.</div>
+        <div id="cfg-cuenta-resumen"></div>
+        <button class="btn btn-peligro" onclick="vaciarCuentaCorriente()">🧹 Vaciar la cuenta corriente</button>
+      </div>
+
       <h2>Empezar de cero</h2>
       <div class="tarjeta" style="border-color:#e0b4ae">
         <div class="sub" style="margin-bottom:10px">Borra <b>todo</b>: pacientes, historias clínicas, citas, ventas y movimientos. Los usuarios y sus PIN se conservan. No se puede deshacer.</div>
@@ -4831,13 +4839,8 @@ function moverStockDevolucion(dev, nombreDistri, signo) {
     if (!k || k.tipo !== 'producto') return;
     const cant = (Number(l.cant) || 0) * signo;
     k.stock = Math.max(0, Number(k.stock || 0) + cant);
-    db.movimientos.push({
-      id: nuevoId(), catalogoId: k.id, nombre: k.nombre,
-      tipo: signo > 0 ? 'entrada' : 'salida', cantidad: Math.abs(cant),
-      motivo: (signo > 0 ? 'Devolución de ' : 'Se deshizo la devolución de ') + nombreDistri,
-      fecha: dev.fecha, hora: horaAhora(),
-      usuarioId: sesion ? sesion.id : '', usuarioNombre: sesion ? sesion.nombre : '—'
-    });
+    registrarMov(k.id, signo > 0 ? 'entrada' : 'salida', Math.abs(cant),
+      (signo > 0 ? 'Devolución de ' : 'Se deshizo la devolución de ') + nombreDistri);
   });
 }
 function borrarDevolucion(idDev) {
@@ -4974,6 +4977,69 @@ function renumerarTickets() {
   guardar();
   irA('config');
   alert('Listo. Los tickets quedaron numerados del 1 al ' + ventas.length + ' por fecha.');
+}
+
+/* Vaciar la cuenta corriente y recargarla desde cero. Roberto pidió esto para
+   volver a cargar los retiros bien: los que estaban se anotaron a las apuradas
+   mientras se migraba del papel. Borra SOLO el crédito —las ventas del
+   consultorio, los pacientes y las historias quedan intactos— y devuelve al
+   stock lo que se había entregado, para que al recargar los retiros el
+   inventario cierre en el mismo número en el que está hoy. */
+function vaciarCuentaCorriente() {
+  if (!esDoctor()) { alert('Solo el doctor puede vaciar la cuenta corriente.'); return; }
+  const ventas = db.ventas.filter(v => !!v.credito);
+  const abonos = db.abonos.slice(), conteos = db.conteos.slice(), devs = db.devoluciones.slice();
+  if (!ventas.length && !abonos.length && !conteos.length && !devs.length) {
+    alert('La cuenta corriente ya está vacía. No hay nada que borrar.'); return;
+  }
+  const deuda = deudaTotal();
+  const plata = redondeo(abonos.reduce((s,a) => s + Number(a.monto || 0), 0));
+
+  // Cuánto vuelve al estante: lo entregado que no estaba anulado, menos lo que
+  // ya había vuelto por una devolución (esa unidad ya está contada en el stock)
+  const vuelve = {};
+  ventas.filter(v => !v.anulada).forEach(v => v.items.filter(i => i.tipo === 'producto').forEach(i => {
+    if (i.catalogoId) vuelve[i.catalogoId] = (vuelve[i.catalogoId] || 0) + (Number(i.cant) || 0);
+  }));
+  devs.filter(dv => dv.alStock).forEach(dv => (dv.lineas || []).forEach(l => {
+    if (l.catalogoId) vuelve[l.catalogoId] = (vuelve[l.catalogoId] || 0) - (Number(l.cant) || 0);
+  }));
+  const unidades = Object.values(vuelve).reduce((s,n) => s + n, 0);
+
+  const r = prompt(
+    'Se va a vaciar la cuenta corriente de TODOS los distribuidores:\n\n' +
+    '  · ' + plural(ventas.length, 'retiro a crédito', 'retiros a crédito') + '\n' +
+    '  · ' + plural(abonos.length, 'abono', 'abonos') + ' por ' + money(plata) + '\n' +
+    '  · ' + plural(conteos.length, 'conteo', 'conteos') + '\n' +
+    '  · ' + plural(devs.length, 'devolución', 'devoluciones') + '\n\n' +
+    'La deuda pasa de ' + money(deuda) + ' a S/ 0.00 y vuelven ' + unidades + ' unidades al stock.\n' +
+    'Las ventas del consultorio, los pacientes y las historias NO se tocan.\n\n' +
+    'Esto no se puede deshacer. Descarga un respaldo antes si tienes dudas.\n\n' +
+    'Escribe VACIAR para confirmar:');
+  if (r === null || normalizar(r) !== 'vaciar') { alert('No se borró nada.'); return; }
+
+  Object.keys(vuelve).forEach(idProd => {
+    const k = db.catalogo.find(x => x.id === idProd);
+    if (!k || !vuelve[idProd]) return;
+    k.stock = Math.max(0, Number(k.stock || 0) + vuelve[idProd]);
+    registrarMov(k.id, vuelve[idProd] > 0 ? 'entrada' : 'salida', Math.abs(vuelve[idProd]),
+      'Se vació la cuenta corriente de distribuidores');
+  });
+
+  // Se usa olvidar() y no un filtro: si no queda anotado el borrado, el otro
+  // equipo devuelve todo al sincronizar y la cuenta reaparece.
+  ventas.forEach(v => olvidar('ventas', v.id));
+  abonos.forEach(a => olvidar('abonos', a.id));
+  conteos.forEach(c => olvidar('conteos', c.id));
+  devs.forEach(d => olvidar('devoluciones', d.id));
+
+  guardar();
+  irA('config');
+  refrescarBadges();
+  alert('Listo. La cuenta corriente quedó en cero y ' + unidades + ' unidades volvieron al stock.\n\n' +
+        'Los distribuidores siguen registrados con sus datos.\n' +
+        'Ahora puedes cargar los retiros de nuevo desde 💰 Caja.\n\n' +
+        'Cuando termines, conviene correr «🔢 Reordenar los números por fecha» para que la numeración quede corrida.');
 }
 
 function borrarConteo(idConteo) {
