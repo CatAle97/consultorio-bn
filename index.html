@@ -1041,13 +1041,6 @@
         <button class="btn btn-sec" onclick="cargarDemo()">🧪 Cargar datos de ejemplo</button>
       </div>
 
-      <h2>Números de ticket</h2>
-      <div class="tarjeta">
-        <div class="sub" style="margin-bottom:10px">Un retiro anotado tarde se lleva el número que toca ese día, no el que le corresponde por antigüedad.
-          Esto reordena <b>todos</b> los tickets por fecha: el más viejo pasa a ser el #1. Cambian también los de las ventas del consultorio.</div>
-        <button class="btn btn-sec" onclick="renumerarTickets()">🔢 Reordenar los números por fecha</button>
-      </div>
-
       <h2>Cuenta corriente de distribuidores</h2>
       <div class="tarjeta" style="border-color:#e0b4ae">
         <div class="sub" style="margin-bottom:10px">Deja la cuenta de un distribuidor <b>en cero</b> para volver a cargarla: borra sus retiros a crédito, sus abonos, sus conteos y sus devoluciones.
@@ -1749,7 +1742,7 @@
     <label>¿Qué día se llevó la mercadería?</label>
     <input id="fp-fecha" type="date">
     <div class="aviso aviso-amarillo" style="margin-top:10px">Cambia solo el día del pedido, no lo que se llevó ni lo que debe.
-      El <b>número</b> del pedido sigue igual: para reordenarlos por fecha está el botón de Configuración.</div>
+      Los <b>números</b> se reacomodan solos: el pedido más antiguo siempre es el #1.</div>
     <div class="acciones">
       <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
       <button class="btn" onclick="guardarFechaPedido()">Guardar la fecha</button>
@@ -4975,15 +4968,20 @@ function guardarFechaPedido() {
   if (nueva > hoyStr()) { alert('Esa fecha todavía no llega. Un pedido no puede ser del futuro.'); return; }
   if (nueva === v.fecha) { cerrarModales(); return; }
   const antes = v.fecha;
+  const numeroAntes = v.numero;
   v.fecha = nueva;
   // El kardex tiene que contar la misma historia: la salida de stock de este
   // pedido pasa al mismo día, si no el stock "se movió" un día que no pasó nada.
   db.movimientos.filter(mv => mv.ventaId === v.id).forEach(mv => (mv.fecha = nueva));
+  // Cambiar el día cambia el lugar del pedido en la fila: los números se
+  // reacomodan solos, no hay nada que apretar después.
+  ordenarNumerosPorFecha();
   guardar();
   cerrarModales();
   verCuenta(v.distribuidorId);
   refrescarBadges();
-  alert('Listo. El pedido #' + v.numero + ' pasó de ' + fechaBonita(antes) + ' a ' + fechaBonita(nueva) + '.');
+  alert('Listo. El pedido pasó de ' + fechaBonita(antes) + ' a ' + fechaBonita(nueva) + '.' +
+    (v.numero !== numeroAntes ? '\n\nPor la fecha nueva ahora es el pedido #' + v.numero + ' (antes #' + numeroAntes + ').' : ''));
 }
 
 /* ---------- Devolución: la mercadería que vuelve ----------
@@ -5133,43 +5131,30 @@ function borrarTodosLosAbonos(id) {
   alert('Listo. Ahora puedes registrarlos de nuevo eligiendo qué producto paga cada uno.');
 }
 
-/* Los números de ticket se reparten por orden de registro, no de fecha. Al
-   anotar un retiro viejo —o al cargar los que nunca se registraron— quedan con
-   un número que no dice nada. Esto los reordena por fecha real: el más antiguo
-   pasa a ser el #1. Toca TODAS las ventas porque el correlativo es uno solo
-   para el sistema entero, y dos tickets no pueden repetir número. */
-function renumerarTickets() {
-  if (!esDoctor()) { alert('Solo el doctor puede reordenar los números de ticket.'); return; }
+/* EL NÚMERO DE TICKET SIGUE A LA FECHA, SIEMPRE.
+   Antes esto era un botón en Configuración y Roberto lo sacó: "no quiero una
+   configuración que yo pueda cambiar después". Tenía razón —el orden de los
+   tickets no es una preferencia, es cómo tiene que estar—, así que ahora es una
+   regla del sistema: el ticket más antiguo es el #1 y punto. Se ejecuta solo
+   cada vez que entra algo con fecha vieja (un retiro que el distribuidor avisó
+   por WhatsApp días después, o una fecha corregida a mano).
+   Toca TODAS las ventas porque el correlativo es uno solo para el sistema
+   entero y dos tickets no pueden repetir número. */
+function ordenarNumerosPorFecha() {
   const ventas = db.ventas.slice()
     .sort((a,b) => (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || '')) || (a.numero || 0) - (b.numero || 0));
-  if (!ventas.length) { alert('Todavía no hay tickets que reordenar.'); return; }
-  const cambian = ventas.filter((v, i) => v.numero !== i + 1);
-  if (!cambian.length) { alert('Los tickets ya están numerados por fecha. No hay nada que cambiar.'); return; }
-
-  // Se muestra cómo va a quedar el principio de la lista: es la forma de
-  // entender qué hace esto sin tener que confiar en la palabra "reordenar"
-  const muestra = ventas.slice(0, 4).map((v, i) =>
-    '  #' + v.numero + ' → #' + (i + 1) + '   ' + fechaBonita(v.fecha) +
-    (v.credito ? '  (retiro de ' + nombreDistribuidor(v.distribuidorId) + ')' : '')).join('\n');
-  const r = prompt('Se van a renumerar ' + plural(ventas.length, 'ticket', 'tickets') + ' por fecha. ' +
-    plural(cambian.length, 'Cambia', 'Cambian') + ' ' + cambian.length + '.\n\n' + muestra +
-    (ventas.length > 4 ? '\n  …' : '') +
-    '\n\nLos tickets ya impresos van a dejar de coincidir.\n\nEscribe REORDENAR para confirmar:');
-  if (r === null || normalizar(r) !== 'reordenar') { alert('No se cambió nada.'); return; }
-
+  const cambian = ventas.filter((v, i) => v.numero !== i + 1).length;
   ventas.forEach((v, i) => (v.numero = i + 1));
   // Los movimientos de stock dicen "Ticket #38" en el motivo. Si no se corrigen
   // acá, el kardex sigue nombrando números que ya no existen.
   db.movimientos.forEach(mv => {
-    if (!mv.ventaId || !/^Ticket #\d+$/.test(mv.motivo || '')) return;
+    if (!mv.ventaId || !/^(Ticket|Anulación ticket) #\d+$/.test(mv.motivo || '')) return;
     const v = db.ventas.find(x => x.id === mv.ventaId);
-    if (v) mv.motivo = 'Ticket #' + v.numero;
+    if (v) mv.motivo = mv.motivo.replace(/#\d+$/, '#' + v.numero);
   });
   // El siguiente ticket sigue desde el último, o volvería a repetir números
   db.config.correlativo = ventas.length + 1;
-  guardar();
-  irA('config');
-  alert('Listo. Los tickets quedaron numerados del 1 al ' + ventas.length + ' por fecha.');
+  return cambian;
 }
 
 /* Vaciar la cuenta corriente y recargarla desde cero. Roberto pidió esto para
@@ -5816,6 +5801,10 @@ function registrarVenta({ pacienteId, items, metodoPago, nota, descuento, ordenI
     const c = db.citas.find(x => x.id === citaId);
     if (c) { c.pagada = true; c.ventaId = venta.id; }
   }
+  // Un retiro anotado tarde entra con fecha vieja: los números se reacomodan
+  // solos para que el más antiguo siga siendo el #1. Una venta de mostrador es
+  // de hoy, ya queda última, y esto no la mueve.
+  if (venta.fecha < hoyStr()) ordenarNumerosPorFecha();
   return venta;
 }
 
@@ -7984,12 +7973,51 @@ function cerrarModales() {
 document.querySelectorAll('.fondo-modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) cerrarModales(); }));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModales(); });
 
+/* ---------- Limpieza de septiembre 2026: borrar las ventas anuladas ----------
+   Roberto: "vamos a dejar el software sin evidencia y solo con ventas
+   realizadas y abonos realizados". Los tickets anulados eran pruebas y errores
+   de la migración del papel; no son historia del consultorio, son ruido en los
+   reportes. Se van ellos y todo lo que colgaba de ellos.
+
+   El stock NO se toca: al anular, el sistema ya había devuelto las unidades al
+   estante. Los dos movimientos del kardex (la salida y su devolución) se
+   cancelaban entre sí, así que borrarlos deja el inventario en el mismo número.
+
+   Se hace UNA sola vez y queda anotado en config para que no vuelva a correr.
+   El borrado pasa por `olvidar`, que lo deja anotado en la lista de borrados:
+   sin eso, el celular de recepción los resucitaría en la próxima sincronización. */
+const LIMPIEZA = 'anuladas-2026-09';
+function limpiarVentasAnuladas() {
+  if (db.config[LIMPIEZA]) return;
+  const anuladas = db.ventas.filter(v => v.anulada);
+  const ids = new Set(anuladas.map(v => v.id));
+  anuladas.forEach(v => {
+    db.movimientos.filter(mv => mv.ventaId === v.id).forEach(mv => olvidar('movimientos', mv.id));
+    db.abonos.filter(a => a.ventaId === v.id).forEach(a => olvidar('abonos', a.id));
+    db.devoluciones.filter(d => d.ventaId === v.id).forEach(d => olvidar('devoluciones', d.id));
+    olvidar('ventas', v.id);
+  });
+  // Punteros que quedarían apuntando a un ticket que ya no existe
+  db.ordenes.forEach(o => { if (ids.has(o.ventaId)) { o.ventaId = ''; if (o.estado === 'cobrada') o.estado = 'pendiente'; } });
+  db.citas.forEach(c => { if (ids.has(c.ventaId)) { c.ventaId = ''; c.pagada = false; } });
+  db.controles.forEach(c => { if (ids.has(c.ventaId)) c.ventaId = ''; });
+  const movidos = ordenarNumerosPorFecha();
+  db.config[LIMPIEZA] = new Date().toISOString();
+  guardar();
+  if (anuladas.length || movidos) {
+    console.log('Limpieza: ' + anuladas.length + ' ventas anuladas borradas, ' + movidos + ' tickets renumerados por fecha.');
+  }
+}
+
 cargar();
 cargarSesionNube();
 pintarEstadoNube();
 pintarAcceso();
-// Al abrir, se baja lo que haya en la nube antes de que nadie toque nada
-if (nube.sesion) sincronizar(true);
+// Al abrir, se baja lo que haya en la nube antes de que nadie toque nada.
+// La limpieza corre DESPUÉS de bajar: si renumerara sobre datos a medias, el
+// otro equipo subiría números distintos para las mismas ventas.
+if (nube.sesion) sincronizar(true).then(limpiarVentasAnuladas);
+else limpiarVentasAnuladas();
 </script>
 </body>
 </html>
