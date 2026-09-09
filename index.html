@@ -955,14 +955,19 @@
     <div id="cfg-acuerdos" class="oculto">
       <h2 style="margin-top:0">Acuerdos con proveedores</h2>
       <div class="sub" style="margin-bottom:10px">
-        Marcas que le surten y cuya ganancia se reparte: <b>usted les debe a ellos</b>.
-        El sistema calcula solo cuánto le toca a cada uno por frasco vendido y lleva la cuenta de lo que falta pagar.
+        Marcas cuya ganancia se reparte con alguien más. Según quién venda, el sistema sabe
+        <b>si usted le debe al socio</b> (se vendió en caja) o <b>si el socio le debe a usted</b> (lo vendió afuera).
       </div>
       <div class="barra">
         <span style="flex:1"></span>
         <button class="btn" onclick="abrirModalAcuerdo()">+ Nuevo acuerdo</button>
       </div>
       <div id="lista-acuerdos"></div>
+
+      <!-- Ventas que el socio hizo en su propia tienda. Van aparte de la caja
+           porque el consultorio no cobró ese dinero: lo tiene el socio y se lo
+           debe depositar. -->
+      <div id="bloque-canal-socio"></div>
     </div>
 
     <!-- Las promociones las define el dueño, no se improvisan en el mostrador:
@@ -1295,10 +1300,16 @@
     <datalist id="lista-marcas-acuerdo"></datalist>
     <label>¿Con quién se reparte? *</label>
     <input id="ac-socio" placeholder="Ej: Zona Bariátrica" oninput="pintarEjemploAcuerdo()">
+    <label>¿Quién vende el producto? *</label>
+    <select id="ac-canal" onchange="pintarEjemploAcuerdo()">
+      <option value="consultorio">El consultorio — se vende en caja y usted le paga al socio</option>
+      <option value="socio">El socio — vende afuera y le deposita a usted</option>
+    </select>
+    <div class="sub" id="ac-canal-ayuda" style="margin:-4px 0 4px"></div>
     <div class="fila-2">
-      <div><label>Le toca al proveedor (%)</label>
+      <div><label id="ac-pct-lbl">Le toca al proveedor (%)</label>
         <input id="ac-pct" type="number" min="0" max="100" step="1" placeholder="Ej: 40" oninput="pintarEjemploAcuerdo()"></div>
-      <div><label>Le queda al consultorio (%)</label>
+      <div><label id="ac-pct-dr-lbl">Le queda al consultorio (%)</label>
         <input id="ac-pct-dr" type="number" disabled></div>
     </div>
     <label>Nota <span class="sub" style="font-weight:400">— opcional</span></label>
@@ -1314,12 +1325,12 @@
 <!-- ============ MODAL PAGO AL PROVEEDOR ============ -->
 <div id="modal-liquidacion" class="fondo-modal oculto">
   <div class="modal" style="max-width:420px">
-    <h3>Registrar pago al proveedor</h3>
+    <h3 id="liq-titulo">Registrar pago al proveedor</h3>
     <div id="liq-quien" class="sub" style="margin-bottom:12px"></div>
     <div class="fila-2">
       <div><label>Monto (S/) *</label>
         <input id="liq-monto" type="number" min="0" step="0.5" placeholder="Ej: 364" oninput="pintarSaldoTrasPago()"></div>
-      <div><label>Cómo se pagó</label>
+      <div><label id="liq-pago-lbl">Cómo se pagó</label>
         <select id="liq-pago"><option>Efectivo</option><option>Yape / Plin</option><option>Transferencia</option><option>Tarjeta</option></select></div>
     </div>
     <label>Fecha</label>
@@ -1330,6 +1341,38 @@
     <div class="acciones">
       <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
       <button class="btn" onclick="guardarLiquidacion()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL VENTA HECHA POR EL SOCIO ============
+     Estas ventas no pasan por la caja del consultorio: las hace el socio en su
+     propia tienda. Se anotan acá para que el Dr. sepa qué le tienen que
+     depositar, porque su plata está adentro de cada frasco vendido. -->
+<div id="modal-venta-canal" class="fondo-modal oculto">
+  <div class="modal" style="max-width:460px">
+    <h3 id="vc-titulo">Registrar venta del socio</h3>
+    <div class="sub" style="margin-bottom:12px">
+      Lo que el socio vendió afuera. Con esto el sistema calcula cuánto le tiene que depositar al consultorio:
+      <b>lo que costó el producto más la parte que le toca de la ganancia</b>.
+    </div>
+    <label>Producto *</label>
+    <select id="vc-item" onchange="pintarEjemploVentaCanal()"></select>
+    <div class="fila-2">
+      <div><label>Unidades vendidas *</label>
+        <input id="vc-cant" type="number" min="1" step="1" value="1" oninput="sugerirTotalVentaCanal()"></div>
+      <div><label>Total cobrado (S/) *</label>
+        <input id="vc-total" type="number" min="0" step="0.5" placeholder="Ej: 280" oninput="pintarEjemploVentaCanal()"></div>
+    </div>
+    <div class="sub" style="margin:-4px 0 4px">Si fue un pack con descuento, escribe el total real cobrado (ej: 2 unidades por S/550).</div>
+    <label>Fecha</label>
+    <input id="vc-fecha" type="date">
+    <label>Nota <span class="sub" style="font-weight:400">— opcional</span></label>
+    <input id="vc-nota" placeholder="Ej: pedido web #142">
+    <div id="vc-ejemplo"></div>
+    <div class="acciones">
+      <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
+      <button class="btn" onclick="guardarVentaCanal()">Guardar</button>
     </div>
   </div>
 </div>
@@ -1744,7 +1787,7 @@ const USUARIOS_INICIALES = [
   { id: 'u-recepcion', nombre: 'Recepción', rol: 'recepcion', pin: '1234' },
   { id: 'u-doctor', nombre: 'Dr. Arredondo', rol: 'doctor', pin: '4321' }
 ];
-let db = { pacientes: [], citas: [], catalogo: [], ventas: [], movimientos: [], atenciones: [], ordenes: [], controles: [], usuarios: [], promos: [], distribuidores: [], abonos: [], conteos: [], devoluciones: [], acuerdos: [], liquidaciones: [], borrados: [], config: { correlativo: 1, negocio: NEGOCIO } };
+let db = { pacientes: [], citas: [], catalogo: [], ventas: [], movimientos: [], atenciones: [], ordenes: [], controles: [], usuarios: [], promos: [], distribuidores: [], abonos: [], conteos: [], devoluciones: [], acuerdos: [], liquidaciones: [], ventasCanal: [], borrados: [], config: { correlativo: 1, negocio: NEGOCIO } };
 
 function cargar() {
   try {
@@ -1783,7 +1826,7 @@ function guardar() {
   // dejaría al consultorio sin poder cobrar.
   marcarPendienteDeSubir();
 }
-const COLECCIONES = ['pacientes','citas','catalogo','ventas','movimientos','atenciones','ordenes','controles','usuarios','promos','distribuidores','abonos','conteos','devoluciones','acuerdos','liquidaciones'];
+const COLECCIONES = ['pacientes','citas','catalogo','ventas','movimientos','atenciones','ordenes','controles','usuarios','promos','distribuidores','abonos','conteos','devoluciones','acuerdos','liquidaciones','ventasCanal'];
 
 /* Al fusionar dos copias, "lo que está en cualquiera de las dos" es la regla —
    por eso hay que anotar aparte lo que se borró. Si no, borrar un paciente en
@@ -3712,6 +3755,10 @@ function repartoDeItem(i, monto) {
   if (i.tipo !== 'producto') return null;
   const ac = i.socio ? { socio: i.socio, pctSocio: Number(i.pctSocio || 0) } : acuerdoDeMarca(i.marca);
   if (!ac || !ac.socio) return null;
+  // Si el trato es al revés —el producto lo compró el Dr. y el socio lo vende
+  // afuera— lo que se venda en esta caja es entero del consultorio: lo pagó él.
+  // Ese acuerdo solo reparte las ventas que el socio anota en su propia lista.
+  if (!i.socio && ac.canal === 'socio') return null;
   const costo = Number(i.costo || 0);
   // Sin costo cargado no hay forma de saber qué sobra: la línea se cuenta aparte
   if (!costo) return { socio: ac.socio, pct: Number(ac.pctSocio || 0), sinCosto: true, unidades: i.cant };
@@ -3756,8 +3803,11 @@ function generadoParaSocio(socio) {
   const g = repartoDeVentas(db.ventas.filter(v => !v.anulada))[socio];
   return redondeo(g ? g.delSocio : 0);
 }
+/* Los pagos viejos no traen dirección: todos eran plata que salía del consultorio
+   hacia el proveedor, así que los sin marcar se cuentan como tales. */
 function pagadoASocio(socio) {
-  return redondeo(db.liquidaciones.filter(l => l.socio === socio).reduce((s,l) => s + Number(l.monto || 0), 0));
+  return redondeo(db.liquidaciones.filter(l => l.socio === socio && l.direccion !== 'delSocio')
+    .reduce((s,l) => s + Number(l.monto || 0), 0));
 }
 function saldoSocio(socio) { return redondeo(generadoParaSocio(socio) - pagadoASocio(socio)); }
 /* Todos los proveedores con los que hay trato, aunque todavía no se les haya vendido nada */
@@ -3765,7 +3815,241 @@ function sociosConAcuerdo() {
   return [...new Set(db.acuerdos.map(a => (a.socio || '').trim()).filter(Boolean))].sort((a,b) => a.localeCompare(b));
 }
 
+/* ================== CANAL DEL SOCIO: cuando el que vende es el otro ==================
+   Hay tratos que van al revés del de arriba. El Dr. compra Bariatric Fusion a
+   S/199 el frasco, pero el que lo vende es Zona Bariátrica en su tienda web. El
+   Dr. no cobró ese dinero —lo tiene el socio— y adentro de cada frasco vendido
+   van dos cosas suyas: los S/199 que puso de su bolsillo y el 60% de lo que sobró.
+
+   Por eso el socio no le paga una comisión: le DEVUELVE el costo y encima le paga
+   su parte. Con S/280 de venta son S/199 + S/48.60 = S/247.60 los que tienen que
+   entrar a la cuenta del consultorio.
+
+   Estas ventas viven aparte de db.ventas a propósito: no pasaron por la caja, no
+   son ingreso del día ni descuentan del stock del consultorio. Lo único que
+   generan es una deuda a favor del Dr. */
+function acuerdosDeCanalSocio() {
+  return db.acuerdos.filter(a => a.canal === 'socio' && (a.socio || '').trim());
+}
+function sociosDeCanal() {
+  return [...new Set(acuerdosDeCanalSocio().map(a => a.socio.trim()))].sort((a,b) => a.localeCompare(b));
+}
+/* Los productos que el socio puede vender: los del catálogo cuya marca tiene un
+   trato de este tipo. Sin costo cargado no entran, porque sin saber qué le costó
+   al Dr. no hay forma de calcular cuánto le tienen que devolver. */
+function productosDeCanalSocio() {
+  const marcas = acuerdosDeCanalSocio().map(a => normalizar(a.marca));
+  return db.catalogo.filter(k => k.tipo === 'producto' && k.marca && marcas.includes(normalizar(k.marca)))
+    .sort((a,b) => a.nombre.localeCompare(b.nombre));
+}
+/* La cuenta de una venta hecha afuera. El costo y el porcentaje se leen de la
+   propia venta, no del acuerdo de hoy: si mañana se renegocia el reparto o sube
+   el precio del proveedor, lo vendido el mes pasado tiene que seguir dando lo mismo. */
+function cuentaVentaCanal(v) {
+  const cant = Number(v.cant || 0);
+  const total = redondeo(v.total);
+  const costo = redondeo(Number(v.costoUnit || 0) * cant);
+  const ganancia = redondeo(total - costo);
+  const pct = Number(v.pctSocio || 0);
+  // Vendido por debajo del costo, el socio no cobra comisión: le devuelve al Dr.
+  // todo lo que cobró y la pérdida se la come quien decidió ese precio
+  const delSocio = ganancia > 0 ? redondeo(ganancia * pct / 100) : 0;
+  const delDr = redondeo(ganancia - delSocio);
+  return { cant, total, costo, ganancia, pct, delSocio, delDr, aDepositar: redondeo(costo + delDr) };
+}
+function ventasCanalDe(socio) {
+  return db.ventasCanal.filter(v => v.socio === socio)
+    .sort((a,b) => (b.fecha || '').localeCompare(a.fecha || ''));
+}
+function resumenCanal(socio) {
+  const r = { unidades:0, cobrado:0, costo:0, ganancia:0, delSocio:0, delDr:0, aDepositar:0, ventas:0 };
+  ventasCanalDe(socio).forEach(v => {
+    const c = cuentaVentaCanal(v);
+    r.ventas++; r.unidades += c.cant; r.cobrado += c.total; r.costo += c.costo;
+    r.ganancia += c.ganancia; r.delSocio += c.delSocio; r.delDr += c.delDr; r.aDepositar += c.aDepositar;
+  });
+  Object.keys(r).forEach(k => r[k] = redondeo(r[k]));
+  return r;
+}
+function depositadoPorSocio(socio) {
+  return redondeo(db.liquidaciones.filter(l => l.socio === socio && l.direccion === 'delSocio')
+    .reduce((s,l) => s + Number(l.monto || 0), 0));
+}
+/* Lo que el socio todavía le debe al consultorio. Como la deuda del otro lado,
+   no depende del mes que se esté mirando. */
+function saldoCanal(socio) { return redondeo(resumenCanal(socio).aDepositar - depositadoPorSocio(socio)); }
+
+function pintarBloqueCanalSocio() {
+  const cont = document.getElementById('bloque-canal-socio');
+  if (!cont) return;
+  const socios = sociosDeCanal();
+  if (!socios.length) { cont.innerHTML = ''; return; }
+  cont.innerHTML =
+    '<h2 style="margin-top:26px">Ventas que hace el socio afuera</h2>' +
+    '<div class="sub" style="margin-bottom:10px">' +
+      'Estas no pasan por su caja: las cobra el socio en su tienda. Por cada una le tiene que depositar ' +
+      '<b>lo que a usted le costó el producto más su parte de la ganancia</b>.' +
+    '</div>' +
+    socios.map(s => tarjetaCanalSocio(s)).join('');
+}
+function tarjetaCanalSocio(socio) {
+  const r = resumenCanal(socio);
+  const dep = depositadoPorSocio(socio);
+  const saldo = redondeo(r.aDepositar - dep);
+  const marcas = acuerdosDeCanalSocio().filter(a => a.socio.trim() === socio).map(a => a.marca);
+  const filas = ventasCanalDe(socio);
+  const hayProductos = productosDeCanalSocio().length > 0;
+
+  const linea = (t, v, color) => '<div style="display:flex;justify-content:space-between;padding:2px 0"><span>' + t +
+    '</span><b' + (color ? ' style="color:' + color + '"' : '') + '>' + money(v) + '</b></div>';
+
+  return '<div class="tarjeta" style="margin-bottom:14px">' +
+    '<div class="barra" style="margin-bottom:10px">' +
+      '<div><b style="font-size:16px">' + esc(socio) + '</b>' +
+      '<div class="sub">' + esc(marcas.join(', ')) + ' · ' + plural(r.ventas, 'venta') + ' · ' + plural(r.unidades, 'unidad', 'unidades') + '</div></div>' +
+      '<span style="flex:1"></span>' +
+      (hayProductos ? '<button class="btn" onclick="abrirModalVentaCanal(\'' + esc(socio) + '\')">+ Registrar venta</button> ' : '') +
+      '<button class="btn btn-sec" onclick="abrirModalLiquidacion(\'' + esc(socio) + '\',\'delSocio\')">💰 Registrar depósito</button>' +
+    '</div>' +
+    (!hayProductos
+      ? '<div class="aviso aviso-amarillo">Ningún producto de <b>' + esc(marcas.join(', ')) + '</b> está cargado en <b>💲 Precios</b> con su costo. ' +
+        'Cárgalo ahí (costo = lo que usted le paga al proveedor) y podrás anotar las ventas.</div>'
+      : '') +
+    '<div class="fila-2">' +
+      '<div>' +
+        linea('El socio cobró', r.cobrado) +
+        linea('Le costó a usted el producto', r.costo) +
+        linea('Sobró de todo', r.ganancia) +
+      '</div>' +
+      '<div>' +
+        linea('Se queda el socio', r.delSocio) +
+        linea('Su parte de la ganancia', r.delDr, 'var(--success)') +
+        '<hr style="border:none;border-top:1px solid var(--border);margin:4px 0">' +
+        linea('Le deben depositar en total', r.aDepositar) +
+        linea('Ya depositado', dep) +
+        linea('Falta que le depositen', saldo, saldo > 0 ? 'var(--warning)' : 'var(--success)') +
+      '</div>' +
+    '</div>' +
+    (filas.length
+      ? '<table class="tabla tarjetas" style="margin-top:10px"><thead><tr><th>Fecha</th><th>Producto</th><th>Und</th>' +
+        '<th>Cobró</th><th>Costo</th><th>Sobró</th><th>Socio</th><th>Le depositan</th><th></th></tr></thead><tbody>' +
+        filas.map(v => {
+          const c = cuentaVentaCanal(v);
+          return '<tr><td data-th="Fecha">' + esc(fechaBonita(v.fecha)) +
+            (v.nota ? '<br><span class="sub">' + esc(v.nota) + '</span>' : '') + '</td>' +
+            '<td data-th="Producto">' + esc(v.nombre) + '</td>' +
+            '<td data-th="Und">' + c.cant + '</td>' +
+            '<td data-th="Cobró">' + money(c.total) + '</td>' +
+            '<td data-th="Costo">' + money(c.costo) + '</td>' +
+            '<td data-th="Sobró">' + money(c.ganancia) + '</td>' +
+            '<td data-th="Socio">' + money(c.delSocio) + ' <span class="sub">(' + c.pct + '%)</span></td>' +
+            '<td data-th="Le depositan"><b>' + money(c.aDepositar) + '</b></td>' +
+            '<td data-th=""><button class="btn btn-sec btn-mini" onclick="borrarVentaCanal(\'' + v.id + '\')">Borrar</button></td></tr>';
+        }).join('') + '</tbody></table>'
+      : '<div class="vacio" style="margin-top:10px">Todavía no hay ventas anotadas de ' + esc(socio) + '.</div>') +
+    listaDepositosSocio(socio) +
+  '</div>';
+}
+function listaDepositosSocio(socio) {
+  const pagos = db.liquidaciones.filter(l => l.socio === socio && l.direccion === 'delSocio')
+    .sort((a,b) => (b.fecha || '').localeCompare(a.fecha || ''));
+  if (!pagos.length) return '';
+  return '<div class="sub" style="margin-top:12px"><b>Depósitos recibidos</b></div>' +
+    '<table class="tabla tarjetas"><thead><tr><th>Fecha</th><th>Monto</th><th>Cómo</th><th>Nota</th><th></th></tr></thead><tbody>' +
+    pagos.map(l => '<tr><td data-th="Fecha">' + esc(fechaBonita(l.fecha)) + '</td>' +
+      '<td data-th="Monto"><b>' + money(l.monto) + '</b></td>' +
+      '<td data-th="Cómo">' + esc(l.metodoPago || '—') + '</td>' +
+      '<td data-th="Nota">' + esc(l.nota || '—') + '</td>' +
+      '<td data-th=""><button class="btn btn-sec btn-mini" onclick="borrarLiquidacion(\'' + l.id + '\')">Borrar</button></td></tr>').join('') +
+    '</tbody></table>';
+}
+
+/* ---------- Anotar una venta que hizo el socio ---------- */
+function abrirModalVentaCanal(socio) {
+  const lista = productosDeCanalSocio();
+  if (!lista.length) { alert('Primero carga en 💲 Precios el producto de esa marca, con su costo.'); return; }
+  document.getElementById('modal-venta-canal').dataset.socio = socio;
+  document.getElementById('vc-titulo').textContent = 'Venta de ' + socio;
+  document.getElementById('vc-item').innerHTML = lista.map(k =>
+    '<option value="' + k.id + '">' + esc(k.nombre) + ' — le cuesta ' + money(k.costo) + '</option>').join('');
+  document.getElementById('vc-cant').value = 1;
+  document.getElementById('vc-total').value = '';
+  document.getElementById('vc-nota').value = '';
+  document.getElementById('vc-fecha').value = hoyStr();
+  sugerirTotalVentaCanal();
+  document.getElementById('modal-venta-canal').classList.remove('oculto');
+  document.getElementById('vc-total').focus();
+}
+/* Propone el total con el precio de lista y deja cambiarlo: el pack de 2 no
+   cuesta el doble que uno, y ese descuento tiene que verse en la cuenta. */
+function sugerirTotalVentaCanal() {
+  const k = db.catalogo.find(x => x.id === document.getElementById('vc-item').value);
+  const cant = Number(document.getElementById('vc-cant').value || 0);
+  if (k && cant > 0) document.getElementById('vc-total').value = redondeo(Number(k.precio || 0) * cant);
+  pintarEjemploVentaCanal();
+}
+function acuerdoDeVentaCanal() {
+  const k = db.catalogo.find(x => x.id === document.getElementById('vc-item').value);
+  return k ? { k, ac: acuerdoDeMarca(k.marca) } : { k: null, ac: null };
+}
+/* Antes de guardar se ve la plata partida: es la pantalla que Roberto y el Dr.
+   miran para ponerse de acuerdo en cuánto se transfiere. */
+function pintarEjemploVentaCanal() {
+  const cont = document.getElementById('vc-ejemplo');
+  const { k, ac } = acuerdoDeVentaCanal();
+  const cant = Number(document.getElementById('vc-cant').value || 0);
+  const total = Number(document.getElementById('vc-total').value || 0);
+  if (!k || !ac || !cant || !total) { cont.innerHTML = ''; return; }
+  const c = cuentaVentaCanal({ cant, total, costoUnit: k.costo, pctSocio: ac.pctSocio });
+  const socio = ac.socio;
+  const fila = (t, v, b) => '<div style="display:flex;justify-content:space-between"><span>' + t + '</span>' +
+    (b ? '<b>' : '') + money(v) + (b ? '</b>' : '') + '</div>';
+  cont.innerHTML = '<div class="aviso" style="border-left-color:var(--success);background:var(--success-bg);margin-top:12px">' +
+    fila('Cobró ' + esc(socio), total, true) +
+    fila('Le costó a usted (' + cant + ' × ' + money(k.costo) + ')', c.costo) +
+    fila('Sobra', c.ganancia) +
+    '<hr style="border:none;border-top:1px solid var(--border);margin:6px 0">' +
+    fila('Se queda ' + esc(socio) + ' (' + c.pct + '%)', c.delSocio) +
+    fila('Su parte (' + (100 - c.pct) + '%)', c.delDr) +
+    '<hr style="border:none;border-top:1px solid var(--border);margin:6px 0">' +
+    '<div style="display:flex;justify-content:space-between;font-size:15px"><b>Le tienen que depositar</b>' +
+      '<b style="color:var(--success)">' + money(c.aDepositar) + '</b></div>' +
+    (c.ganancia < 0 ? '<div class="sub" style="margin-top:6px">Se vendió por debajo del costo: el socio devuelve todo lo cobrado y no cobra comisión.</div>' : '') +
+  '</div>';
+}
+function guardarVentaCanal() {
+  const { k, ac } = acuerdoDeVentaCanal();
+  if (!k) { alert('Elige el producto.'); return; }
+  if (!ac) { alert('Esa marca ya no tiene acuerdo cargado.'); return; }
+  const cant = Number(document.getElementById('vc-cant').value || 0);
+  const total = Number(document.getElementById('vc-total').value || 0);
+  if (cant <= 0) { alert('Las unidades vendidas tienen que ser al menos 1.'); return; }
+  if (total <= 0) { alert('Escribe cuánto se cobró en total.'); return; }
+  if (!Number(k.costo)) { alert('«' + k.nombre + '» no tiene costo cargado en 💲 Precios. Sin eso no se puede calcular cuánto le devuelven.'); return; }
+  db.ventasCanal.push({
+    id: nuevoId(), socio: ac.socio, marca: k.marca || '',
+    catalogoId: k.id, nombre: k.nombre,
+    cant, total: redondeo(total),
+    // Copia del costo y del reparto del día de la venta: el trato de mañana no
+    // puede cambiar lo que se debe por lo de ayer
+    costoUnit: Number(k.costo), pctSocio: Number(ac.pctSocio || 0),
+    fecha: document.getElementById('vc-fecha').value || hoyStr(), hora: horaAhora(),
+    nota: document.getElementById('vc-nota').value.trim(),
+    usuarioId: sesion ? sesion.id : '', usuarioNombre: sesion ? sesion.nombre : '—'
+  });
+  guardar(); cerrarModales(); pintarAcuerdos();
+}
+function borrarVentaCanal(id) {
+  const v = db.ventasCanal.find(x => x.id === id);
+  if (!v) return;
+  if (!confirm('¿Borrar esta venta de ' + v.nombre + '?\n\nLo que le tienen que depositar baja ' +
+    money(cuentaVentaCanal(v).aDepositar) + '.')) return;
+  olvidar('ventasCanal', id);
+  guardar(); pintarAcuerdos();
+}
+
 function pintarAcuerdos() {
+  pintarBloqueCanalSocio();
   const cont = document.getElementById('lista-acuerdos');
   const lista = [...db.acuerdos].sort((a,b) => (a.marca||'').localeCompare(b.marca||''));
   // Marcas que están en el catálogo y no tienen trato cargado: no siempre es un
@@ -3781,22 +4065,32 @@ function pintarAcuerdos() {
     return;
   }
   cont.innerHTML =
-    '<table class="tabla tarjetas"><thead><tr><th>Marca</th><th>Se reparte con</th><th>Reparto</th><th>Ejemplo por unidad</th><th>Le deben hoy</th><th></th></tr></thead><tbody>' +
+    '<table class="tabla tarjetas"><thead><tr><th>Marca</th><th>Se reparte con</th><th>Quién vende</th><th>Reparto</th><th>Ejemplo por unidad</th><th>Cuenta</th><th></th></tr></thead><tbody>' +
     lista.map(a => {
       const k = db.catalogo.find(x => x.tipo === 'producto' && normalizar(x.marca) === normalizar(a.marca) && Number(x.costo) > 0 && Number(x.precio) > 0);
       const pct = Number(a.pctSocio || 0);
+      const delSocio = a.canal === 'socio';
+      // En el trato al revés lo interesante no es cuánto sobra, sino cuánto entra
+      // a la cuenta del consultorio por frasco: el costo que puso más su parte
       const ej = k
         ? esc(k.nombre) + '<br><span class="sub">' + money(k.costo) + ' → ' + money(k.precio) +
           ' · sobran ' + money(Number(k.precio) - Number(k.costo)) +
-          '<br>consultorio ' + money((Number(k.precio) - Number(k.costo)) * (100-pct)/100) +
-          ' · ' + esc(a.socio) + ' ' + money((Number(k.precio) - Number(k.costo)) * pct/100) + '</span>'
+          (delSocio
+            ? '<br>le depositan ' + money(Number(k.costo) + (Number(k.precio) - Number(k.costo)) * (100-pct)/100) +
+              ' · se queda ' + esc(a.socio) + ' ' + money((Number(k.precio) - Number(k.costo)) * pct/100)
+            : '<br>consultorio ' + money((Number(k.precio) - Number(k.costo)) * (100-pct)/100) +
+              ' · ' + esc(a.socio) + ' ' + money((Number(k.precio) - Number(k.costo)) * pct/100)) + '</span>'
         : '<span class="sub">Ningún producto de esta marca tiene costo y precio cargados</span>';
-      const saldo = saldoSocio(a.socio);
+      const saldo = delSocio ? saldoCanal(a.socio) : saldoSocio(a.socio);
       return '<tr><td data-th="Marca"><b>' + esc(a.marca) + '</b>' + (a.nota ? '<br><span class="sub">' + esc(a.nota) + '</span>' : '') + '</td>' +
         '<td data-th="Se reparte con">' + esc(a.socio) + '</td>' +
+        '<td data-th="Quién vende">' + (delSocio
+          ? '<span class="chip">' + esc(a.socio) + ' afuera</span>'
+          : '<span class="chip">En caja</span>') + '</td>' +
         '<td data-th="Reparto"><b>' + (100 - pct) + '%</b> consultorio<br><b>' + pct + '%</b> ' + esc(a.socio) + '</td>' +
         '<td data-th="Ejemplo">' + ej + '</td>' +
-        '<td data-th="Le deben hoy"><b style="color:' + (saldo > 0 ? 'var(--warning)' : 'var(--success)') + '">' + money(saldo) + '</b></td>' +
+        '<td data-th="Cuenta"><span class="sub">' + (delSocio ? 'Le deben a usted' : 'Usted le debe') + '</span><br>' +
+        '<b style="color:' + (saldo > 0 ? 'var(--warning)' : 'var(--success)') + '">' + money(saldo) + '</b></td>' +
         '<td data-th=""><button class="btn btn-sec btn-mini" onclick="abrirModalAcuerdo(\'' + a.id + '\')">Editar</button> ' +
         '<button class="btn btn-sec btn-mini" onclick="borrarAcuerdo(\'' + a.id + '\')">Borrar</button></td></tr>';
     }).join('') + '</tbody></table>' +
@@ -3813,6 +4107,7 @@ function abrirModalAcuerdo(id) {
   document.getElementById('lista-marcas-acuerdo').innerHTML = marcas.map(m => '<option value="' + esc(m) + '">').join('');
   document.getElementById('ac-marca').value = a ? (a.marca || '') : '';
   document.getElementById('ac-socio').value = a ? (a.socio || '') : '';
+  document.getElementById('ac-canal').value = a ? (a.canal === 'socio' ? 'socio' : 'consultorio') : 'consultorio';
   document.getElementById('ac-pct').value = a ? (a.pctSocio != null ? a.pctSocio : '') : '';
   document.getElementById('ac-nota').value = a ? (a.nota || '') : '';
   pintarEjemploAcuerdo();
@@ -3825,7 +4120,15 @@ function pintarEjemploAcuerdo() {
   const marca = document.getElementById('ac-marca').value.trim();
   const socio = document.getElementById('ac-socio').value.trim() || 'el proveedor';
   const pct = Number(document.getElementById('ac-pct').value || 0);
+  const delSocio = document.getElementById('ac-canal').value === 'socio';
   document.getElementById('ac-pct-dr').value = document.getElementById('ac-pct').value === '' ? '' : (100 - pct);
+  // Los rótulos cambian con el sentido del trato: en uno el consultorio paga, en
+  // el otro cobra, y el mismo texto para los dos casos confunde más que ayuda
+  document.getElementById('ac-pct-lbl').textContent = delSocio ? 'Se queda ' + socio + ' (%)' : 'Le toca al proveedor (%)';
+  document.getElementById('ac-pct-dr-lbl').textContent = delSocio ? 'Le toca a usted (%)' : 'Le queda al consultorio (%)';
+  document.getElementById('ac-canal-ayuda').innerHTML = delSocio
+    ? 'Usted compra el producto y ' + esc(socio) + ' lo vende en su tienda. Le devuelve lo que le costó <b>más</b> su parte de la ganancia. Lo que se venda en su caja es 100% suyo.'
+    : 'El proveedor le deja la mercadería y usted la vende en caja. Al cierre le paga su parte de la ganancia.';
   const cont = document.getElementById('ac-ejemplo');
   const k = db.catalogo.find(x => x.tipo === 'producto' && normalizar(x.marca) === normalizar(marca) && Number(x.costo) > 0 && Number(x.precio) > 0);
   if (!marca || !pct) { cont.innerHTML = ''; return; }
@@ -3840,11 +4143,19 @@ function pintarEjemploAcuerdo() {
   cont.innerHTML = '<div class="aviso" style="border-left-color:var(--success);background:var(--success-bg);margin-top:12px">' +
     '<b>Cada ' + esc(k.unidad || 'unidad') + ' de ' + esc(k.nombre) + '</b>' +
     '<div style="display:flex;justify-content:space-between"><span>Le cuesta</span><b>' + money(k.costo) + '</b></div>' +
-    '<div style="display:flex;justify-content:space-between"><span>Lo vende a</span><b>' + money(k.precio) + '</b></div>' +
+    '<div style="display:flex;justify-content:space-between"><span>' + (delSocio ? 'Lo vende ' + esc(socio) + ' a' : 'Lo vende a') + '</span><b>' + money(k.precio) + '</b></div>' +
     '<div style="display:flex;justify-content:space-between"><span>Sobran</span><b>' + money(gan) + '</b></div>' +
     '<hr style="border:none;border-top:1px solid var(--border);margin:6px 0">' +
-    '<div style="display:flex;justify-content:space-between"><span>Consultorio (' + (100-pct) + '%)</span><b style="color:var(--success)">' + money(gan*(100-pct)/100) + '</b></div>' +
     '<div style="display:flex;justify-content:space-between"><span>' + esc(socio) + ' (' + pct + '%)</span><b>' + money(gan*pct/100) + '</b></div>' +
+    '<div style="display:flex;justify-content:space-between"><span>' + (delSocio ? 'Usted' : 'Consultorio') + ' (' + (100-pct) + '%)</span><b style="color:var(--success)">' + money(gan*(100-pct)/100) + '</b></div>' +
+    // En el trato al revés la cifra que importa es el depósito completo: nadie
+    // transfiere solo la comisión, transfiere el costo devuelto junto con ella
+    (delSocio
+      ? '<hr style="border:none;border-top:1px solid var(--border);margin:6px 0">' +
+        '<div style="display:flex;justify-content:space-between;font-size:15px"><b>Le depositan por cada uno</b>' +
+        '<b style="color:var(--success)">' + money(Number(k.costo) + gan*(100-pct)/100) + '</b></div>' +
+        '<div class="sub">Los ' + money(k.costo) + ' que usted puso, de vuelta, más su ' + (100-pct) + '%.</div>'
+      : '') +
     '<div class="sub" style="margin-top:6px">Aplica a ' + plural(cuantos, 'producto', 'productos') + ' de esta marca.</div>' +
   '</div>';
 }
@@ -3860,7 +4171,8 @@ function guardarAcuerdo() {
   // frasco, así que se corta acá
   const repetida = db.acuerdos.find(a => a.id !== id && normalizar(a.marca) === normalizar(marca));
   if (repetida) { alert('Ya hay un acuerdo cargado para ' + repetida.marca + ' (con ' + repetida.socio + '). Edítalo en vez de crear otro.'); return; }
-  const datos = { marca, socio, pctSocio: pct, nota: document.getElementById('ac-nota').value.trim() };
+  const datos = { marca, socio, pctSocio: pct, canal: document.getElementById('ac-canal').value,
+                  nota: document.getElementById('ac-nota').value.trim() };
   if (id) Object.assign(db.acuerdos.find(x => x.id === id), datos);
   else db.acuerdos.push({ id: nuevoId(), creado: hoyStr(), ...datos });
   guardar(); cerrarModales(); pintarAcuerdos();
@@ -3868,19 +4180,31 @@ function guardarAcuerdo() {
 function borrarAcuerdo(id) {
   const a = db.acuerdos.find(x => x.id === id);
   if (!a) return;
-  const saldo = saldoSocio(a.socio);
+  const delSocio = a.canal === 'socio';
+  const saldo = delSocio ? saldoCanal(a.socio) : saldoSocio(a.socio);
+  const ventas = delSocio ? ventasCanalDe(a.socio).length : 0;
   if (!confirm('¿Borrar el acuerdo de ' + a.marca + ' con ' + a.socio + '?\n\n' +
-    (saldo > 0 ? 'Ojo: hoy figura una deuda de ' + money(saldo) + ' con ' + a.socio + '. Si borras el acuerdo, las ventas ya hechas dejan de repartirse y esa deuda desaparece del sistema.'
-               : 'Las ventas ya hechas de esa marca dejarán de repartirse.'))) return;
+    (saldo > 0
+      ? (delSocio
+          ? 'Ojo: hoy ' + a.socio + ' le debe ' + money(saldo) + '. Sin el acuerdo ya no se pueden anotar ventas nuevas de esa marca; las ' + ventas + ' ya anotadas y la deuda se quedan como están.'
+          : 'Ojo: hoy figura una deuda de ' + money(saldo) + ' con ' + a.socio + '. Si borras el acuerdo, las ventas ya hechas dejan de repartirse y esa deuda desaparece del sistema.')
+      : (delSocio ? 'Ya no se podrán anotar ventas de esa marca hechas por ' + a.socio + '.'
+                  : 'Las ventas ya hechas de esa marca dejarán de repartirse.')))) return;
   olvidar('acuerdos', id);
   guardar(); pintarAcuerdos();
 }
 /* ---------- Pagarle al proveedor ---------- */
-function abrirModalLiquidacion(socio) {
+function abrirModalLiquidacion(socio, direccion) {
+  const entra = direccion === 'delSocio'; // plata que el socio le deposita al consultorio
   document.getElementById('modal-liquidacion').dataset.socio = socio;
-  document.getElementById('liq-quien').innerHTML =
-    'Se le debe a <b>' + esc(socio) + '</b>: <b style="color:var(--warning)">' + money(saldoSocio(socio)) + '</b>' +
-    '<br><span class="sub">Generado por ventas ' + money(generadoParaSocio(socio)) + ' · ya pagado ' + money(pagadoASocio(socio)) + '</span>';
+  document.getElementById('modal-liquidacion').dataset.direccion = entra ? 'delSocio' : '';
+  document.getElementById('liq-titulo').textContent = entra ? 'Registrar depósito recibido' : 'Registrar pago al proveedor';
+  document.getElementById('liq-pago-lbl').textContent = entra ? 'Cómo lo depositó' : 'Cómo se pagó';
+  document.getElementById('liq-quien').innerHTML = entra
+    ? '<b>' + esc(socio) + '</b> le debe: <b style="color:var(--warning)">' + money(saldoCanal(socio)) + '</b>' +
+      '<br><span class="sub">Generado por sus ventas ' + money(resumenCanal(socio).aDepositar) + ' · ya depositado ' + money(depositadoPorSocio(socio)) + '</span>'
+    : 'Se le debe a <b>' + esc(socio) + '</b>: <b style="color:var(--warning)">' + money(saldoSocio(socio)) + '</b>' +
+      '<br><span class="sub">Generado por ventas ' + money(generadoParaSocio(socio)) + ' · ya pagado ' + money(pagadoASocio(socio)) + '</span>';
   document.getElementById('liq-monto').value = '';
   document.getElementById('liq-nota').value = '';
   document.getElementById('liq-fecha').value = hoyStr();
@@ -3890,21 +4214,23 @@ function abrirModalLiquidacion(socio) {
 }
 function pintarSaldoTrasPago() {
   const socio = document.getElementById('modal-liquidacion').dataset.socio;
+  const entra = document.getElementById('modal-liquidacion').dataset.direccion === 'delSocio';
   const monto = Number(document.getElementById('liq-monto').value || 0);
   const cont = document.getElementById('liq-resultado');
   if (!monto) { cont.innerHTML = ''; return; }
-  const queda = redondeo(saldoSocio(socio) - monto);
-  cont.innerHTML = '<div class="aviso" style="margin-top:10px">Después de este pago ' +
-    (queda > 0 ? 'quedaría debiéndole <b>' + money(queda) + '</b>.'
+  const queda = redondeo((entra ? saldoCanal(socio) : saldoSocio(socio)) - monto);
+  cont.innerHTML = '<div class="aviso" style="margin-top:10px">Después de esto ' +
+    (queda > 0 ? (entra ? 'todavía le deberían <b>' + money(queda) + '</b>.' : 'quedaría debiéndole <b>' + money(queda) + '</b>.')
      : queda === 0 ? '<b style="color:var(--success)">queda al día.</b>'
-     : '<b>quedaría pagado de más ' + money(-queda) + '</b> — revisa el monto.') + '</div>';
+     : '<b>' + (entra ? 'le habrían depositado de más ' : 'quedaría pagado de más ') + money(-queda) + '</b> — revisa el monto.') + '</div>';
 }
 function guardarLiquidacion() {
   const socio = document.getElementById('modal-liquidacion').dataset.socio;
+  const direccion = document.getElementById('modal-liquidacion').dataset.direccion;
   const monto = Number(document.getElementById('liq-monto').value || 0);
   if (monto <= 0) { alert('El monto debe ser mayor que cero.'); return; }
   db.liquidaciones.push({
-    id: nuevoId(), socio, monto,
+    id: nuevoId(), socio, monto, direccion: direccion === 'delSocio' ? 'delSocio' : 'alSocio',
     fecha: document.getElementById('liq-fecha').value || hoyStr(), hora: horaAhora(),
     metodoPago: document.getElementById('liq-pago').value,
     nota: document.getElementById('liq-nota').value.trim(),
@@ -6710,9 +7036,11 @@ function htmlReparto(ventas) {
     '</div>';
   };
 
-  // Los pagos hechos dentro del rango, para que quede el rastro de la liquidación
+  // Los pagos hechos dentro del rango, para que quede el rastro de la liquidación.
+  // Solo los que SALEN: lo que el socio deposita va en su propio bloque, más abajo,
+  // porque sumarlo acá haría parecer que el consultorio pagó lo que en realidad cobró.
   const f = filtrosReporte();
-  const pagos = db.liquidaciones.filter(l => l.fecha >= f.desde && l.fecha <= f.hasta)
+  const pagos = db.liquidaciones.filter(l => l.direccion !== 'delSocio' && l.fecha >= f.desde && l.fecha <= f.hasta)
     .sort((a,b) => (b.fecha + (b.hora||'')).localeCompare(a.fecha + (a.hora||'')));
 
   return '<h2>Reparto con proveedores</h2>' +
@@ -6729,7 +7057,35 @@ function htmlReparto(ventas) {
           '<td data-th="Nota"><span class="sub">' + esc(l.nota || '—') + '</span></td>' +
           '<td data-th=""><button class="btn btn-sec btn-mini" onclick="borrarLiquidacion(\'' + l.id + '\')">Borrar</button></td></tr>').join('') +
         '</tbody></table>'
-      : '');
+      : '') +
+    reporteCanalSocio(f);
+}
+/* El otro lado del mostrador: lo que vendieron afuera y todavía no le entra al
+   consultorio. Va en el mismo reporte porque para el Dr. es la misma pregunta
+   —¿quién me debe y cuánto?—, solo que la respuesta apunta al revés. */
+function reporteCanalSocio(f) {
+  const socios = sociosDeCanal();
+  if (!socios.length) return '';
+  return '<h2 style="margin-top:26px">Lo que le deben depositar</h2>' +
+    '<div class="sub" style="margin-bottom:10px">Ventas que hizo el socio en su tienda. Incluyen el costo que usted puso, así que no son ganancia entera.</div>' +
+    socios.map(s => {
+      const enRango = ventasCanalDe(s).filter(v => v.fecha >= f.desde && v.fecha <= f.hasta);
+      const rr = { und:0, cobrado:0, costo:0, delDr:0, aDepositar:0 };
+      enRango.forEach(v => { const c = cuentaVentaCanal(v);
+        rr.und += c.cant; rr.cobrado += c.total; rr.costo += c.costo; rr.delDr += c.delDr; rr.aDepositar += c.aDepositar; });
+      const saldo = saldoCanal(s);
+      const fila = (t, v, color) => '<div style="display:flex;justify-content:space-between"><span>' + t + '</span><b' +
+        (color ? ' style="color:' + color + '"' : '') + '>' + money(v) + '</b></div>';
+      return '<div class="tarjeta" style="margin-bottom:12px"><b style="font-size:16px">' + esc(s) + '</b>' +
+        '<div class="sub" style="margin-bottom:8px">' + plural(enRango.length, 'venta') + ' en el rango · ' + plural(rr.und, 'unidad', 'unidades') + '</div>' +
+        fila('Cobró el socio', rr.cobrado) +
+        fila('Costo que usted recupera', rr.costo) +
+        fila('Su ganancia del rango', rr.delDr, 'var(--success)') +
+        fila('Le corresponde del rango', rr.aDepositar) +
+        '<div class="aviso" style="margin-top:8px;border-left-color:' + (saldo > 0 ? 'var(--warning)' : 'var(--success)') + '">' +
+          fila(saldo >= 0 ? 'Le deben hoy (de todo el historial)' : 'Le depositaron de más', Math.abs(saldo), saldo > 0 ? 'var(--warning)' : 'var(--success)') +
+        '</div></div>';
+    }).join('');
 }
 
 function pintarReportes() {
