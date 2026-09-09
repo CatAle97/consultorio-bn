@@ -1898,7 +1898,9 @@ const NUBE = {
   correo: 'sistema@consultoriobn.com'
 };
 const CLAVE_SESION = 'consultoriobn_nube';
-let nube = { sesion: null, estado: 'sin-configurar', pendiente: false, subiendo: false, ultima: null };
+let nube = { sesion: null, estado: 'sin-configurar', pendiente: false, subiendo: false, ultima: null, caida: false };
+// Para no repetir el aviso de "se cayó la conexión" en cada reintento
+let avisoCaidaDado = false;
 
 function nubeConfigurada() { return !!(NUBE.url && NUBE.anon); }
 function cargarSesionNube() {
@@ -1931,11 +1933,12 @@ async function conectarNube(clave) {
   if (!r.ok) throw new Error('clave-incorrecta');
   const s = await r.json();
   nube.sesion = s; nube.estado = 'conectado';
+  avisoCaidaDado = false; nube.caida = false;
   localStorage.setItem(CLAVE_SESION, JSON.stringify(s));
   return s;
 }
 function desconectarNube() {
-  nube.sesion = null; nube.estado = 'sin-conectar';
+  nube.sesion = null; nube.estado = 'sin-conectar'; nube.caida = false;
   localStorage.removeItem(CLAVE_SESION);
   pintarEstadoNube();
 }
@@ -1969,7 +1972,25 @@ async function sincronizar(forzar, nubeManda) {
   nube.subiendo = true; pintarEstadoNube();
   try {
     let r = await api('/rest/v1/consultorio?id=eq.principal&select=datos');
-    if (r.status === 401) { if (await renovarSesion()) r = await api('/rest/v1/consultorio?id=eq.principal&select=datos'); }
+    if (r.status === 401) {
+      // La sesión del equipo se cayó y no se pudo renovar. Esto NO es un error
+      // que se arregle reintentando: hace falta que alguien escriba la clave del
+      // consultorio otra vez. Si se tratara como "error de red", el chip diría
+      // "se reintenta solo" para siempre y el equipo se quedaría trabajando con
+      // datos viejos sin que nadie se entere. Pasó: el celular del Dr. estuvo
+      // días mostrando pedidos de la semana pasada.
+      if (!(await renovarSesion())) {
+        nube.estado = 'sin-conectar'; nube.caida = true;
+        // Un chip amarillo en la esquina de un celular se ignora. Se avisa una
+        // vez, y no en medio de un cobro.
+        if (sesion && !avisoCaidaDado && !hayTrabajoEnCurso()) {
+          avisoCaidaDado = true;
+          setTimeout(() => { abrirModalNube(); }, 300);
+        }
+        return;
+      }
+      r = await api('/rest/v1/consultorio?id=eq.principal&select=datos');
+    }
     if (!r.ok) throw new Error('lectura');
     const filas = await r.json();
     // Lo de la nube se fusiona con lo de aquí: gana lo que este equipo tiene en
@@ -2010,8 +2031,11 @@ function pintarEstadoNube() {
   if (!nubeConfigurada()) { el.classList.add('oculto'); return; }
   el.classList.remove('oculto');
   const sinRed = !navigator.onLine;
+  // Sin sesión no hay nada que reintentar: el rojo de "se reintenta solo" sería
+  // mentira y el equipo se quedaría esperando una reconexión que no va a venir.
+  if (!nube.sesion && nube.estado === 'error') nube.estado = 'sin-conectar';
   const mapa = {
-    'sin-conectar': ['chip-amarillo', '⚠️ Sin conectar', 'Este equipo aún no está conectado al consultorio. Toca para conectarlo.'],
+    'sin-conectar': ['chip-amarillo', '⚠️ Reconectar', 'Este equipo no está viendo lo que pasa en el consultorio: lo que muestra puede estar viejo. Toca para escribir la clave.'],
     'error':        ['chip-rojo',     '⚠️ Sin sincronizar', 'No se pudo sincronizar. Se reintenta solo.'],
     'conectado':    ['chip-verde',    '☁️ Al día', 'Todo sincronizado' + (nube.ultima ? ' · ' + nube.ultima.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}) : '')]
   };
@@ -2050,11 +2074,14 @@ function abrirModalNube() {
     btn.classList.add('oculto');
   } else {
     cuerpo.innerHTML =
-      '<div class="sub" style="margin-bottom:10px">Escribe la <b>clave del consultorio</b> para que este equipo vea los mismos datos que los demás. Se pide una sola vez.</div>' +
+      (nube.caida
+        ? '<div class="aviso aviso-amarillo"><b>Se cayó la conexión de este equipo.</b><br>' +
+          '<span class="sub">Lo que ves en pantalla puede estar viejo, y lo que registres acá no lo están viendo los demás. ' +
+          'Escribe la clave y se pone al día solo: no se pierde nada de lo que hiciste mientras tanto.</span></div>'
+        : '<div class="sub" style="margin-bottom:10px">Escribe la <b>clave del consultorio</b> para que este equipo vea los mismos datos que los demás. Se pide una sola vez.</div>') +
       '<label>Clave del consultorio</label>' +
       '<input id="nube-clave" type="password" autocomplete="off" placeholder="La que te dio el Dr." onkeydown="if(event.key===\'Enter\')accionNube()">' +
-      '<div id="nube-error" class="sub" style="color:var(--danger);min-height:18px"></div>' +
-      (nube.estado === 'error' ? '<div class="aviso aviso-amarillo">Se perdió la conexión con el consultorio. Vuelve a escribir la clave.</div>' : '');
+      '<div id="nube-error" class="sub" style="color:var(--danger);min-height:18px"></div>';
     btn.classList.remove('oculto');
     btn.textContent = 'Conectar este equipo';
   }
