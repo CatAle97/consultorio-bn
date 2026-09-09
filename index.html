@@ -1739,6 +1739,24 @@
   </div>
 </div>
 
+<!-- Corregir la fecha de un pedido: los retiros se anotan tarde —el distribuidor
+     avisa por WhatsApp días después— y quedan con la fecha del día que se
+     escribieron, no la del día que se llevó la mercadería. -->
+<div id="modal-fecha-pedido" class="fondo-modal oculto">
+  <div class="modal" style="max-width:420px">
+    <h3 id="titulo-fecha-pedido">📅 Fecha del pedido</h3>
+    <div id="fecha-pedido-quien" class="sub" style="margin-bottom:12px"></div>
+    <label>¿Qué día se llevó la mercadería?</label>
+    <input id="fp-fecha" type="date">
+    <div class="aviso aviso-amarillo" style="margin-top:10px">Cambia solo el día del pedido, no lo que se llevó ni lo que debe.
+      El <b>número</b> del pedido sigue igual: para reordenarlos por fecha está el botón de Configuración.</div>
+    <div class="acciones">
+      <button class="btn btn-sec" onclick="cerrarModales()">Cancelar</button>
+      <button class="btn" onclick="guardarFechaPedido()">Guardar la fecha</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============ MODAL NUBE · conectar este equipo al consultorio ============ -->
 <div id="modal-nube" class="fondo-modal oculto">
   <div class="modal" style="max-width:460px">
@@ -4916,6 +4934,7 @@ function pintarPedidos(r, id) {
           ? '<button class="btn btn-mini" onclick="abrirModalAbono(\'' + v.id + '\')">💵 Abonar</button>' +
             '<button class="btn btn-sec btn-mini" onclick="abrirModalDevolucion(\'' + v.id + '\')">↩️ Devolución</button>'
           : '') +
+        '<button class="btn btn-sec btn-mini" onclick="abrirModalFechaPedido(\'' + v.id + '\')" title="Corregir la fecha de este pedido">📅 Fecha</button>' +
       '</div></td></tr>';
   };
   const tabla = lista => '<table class="tabla tarjetas"><thead><tr><th>Pedido</th><th>Fecha</th><th>Se llevó</th><th>Total</th><th>Falta</th><th></th></tr></thead><tbody>' +
@@ -4927,6 +4946,44 @@ function pintarPedidos(r, id) {
       ? '<details class="items-entrega" style="margin-top:14px"><summary><b>Pedidos pagados (' + r.pagados.length + ')</b>' +
         '<span class="pista"> · ver</span></summary>' + tabla(r.pagados) + '</details>'
       : '');
+}
+
+/* ---------- Corregir la fecha de un pedido ----------
+   El retiro casi nunca se anota el día que pasó: el distribuidor avisa por
+   WhatsApp y recién ahí se carga. La fecha que importa es la del día que se
+   llevó la mercadería, no la del día que alguien la escribió. Se corrige solo
+   el día; el número del ticket no se toca acá porque es uno solo para todo el
+   sistema (para eso está «Reordenar los números por fecha» en Configuración). */
+function abrirModalFechaPedido(ventaId) {
+  const v = db.ventas.find(x => x.id === ventaId);
+  if (!v) return;
+  const d = db.distribuidores.find(x => x.id === v.distribuidorId);
+  const m = document.getElementById('modal-fecha-pedido');
+  m.dataset.venta = ventaId;
+  document.getElementById('titulo-fecha-pedido').textContent = '📅 Fecha del pedido #' + v.numero;
+  document.getElementById('fecha-pedido-quien').innerHTML =
+    (d ? '<b>' + esc(d.nombre) + '</b> · ' : '') + 'hoy figura como <b>' + fechaBonita(v.fecha) + '</b>';
+  document.getElementById('fp-fecha').value = v.fecha;
+  m.classList.remove('oculto');
+}
+function guardarFechaPedido() {
+  const m = document.getElementById('modal-fecha-pedido');
+  const v = db.ventas.find(x => x.id === m.dataset.venta);
+  if (!v) return;
+  const nueva = document.getElementById('fp-fecha').value;
+  if (!nueva) { alert('Elige el día del pedido.'); return; }
+  if (nueva > hoyStr()) { alert('Esa fecha todavía no llega. Un pedido no puede ser del futuro.'); return; }
+  if (nueva === v.fecha) { cerrarModales(); return; }
+  const antes = v.fecha;
+  v.fecha = nueva;
+  // El kardex tiene que contar la misma historia: la salida de stock de este
+  // pedido pasa al mismo día, si no el stock "se movió" un día que no pasó nada.
+  db.movimientos.filter(mv => mv.ventaId === v.id).forEach(mv => (mv.fecha = nueva));
+  guardar();
+  cerrarModales();
+  verCuenta(v.distribuidorId);
+  refrescarBadges();
+  alert('Listo. El pedido #' + v.numero + ' pasó de ' + fechaBonita(antes) + ' a ' + fechaBonita(nueva) + '.');
 }
 
 /* ---------- Devolución: la mercadería que vuelve ----------
@@ -5101,6 +5158,13 @@ function renumerarTickets() {
   if (r === null || normalizar(r) !== 'reordenar') { alert('No se cambió nada.'); return; }
 
   ventas.forEach((v, i) => (v.numero = i + 1));
+  // Los movimientos de stock dicen "Ticket #38" en el motivo. Si no se corrigen
+  // acá, el kardex sigue nombrando números que ya no existen.
+  db.movimientos.forEach(mv => {
+    if (!mv.ventaId || !/^Ticket #\d+$/.test(mv.motivo || '')) return;
+    const v = db.ventas.find(x => x.id === mv.ventaId);
+    if (v) mv.motivo = 'Ticket #' + v.numero;
+  });
   // El siguiente ticket sigue desde el último, o volvería a repetir números
   db.config.correlativo = ventas.length + 1;
   guardar();
